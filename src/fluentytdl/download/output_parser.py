@@ -170,8 +170,8 @@ class YtDlpOutputParser:
                     status="ffmpeg_progress",
                     speed=0,
                     eta=0,
-                    info_dict={"time_sec": time_sec, "speed": speed}
-                )
+                    info_dict={"time_sec": time_sec, "speed": speed},
+                ),
             )
 
         # 6. [download] 百分比进度
@@ -194,6 +194,10 @@ class YtDlpOutputParser:
             acodec = parts[8]
             # ext = parts[9] # unused
             filename = parts[10]
+            height = parts[11] if len(parts) > 11 and parts[11] != "NA" else None
+            width = parts[12] if len(parts) > 12 and parts[12] != "NA" else None
+            format_id = parts[13] if len(parts) > 13 and parts[13] != "NA" else None
+            title = "|".join(parts[14:]) if len(parts) > 14 and parts[14] != "NA" else None
 
             downloaded = _safe_int(downloaded_s)
             total = _safe_int(total_s)
@@ -214,7 +218,14 @@ class YtDlpOutputParser:
                     eta=eta,
                     percent=percent,
                     filename=filename if filename and filename != "NA" else None,
-                    info_dict={"vcodec": vcodec, "acodec": acodec},
+                    info_dict={
+                        "vcodec": vcodec,
+                        "acodec": acodec,
+                        "height": height,
+                        "width": width,
+                        "format_id": format_id,
+                        "title": title,
+                    },
                 ),
             )
 
@@ -236,6 +247,11 @@ class YtDlpOutputParser:
 
     def _parse_download_line(self, line: str) -> ParsedLine:
         """解析 [download] 百分比进度行。"""
+        if line.startswith("[download] Downloading item") or line.startswith(
+            "[download] Downloading video"
+        ):
+            return ParsedLine(type="status", message=line)
+
         m = self._RE_PROGRESS_FULL.match(line)
         if m:
             pct = float(m.group("pct"))

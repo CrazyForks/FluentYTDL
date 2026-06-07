@@ -2,22 +2,25 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QStackedWidget,
+    QTextBrowser,
+    QVBoxLayout,
+    QWidget,
+)
 from qfluentwidgets import (
     BodyLabel,
-    CardWidget,
     ExpandSettingCard,
     FluentIcon,
     FluentWindow,
-    ImageLabel,
     NavigationItemPosition,
     PrimaryPushButton,
     ScrollArea,
     SettingCardGroup,
     SubtitleLabel,
 )
-
-from ..utils.paths import resource_path
 
 # CSS for Markdown styling - Card-Based UI (Fluent Settings Style)
 # Optimized for readability with color hierarchy and DataGrid-style tables
@@ -149,7 +152,7 @@ _WIZARD_STEP1_HTML = """
 <div style="text-align:center; padding:20px 0;">
   <img src="file:///e:/YouTube/FluentYTDL/assets/logo.png" width="100" height="100">
   <h1 style="margin:16px 0 4px 0;">FluentYTDL Pro</h1>
-  <p style="color:#767676; font-size:13px; margin:0 0 24px 0;">v__version__</p>
+  <p style="color:#767676; font-size:13px; margin:0 0 24px 0;">__version__</p>
   <p style="font-size:15px; color:#444; margin-bottom:28px;">全能、极速、现代化的视频下载工具</p>
   <table style="width:100%; margin:0 auto;">
     <tr>
@@ -187,11 +190,11 @@ _WIZARD_STEP3_HTML = """
 <h3>三种获取方式</h3>
 <table>
 <tr><th>方式</th><th>推荐度</th><th>说明</th></tr>
-<tr><td><strong>DLE 登录获取</strong></td><td>⭐⭐⭐ 强烈推荐</td><td>弹出安全沙盒窗口登录，一键获取，最稳定无兼容性问题</td></tr>
+<tr><td><strong>WebView2 登录获取</strong></td><td>⭐⭐⭐ 强烈推荐</td><td>弹出安全沙盒窗口登录，一键获取，最稳定无兼容性问题</td></tr>
 <tr><td><strong>Firefox 自动提取</strong></td><td>⭐⭐ 推荐</td><td>无需管理员权限，稳定可靠</td></tr>
 <tr><td><strong>手动导入</strong></td><td>⭐ 兜底</td><td>用浏览器插件导出 cookies.txt 后导入</td></tr>
 </table>
-<blockquote><strong>⚠️ Chrome 用户注意：</strong>Chrome v127+ 加密机制导致自动提取基本不可用，请优先使用 DLE 登录。</blockquote>
+<blockquote><strong>⚠️ Chrome 用户注意：</strong>Chrome v127+ 加密机制导致自动提取基本不可用，请优先使用 WebView2 登录。</blockquote>
 """
 
 _WIZARD_STEP4_HTML = """
@@ -228,6 +231,7 @@ _WIZARD_STEP5_HTML = """
 </div>
 """
 
+
 class WelcomeGuideWidget(QWidget):
     """The Quick Start Wizard Page."""
 
@@ -257,8 +261,13 @@ class WelcomeGuideWidget(QWidget):
 
         # Create step browsers
         self.step_browsers = []
-        for html in [_step1_html, _WIZARD_STEP2_HTML, _WIZARD_STEP3_HTML,
-                     _WIZARD_STEP4_HTML, _WIZARD_STEP5_HTML]:
+        for html in [
+            _step1_html,
+            _WIZARD_STEP2_HTML,
+            _WIZARD_STEP3_HTML,
+            _WIZARD_STEP4_HTML,
+            _WIZARD_STEP5_HTML,
+        ]:
             browser = _AutoHeightTextBrowser(self)
             browser.document().setDefaultStyleSheet(MARKDOWN_CSS + _WIZARD_CSS_OVERRIDE)
             browser.setHtml(f'<div style="text-align:center">{html}</div>')
@@ -385,14 +394,14 @@ _COOKIE_COMPARE_HTML = """
 <h3>三种获取方式对比</h3>
 <table>
 <tr><th>方式</th><th>推荐度</th><th>说明</th></tr>
-<tr><td><strong>DLE 登录获取</strong></td><td>强烈推荐</td><td>弹出安全沙盒窗口登录，一键获取，无兼容性问题</td></tr>
+<tr><td><strong>WebView2 登录获取</strong></td><td>强烈推荐</td><td>弹出安全沙盒窗口登录，一键获取，无兼容性问题</td></tr>
 <tr><td><strong>Firefox 自动提取</strong></td><td>推荐</td><td>无需管理员权限，稳定可靠</td></tr>
 <tr><td><strong>手动导入</strong></td><td>兜底方案</td><td>用扩展导出 cookies.txt 后导入，需定期更新</td></tr>
 </table>
 
-<h3>DLE 登录获取流程</h3>
+<h3>WebView2 登录获取流程</h3>
 <ol>
-<li>在设置页点击「DLE 登录获取」，弹出独立的 WebView2 沙盒窗口</li>
+<li>在设置页点击「WebView2 登录获取」，弹出独立的 WebView2 沙盒窗口</li>
 <li>在沙盒中正常登录 Google/YouTube 账号</li>
 <li>软件自动检测登录状态，采集 Cookie 并清洗</li>
 <li>Cookie 自动同步到 yt-dlp，完成</li>
@@ -406,7 +415,7 @@ _COOKIE_COMPARE_HTML = """
 <tr><td>Chrome</td><td>基本不可用</td><td>v127+ 加密机制导致第三方无法解密</td></tr>
 </table>
 
-<blockquote><strong>重要：</strong>Chrome 自动提取极不稳定。如果你使用 Chrome 且频繁失败，请切换到 DLE 或 Firefox。</blockquote>
+<blockquote><strong>重要：</strong>Chrome 自动提取极不稳定。如果你使用 Chrome 且频繁失败，请切换到 WebView2 或 Firefox。</blockquote>
 """
 
 _POTOKEN_HTML = """
@@ -465,7 +474,7 @@ _LOGIN_ERROR_HTML = """
 <ol>
 <li><strong>点击应用弹出的自动修复引导</strong> — 自动诊断根因并一键处理</li>
 <li><strong>更新 yt-dlp</strong> — 前往「设置 → 核心组件」一键更新（最有效）</li>
-<li><strong>刷新 Cookie</strong> — 推荐 DLE 重新登录，或切换到 Firefox 提取</li>
+<li><strong>刷新 Cookie</strong> — 推荐 WebView2 重新登录，或切换到 Firefox 提取</li>
 <li><strong>更换代理节点</strong> — 当前 IP 可能已被标记</li>
 </ol>
 
@@ -641,7 +650,7 @@ _ERROR_TABLE_HTML = """
 <h3>403 Forbidden 深度解析</h3>
 <p>这是最常见的问题。YouTube 会屏蔽「非浏览器」流量。解决步骤：</p>
 <ol>
-<li><strong>更新 Cookie</strong>（推荐）：使用 DLE 登录或 Firefox 提取</li>
+<li><strong>更新 Cookie</strong>（推荐）：使用 WebView2 登录或 Firefox 提取</li>
 <li><strong>更换节点</strong>：「万人骑」公共节点容易被封锁，切换到冷门节点</li>
 <li><strong>更新 yt-dlp</strong>：社区会持续适配 YouTube 的反爬变化</li>
 </ol>
@@ -664,6 +673,7 @@ _LOG_REPORT_HTML = """
 
 <blockquote><strong>提示：</strong>附上日志文件能让开发者更快定位问题。在 GitHub Issue 中粘贴日志内容即可。</blockquote>
 """
+
 
 class ManualReaderWidget(ScrollArea):
     """User Manual Page built with ExpandSettingCard for rich content."""
@@ -735,7 +745,7 @@ class ManualReaderWidget(ScrollArea):
         self.cookieCard = ExpandHelpCard(
             FluentIcon.PEOPLE,
             "Cookie 获取方式对比",
-            "DLE / Firefox / 手动导入 — 如何选择？",
+            "WebView2 / Firefox / 手动导入 — 如何选择？",
             _COOKIE_COMPARE_HTML,
             self.identityGroup,
         )

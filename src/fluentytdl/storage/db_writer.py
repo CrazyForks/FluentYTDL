@@ -44,6 +44,12 @@ class TaskDBWriter:
         """投递元数据更新（低频，每任务 1 次）"""
         self._queue.put(("metadata", db_id, title, thumb))
 
+    def enqueue_quality(
+        self, db_id: int, actual_height: int, target_height: int, deviation: str
+    ) -> None:
+        """投递质量检查结果"""
+        self._queue.put(("quality", db_id, actual_height, target_height, deviation))
+
     def flush_and_stop(self, timeout: float = 3.0) -> None:
         """优雅关闭：发送毒丸信号，等待队列清空"""
         self._queue.put(None)  # 毒丸
@@ -87,6 +93,9 @@ class TaskDBWriter:
             elif op == "metadata":
                 _, db_id, title, thumb = item
                 task_db.update_task_metadata(db_id, title, thumb)
+            elif op == "quality":
+                _, db_id, actual_height, target_height, deviation = item
+                task_db.update_task_quality(db_id, actual_height, target_height, deviation)
         except Exception as e:
             logger.warning(f"[TaskDBWriter] 写入异常: {e}")
 

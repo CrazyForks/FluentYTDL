@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # Copyright 2016 Google Inc. All rights reserved.
 #
@@ -20,9 +19,7 @@
 Functions for loading MP4/MOV files and manipulating boxes.
 """
 
-from . import box
-from . import constants
-from . import container
+from . import constants, container
 
 
 def load(fh):
@@ -52,14 +49,13 @@ def load(fh):
     loaded_mpeg4.contents = contents
 
     for element in loaded_mpeg4.contents:
-        if (element.name == constants.TAG_MOOV):
+        if element.name == constants.TAG_MOOV:
             loaded_mpeg4.moov_box = element
-        if (element.name == constants.TAG_FREE):
+        if element.name == constants.TAG_FREE:
             loaded_mpeg4.free_box = element
-        if (element.name == constants.TAG_MDAT
-                and not loaded_mpeg4.first_mdat_box):
+        if element.name == constants.TAG_MDAT and not loaded_mpeg4.first_mdat_box:
             loaded_mpeg4.first_mdat_box = element
-        if (element.name == constants.TAG_FTYP):
+        if element.name == constants.TAG_FTYP:
             loaded_mpeg4.ftyp_box = element
 
     if not loaded_mpeg4.moov_box:
@@ -70,10 +66,8 @@ def load(fh):
         print("Error, file does not contain mdat box.")
         return None
 
-    loaded_mpeg4.first_mdat_position = \
-        loaded_mpeg4.first_mdat_box.position
-    loaded_mpeg4.first_mdat_position += \
-        loaded_mpeg4.first_mdat_box.header_size
+    loaded_mpeg4.first_mdat_position = loaded_mpeg4.first_mdat_box.position
+    loaded_mpeg4.first_mdat_position += loaded_mpeg4.first_mdat_box.header_size
 
     loaded_mpeg4.content_size = 0
     for element in loaded_mpeg4.contents:
@@ -103,7 +97,7 @@ class Mpeg4Container(container.Container):
 
     def print_structure(self):
         """Print mpeg4 file structure recursively."""
-        print("mpeg4 [{}]".format(self.content_size))
+        print(f"mpeg4 [{self.content_size}]")
 
         size = len(self.contents)
         for i in range(size):

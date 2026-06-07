@@ -35,6 +35,11 @@ class HistoryRecord:
     file_exists: bool = True
     db_id: int = 0  # 映射回 TaskDB 主键，方便删除操作
 
+    # 质量偏差记录
+    actual_height: int | None = None
+    target_height: int | None = None
+    quality_deviation: str | None = None
+
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d.pop("file_exists", None)
@@ -134,6 +139,11 @@ class HistoryService:
             format_note=fmt_note,
             download_time=row["updated_at"],
             file_exists=True,
+            actual_height=row["actual_height"] if "actual_height" in row.keys() else None,
+            target_height=row["target_height"] if "target_height" in row.keys() else None,
+            quality_deviation=row["quality_deviation"]
+            if "quality_deviation" in row.keys()
+            else None,
         )
 
     def _fetch_records(self, extra_where: str = "", params: tuple = ()) -> list[HistoryRecord]:

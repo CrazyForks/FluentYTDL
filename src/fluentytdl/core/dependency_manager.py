@@ -68,7 +68,6 @@ class DependencyManager(QObject):
             "pot-provider": ComponentInfo(
                 "pot-provider", "POT Provider", "bgutil-pot-provider.exe"
             ),
-            "ytarchive": ComponentInfo("ytarchive", "ytarchive", "ytarchive.exe"),
             "atomicparsley": ComponentInfo("atomicparsley", "AtomicParsley", "AtomicParsley.exe"),
         }
 
@@ -339,7 +338,13 @@ class UpdateCheckerWorker(QThread):
 
             env = get_clean_env()
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore", env=env, **kwargs
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                env=env,
+                **kwargs,
             )
             if proc.returncode != 0:
                 return "unknown"
@@ -382,11 +387,6 @@ class UpdateCheckerWorker(QThread):
                 # bgutil-ytdlp-pot-provider-rs
                 # Output: something like "bgutil-pot-provider 0.1.5" or just version
                 m = re.search(r"(\d+\.\d+\.\d+)", out)
-                if m:
-                    return m.group(1)
-            elif key == "ytarchive":
-                # ytarchive outputs: "ytarchive v0.4.0" or similar
-                m = re.search(r"v?(\d+\.\d+\.\d+)", out)
                 if m:
                     return m.group(1)
             elif key == "atomicparsley":
@@ -442,8 +442,6 @@ class UpdateCheckerWorker(QThread):
             url = (
                 "https://api.github.com/repos/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest"
             )
-        elif key == "ytarchive":
-            url = "https://api.github.com/repos/Kethsar/ytarchive/releases/latest"
         elif key == "atomicparsley":
             url = "https://api.github.com/repos/wez/atomicparsley/releases/latest"
         else:
@@ -520,20 +518,6 @@ class UpdateCheckerWorker(QThread):
                 name = asset["name"].lower()
                 # Look for windows exe: bgutil-pot-windows-x86_64.exe
                 if "windows" in name and name.endswith(".exe"):
-                    dl_url = asset["browser_download_url"]
-                    break
-            return tag, dl_url
-
-        elif key == "ytarchive":
-            # Kethsar/ytarchive from GitHub
-            tag = data.get("tag_name", "vunknown").lstrip("v")
-
-            # Find windows amd64 executable
-            dl_url = ""
-            for asset in data.get("assets", []):
-                name = asset["name"].lower()
-                # ytarchive_windows_amd64.exe
-                if "windows" in name and "amd64" in name and name.endswith(".exe"):
                     dl_url = asset["browser_download_url"]
                     break
             return tag, dl_url

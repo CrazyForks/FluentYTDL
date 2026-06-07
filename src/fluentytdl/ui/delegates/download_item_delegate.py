@@ -45,6 +45,14 @@ class DownloadItemDelegate(QStyledItemDelegate):
     def set_selection_mode(self, enabled: bool) -> None:
         self._is_batch_mode = enabled
 
+    def setHoverRow(self, row: int) -> None:
+        """Required by qfluentwidgets ListView"""
+        self._hovered_row = row
+
+    def setPressedRow(self, row: int) -> None:
+        """Required by qfluentwidgets ListView"""
+        pass
+
     def set_pixmap(self, url: str, pixmap: QPixmap) -> None:
         """异步图片加载完成后，将预缩放的 image 缓存到 delegate 内部"""
         if pixmap and not pixmap.isNull():

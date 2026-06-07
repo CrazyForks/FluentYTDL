@@ -175,8 +175,6 @@ class ComponentSettingCard(SettingCard):
             exe_name = "deno.exe"
         elif self.component_key == "pot-provider":
             exe_name = "bgutil-pot-provider.exe"
-        elif self.component_key == "ytarchive":
-            exe_name = "ytarchive.exe"
         elif self.component_key == "atomicparsley":
             exe_name = "AtomicParsley.exe"
 
@@ -624,11 +622,11 @@ class AudioLanguageMultiSelectCard(SettingCard):
         self._update_button_text()
 
 
-class DLEAccountNameDialog(MessageBox):
-    """新增 DLE 账号名称输入对话框（Fluent 风格）。"""
+class WebView2AccountNameDialog(MessageBox):
+    """新增 WebView2 账号名称输入对话框（Fluent 风格）。"""
 
     def __init__(self, parent=None):
-        super().__init__("新增 DLE 账号", "请输入账号名称", parent)
+        super().__init__("新增 WebView2 账号", "请输入账号名称", parent)
         self.nameEdit = LineEdit(self.widget)
         self.nameEdit.setPlaceholderText("例如：A 账号")
         self.nameEdit.setMinimumWidth(360)
@@ -866,6 +864,9 @@ class SettingsPage(QWidget):
 
         # === Download Tab ===
         self._init_download_group(self.downloadScroll.widget(), self.downloadLayout)
+        self._init_format_memory_group(self.downloadScroll.widget(), self.downloadLayout)
+        self._init_quality_guard_group(self.downloadScroll.widget(), self.downloadLayout)
+        self._init_quick_mode_group(self.downloadScroll.widget(), self.downloadLayout)
 
         # === Network Tab ===
         self._init_network_group(self.networkScroll.widget(), self.networkLayout)
@@ -887,6 +888,25 @@ class SettingsPage(QWidget):
         self._init_about_group(self.systemScroll.widget(), self.systemLayout)
 
         self._load_settings_to_ui()
+        config_manager.configChanged.connect(self._on_global_config_changed)
+
+    def _on_global_config_changed(self, key: str, value: Any):
+        if key == "single_container_override":
+            idx = self.singleContainerCard.comboBox.findText(value)
+            if idx >= 0 and self.singleContainerCard.comboBox.currentIndex() != idx:
+                self.singleContainerCard.comboBox.setCurrentIndex(idx)
+        elif key == "single_audio_override":
+            idx = self.singleAudioCard.comboBox.findText(value)
+            if idx >= 0 and self.singleAudioCard.comboBox.currentIndex() != idx:
+                self.singleAudioCard.comboBox.setCurrentIndex(idx)
+        elif key == "playlist_container_override":
+            idx = self.playlistContainerCard.comboBox.findText(value)
+            if idx >= 0 and self.playlistContainerCard.comboBox.currentIndex() != idx:
+                self.playlistContainerCard.comboBox.setCurrentIndex(idx)
+        elif key == "playlist_audio_override":
+            idx = self.playlistAudioCard.comboBox.findText(value)
+            if idx >= 0 and self.playlistAudioCard.comboBox.currentIndex() != idx:
+                self.playlistAudioCard.comboBox.setCurrentIndex(idx)
 
     def _create_page(self, object_name: str):
         page = QWidget()
@@ -965,8 +985,12 @@ class SettingsPage(QWidget):
         )
         current_retention = config_manager.get("failed_task_retention_days", 3)
         mapping = {1: 0, 3: 1, 7: 2, 15: 3, 30: 4, -1: 5}
-        self.failedTaskRetentionCard.comboBox.setCurrentIndex(mapping.get(int(current_retention), 1))
-        self.failedTaskRetentionCard.comboBox.currentIndexChanged.connect(self._on_retention_days_changed)
+        self.failedTaskRetentionCard.comboBox.setCurrentIndex(
+            mapping.get(int(current_retention), 1)
+        )
+        self.failedTaskRetentionCard.comboBox.currentIndexChanged.connect(
+            self._on_retention_days_changed
+        )
 
         self.downloadGroup.addSettingCard(self.downloadFolderCard)
         self.downloadGroup.addSettingCard(self.concurrentFragmentsCard)
@@ -977,10 +1001,202 @@ class SettingsPage(QWidget):
         # Trigger warning check initially
         self._on_max_concurrent_changed(self.maxConcurrentCard.comboBox.currentIndex())
 
+    def _init_format_memory_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
+        self.formatMemoryGroup = SettingCardGroup("输出偏好记忆", parent_widget)
+
+        self.singleContainerCard = InlineComboBoxCard(
+            FluentIcon.MOVIE,
+            "单视频容器默认",
+            "在单视频解析模式下的默认视频封装容器",
+            ["自动推断", "MP4", "MKV", "WebM"],
+            self.formatMemoryGroup,
+        )
+        c_val = config_manager.get("single_container_override", "自动推断")
+        idx = self.singleContainerCard.comboBox.findText(c_val)
+        if idx >= 0:
+            self.singleContainerCard.comboBox.setCurrentIndex(idx)
+        self.singleContainerCard.comboBox.currentIndexChanged.connect(
+            lambda i: config_manager.set(
+                "single_container_override", self.singleContainerCard.comboBox.currentText()
+            )
+        )
+
+        self.singleAudioCard = InlineComboBoxCard(
+            FluentIcon.MUSIC,
+            "单视频音频默认",
+            "在单视频解析模式下的默认纯音频格式",
+            ["自动推断", "MP3", "FLAC", "M4A", "WAV", "Opus", "AAC"],
+            self.formatMemoryGroup,
+        )
+        a_val = config_manager.get("single_audio_override", "自动推断")
+        idx = self.singleAudioCard.comboBox.findText(a_val)
+        if idx >= 0:
+            self.singleAudioCard.comboBox.setCurrentIndex(idx)
+        self.singleAudioCard.comboBox.currentIndexChanged.connect(
+            lambda i: config_manager.set(
+                "single_audio_override", self.singleAudioCard.comboBox.currentText()
+            )
+        )
+
+        self.playlistContainerCard = InlineComboBoxCard(
+            FluentIcon.FOLDER,
+            "播放列表容器默认",
+            "在播放列表高级格式设置中的默认容器",
+            ["自动推断", "MP4", "MKV", "WebM"],
+            self.formatMemoryGroup,
+        )
+        pc_val = config_manager.get("playlist_container_override", "自动推断")
+        idx = self.playlistContainerCard.comboBox.findText(pc_val)
+        if idx >= 0:
+            self.playlistContainerCard.comboBox.setCurrentIndex(idx)
+        self.playlistContainerCard.comboBox.currentIndexChanged.connect(
+            lambda i: config_manager.set(
+                "playlist_container_override", self.playlistContainerCard.comboBox.currentText()
+            )
+        )
+
+        self.playlistAudioCard = InlineComboBoxCard(
+            FluentIcon.ALBUM,
+            "播放列表音频默认",
+            "在播放列表高级格式设置中的默认音频格式",
+            ["自动推断", "MP3", "FLAC", "M4A", "WAV", "Opus", "AAC"],
+            self.formatMemoryGroup,
+        )
+        pa_val = config_manager.get("playlist_audio_override", "自动推断")
+        idx = self.playlistAudioCard.comboBox.findText(pa_val)
+        if idx >= 0:
+            self.playlistAudioCard.comboBox.setCurrentIndex(idx)
+        self.playlistAudioCard.comboBox.currentIndexChanged.connect(
+            lambda i: config_manager.set(
+                "playlist_audio_override", self.playlistAudioCard.comboBox.currentText()
+            )
+        )
+
+        self.formatMemoryGroup.addSettingCard(self.singleContainerCard)
+        self.formatMemoryGroup.addSettingCard(self.singleAudioCard)
+        self.formatMemoryGroup.addSettingCard(self.playlistContainerCard)
+        self.formatMemoryGroup.addSettingCard(self.playlistAudioCard)
+        layout.addWidget(self.formatMemoryGroup)
+
+    def _init_quality_guard_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
+        self.qualityGuardGroup = SettingCardGroup("下载质量风控", parent_widget)
+
+        self.qualityGuardModeCard = InlineComboBoxCard(
+            FluentIcon.CERTIFICATE,
+            "质量偏差拦截策略",
+            "当实际下载画质无法达到预期目标时的处理方式",
+            ["仅警告 (默认)", "阻止并挂起", "忽略差异"],
+            self.qualityGuardGroup,
+        )
+        mode = str(config_manager.get("quality_guard_mode", "warn"))
+        mode_idx = {"warn": 0, "block": 1, "ignore": 2}.get(mode, 0)
+        self.qualityGuardModeCard.comboBox.setCurrentIndex(mode_idx)
+        self.qualityGuardModeCard.comboBox.currentIndexChanged.connect(
+            self._on_quality_guard_mode_changed
+        )
+
+        self.qualityGuardThresholdCard = InlineComboBoxCard(
+            FluentIcon.STOP_WATCH,
+            "风控熔断阈值",
+            "连续出现多少个质量异常任务后，自动暂停排队任务",
+            ["1", "2", "3", "5", "10"],
+            self.qualityGuardGroup,
+        )
+        threshold = str(config_manager.get("quality_guard_suspend_threshold", 3))
+        try:
+            t_idx = ["1", "2", "3", "5", "10"].index(threshold)
+        except ValueError:
+            t_idx = 2
+        self.qualityGuardThresholdCard.comboBox.setCurrentIndex(t_idx)
+        self.qualityGuardThresholdCard.comboBox.currentIndexChanged.connect(
+            self._on_quality_guard_threshold_changed
+        )
+
+        self.qualityGuardFfprobeCard = InlineSwitchCard(
+            FluentIcon.VIDEO,
+            "FFprobe 精准物理核验",
+            "当系统无法从下载日志中提取实际分辨率时，强制调用 ffprobe 探测已下载视频文件的物理尺寸",
+            parent=self.qualityGuardGroup,
+        )
+        self.qualityGuardFfprobeCard.switchButton.setChecked(
+            bool(config_manager.get("quality_guard_ffprobe", False))
+        )
+        self.qualityGuardFfprobeCard.checkedChanged.connect(
+            lambda checked: config_manager.set("quality_guard_ffprobe", checked)
+        )
+
+        self.qualityGuardGroup.addSettingCard(self.qualityGuardModeCard)
+        self.qualityGuardGroup.addSettingCard(self.qualityGuardThresholdCard)
+        self.qualityGuardGroup.addSettingCard(self.qualityGuardFfprobeCard)
+        layout.addWidget(self.qualityGuardGroup)
+
+    def _init_quick_mode_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
+        self.quickModeGroup = SettingCardGroup("快速模式策略", parent_widget)
+
+        self.quickPlaylistExpandThresholdCard = InlineComboBoxCard(
+            FluentIcon.FOLDER,
+            "自动策略展开阈值",
+            "当使用“自动判断”策略时，播放列表视频数超过此阈值将强制逐条展开，否则作为一个单任务",
+            ["10", "30", "50", "100", "200"],
+            self.quickModeGroup,
+        )
+        threshold = str(config_manager.get("quick_playlist_expand_threshold", 50))
+        try:
+            th_idx = ["10", "30", "50", "100", "200"].index(threshold)
+        except ValueError:
+            th_idx = 2
+        self.quickPlaylistExpandThresholdCard.comboBox.setCurrentIndex(th_idx)
+        self.quickPlaylistExpandThresholdCard.comboBox.currentIndexChanged.connect(
+            self._on_quick_playlist_expand_threshold_changed
+        )
+
+        self.quickMaxTotalTasksCard = InlineComboBoxCard(
+            FluentIcon.TILES,
+            "任务入队数安全上限",
+            "限制单词快速添加能塞入队列的最大任务数量，防止因过多任务导致卡死或触发严重风控",
+            ["100", "300", "500", "1000", "无限制"],
+            self.quickModeGroup,
+        )
+        max_tasks = str(config_manager.get("quick_max_total_tasks", 500))
+        try:
+            mt_idx = ["100", "300", "500", "1000", "无限制"].index(max_tasks)
+        except ValueError:
+            mt_idx = 2
+        self.quickMaxTotalTasksCard.comboBox.setCurrentIndex(mt_idx)
+        self.quickMaxTotalTasksCard.comboBox.currentIndexChanged.connect(
+            self._on_quick_max_total_tasks_changed
+        )
+
+        self.quickModeGroup.addSettingCard(self.quickPlaylistExpandThresholdCard)
+        self.quickModeGroup.addSettingCard(self.quickMaxTotalTasksCard)
+        layout.addWidget(self.quickModeGroup)
+
+    def _on_quick_playlist_expand_threshold_changed(self, index: int) -> None:
+        val = int(["10", "30", "50", "100", "200"][index])
+        config_manager.set("quick_playlist_expand_threshold", val)
+        config_manager.save()
+
+    def _on_quick_max_total_tasks_changed(self, index: int) -> None:
+        val_str = ["100", "300", "500", "1000", "无限制"][index]
+        val = 99999 if val_str == "无限制" else int(val_str)
+        config_manager.set("quick_max_total_tasks", val)
+        config_manager.save()
+
+    def _on_quality_guard_mode_changed(self, index: int) -> None:
+        mode = {0: "warn", 1: "block", 2: "ignore"}.get(index, "warn")
+        config_manager.set("quality_guard_mode", mode)
+        config_manager.save()
+
+    def _on_quality_guard_threshold_changed(self, index: int) -> None:
+        threshold = int(["1", "2", "3", "5", "10"][index])
+        config_manager.set("quality_guard_suspend_threshold", threshold)
+        config_manager.save()
+
     def _on_retention_days_changed(self, index: int):
         days = [1, 3, 7, 15, 30, -1][index]
         config_manager.set("failed_task_retention_days", days)
         from ..utils.logger import logger
+
         logger.info(f"失败任务保留天数已更新为: {days}")
 
     def _init_network_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
@@ -1050,46 +1266,48 @@ class SettingsPage(QWidget):
         )
         self.browserCard.comboBox.currentIndexChanged.connect(self._on_cookie_browser_changed)
 
-        # DLE 登录按钮
-        self.dleLoginCard = PushSettingCard(
+        # WebView2 登录按钮
+        self.webview2LoginCard = PushSettingCard(
             "登录 YouTube",
             FluentIcon.GLOBE,
             "🔑 账号登录",
-            "点击后将打开独立浏览器，请登录 YouTube 账号以自动提取 Cookie",
+            "通过内置浏览器安全登录 YouTube，自动提取并保存 Cookie",
             self.accountGroup,
         )
-        self.dleLoginCard.clicked.connect(self._on_dle_login_clicked)
+        self.webview2LoginCard.clicked.connect(self._on_webview2_login_clicked)
 
-        # DLE 账号选择
-        self._dle_account_ids: list[str] = []
-        self.dleAccountCard = InlineComboBoxCard(
+        # WebView2 账号选择
+        self._webview2_account_ids: list[str] = []
+        self.webview2AccountCard = InlineComboBoxCard(
             FluentIcon.PEOPLE,
-            "DLE 账号",
+            "WebView2 账号",
             "选择当前用于登录提取与下载注入的账号",
             [],
             self.accountGroup,
         )
-        self.dleAccountCard.comboBox.currentIndexChanged.connect(self._on_dle_account_changed)
+        self.webview2AccountCard.comboBox.currentIndexChanged.connect(
+            self._on_webview2_account_changed
+        )
 
-        # 新增 DLE 账号
-        self.dleAddAccountCard = PushSettingCard(
+        # 新增 WebView2 账号
+        self.webview2AddAccountCard = PushSettingCard(
             "新增账号",
             FluentIcon.ADD,
-            "DLE 账号管理",
-            "创建新的 DLE 账号隔离存储（独立 profile 与缓存）",
+            "WebView2 账号管理",
+            "创建新的 WebView2 账号隔离存储（独立 profile 与缓存）",
             self.accountGroup,
         )
-        self.dleAddAccountCard.clicked.connect(self._on_add_dle_account_clicked)
+        self.webview2AddAccountCard.clicked.connect(self._on_add_webview2_account_clicked)
 
-        # 删除当前 DLE 账号
-        self.dleRemoveAccountCard = PushSettingCard(
+        # 删除当前 WebView2 账号
+        self.webview2RemoveAccountCard = PushSettingCard(
             "删除当前账号",
             FluentIcon.DELETE,
-            "删除 DLE 账号",
-            "删除当前选中的 DLE 账号（至少保留 1 个）",
+            "删除 WebView2 账号",
+            "删除当前选中的 WebView2 账号（至少保留 1 个）",
             self.accountGroup,
         )
-        self.dleRemoveAccountCard.clicked.connect(self._on_remove_dle_account_clicked)
+        self.webview2RemoveAccountCard.clicked.connect(self._on_remove_webview2_account_clicked)
 
         # 手动刷新按钮
         self.refreshCookieCard = PushSettingCard(
@@ -1121,14 +1339,24 @@ class SettingsPage(QWidget):
         )
         self.cookieStatusCard.clicked.connect(self._open_cookie_location)
 
+        # Cookie 清洗开关
+        self.cookieCleaningCard = InlineSwitchCard(
+            FluentIcon.BROOM,
+            "Cookie 合规清洗",
+            "开启后仅保留 YouTube 核心 Cookie（关闭可支持其他平台，但可能暴露更多隐私数据）",
+            parent=self.accountGroup,
+        )
+        self.cookieCleaningCard.checkedChanged.connect(self._on_cookie_cleaning_changed)
+
         self.accountGroup.addSettingCard(self.cookieModeCard)
         self.accountGroup.addSettingCard(self.browserCard)
-        self.accountGroup.addSettingCard(self.dleAccountCard)
-        self.accountGroup.addSettingCard(self.dleAddAccountCard)
-        self.accountGroup.addSettingCard(self.dleRemoveAccountCard)
-        self.accountGroup.addSettingCard(self.dleLoginCard)
-        self.accountGroup.addSettingCard(self.refreshCookieCard)
+        self.accountGroup.addSettingCard(self.webview2LoginCard)
         self.accountGroup.addSettingCard(self.cookieStatusCard)
+        self.accountGroup.addSettingCard(self.cookieCleaningCard)
+        self.accountGroup.addSettingCard(self.webview2AccountCard)
+        self.accountGroup.addSettingCard(self.webview2AddAccountCard)
+        self.accountGroup.addSettingCard(self.webview2RemoveAccountCard)
+        self.accountGroup.addSettingCard(self.refreshCookieCard)
         self.accountGroup.addSettingCard(self.cookieFileCard)
 
         # 一键诊断
@@ -1137,13 +1365,14 @@ class SettingsPage(QWidget):
 
         # Make Cookie dependent cards look like "children" of cookie mode card
         self._indent_setting_card(self.browserCard)
-        self._indent_setting_card(self.dleAccountCard)
-        self._indent_setting_card(self.dleAddAccountCard)
-        self._indent_setting_card(self.dleRemoveAccountCard)
-        self._indent_setting_card(self.dleLoginCard)
+        self._indent_setting_card(self.webview2AccountCard)
+        self._indent_setting_card(self.webview2AddAccountCard)
+        self._indent_setting_card(self.webview2RemoveAccountCard)
+        self._indent_setting_card(self.webview2LoginCard)
         self._indent_setting_card(self.refreshCookieCard)
         self._indent_setting_card(self.cookieFileCard)
         self._indent_setting_card(self.cookieStatusCard)
+        self._indent_setting_card(self.cookieCleaningCard)
 
     def _init_component_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
         """初始化软件更新与核心组件设置组"""
@@ -1263,6 +1492,19 @@ class SettingsPage(QWidget):
     def _init_advanced_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
         self.advancedGroup = SettingCardGroup("高级", parent_widget)
 
+        self.potProviderEnabledCard = InlineSwitchCard(
+            FluentIcon.CERTIFICATE,
+            "POT 验证引擎 (实验性)",
+            "内置的 bgutil-pot-provider 服务，可绕过 YouTube 机器人检测。开启会增加启动耗时，默认关闭。",
+            parent=self.advancedGroup,
+        )
+        self.potProviderEnabledCard.switchButton.setChecked(
+            config_manager.get("pot_provider_enabled", False)
+        )
+        self.potProviderEnabledCard.checkedChanged.connect(
+            lambda checked: config_manager.set("pot_provider_enabled", checked)
+        )
+
         self.poTokenCard = SmartSettingCard(
             FluentIcon.CODE,
             "YouTube PO Token(可选)",
@@ -1292,6 +1534,7 @@ class SettingsPage(QWidget):
             lambda _: self.jsRuntimePathCard.setContent(self._js_runtime_status_text())
         )
 
+        self.advancedGroup.addSettingCard(self.potProviderEnabledCard)
         self.advancedGroup.addSettingCard(self.poTokenCard)
         self.advancedGroup.addSettingCard(self.jsRuntimePathCard)
         layout.addWidget(self.advancedGroup)
@@ -1476,7 +1719,7 @@ class SettingsPage(QWidget):
             config = ["zh-Hans", "en", "orig"]
 
         langs = [
-            ("orig", "原音 (为选择到的音质最高的音轨)"),
+            ("orig", "原音 (视频原生语言配音)"),
             ("zh-Hans", "中文 (简体)"),
             ("zh-Hant", "中文 (繁体)"),
             ("en", "英语"),
@@ -1531,6 +1774,15 @@ class SettingsPage(QWidget):
         """初始化后处理设置组（封面嵌入、元数据等）"""
         self.postprocessGroup = SettingCardGroup("后处理", parent_widget)
 
+        # 独立封面下载开关
+        self.downloadThumbnailCard = InlineSwitchCard(
+            FluentIcon.PHOTO,
+            "独立封面",
+            "将视频封面作为独立的图片文件保存",
+            parent=self.postprocessGroup,
+        )
+        self.downloadThumbnailCard.checkedChanged.connect(self._on_download_thumbnail_changed)
+
         # 封面嵌入开关
         self.embedThumbnailCard = InlineSwitchCard(
             FluentIcon.PHOTO,
@@ -1549,6 +1801,7 @@ class SettingsPage(QWidget):
         )
         self.embedMetadataCard.checkedChanged.connect(self._on_embed_metadata_changed)
 
+        self.postprocessGroup.addSettingCard(self.downloadThumbnailCard)
         self.postprocessGroup.addSettingCard(self.embedThumbnailCard)
         self.postprocessGroup.addSettingCard(self.embedMetadataCard)
 
@@ -1825,12 +2078,18 @@ class SettingsPage(QWidget):
         self.cookieModeCard.comboBox.blockSignals(True)
         self.browserCard.comboBox.blockSignals(True)
 
+        # 设置 Cookie 清洗开关
+        cleaning_enabled = bool(config_manager.get("cookie_cleaning_enabled", True))
+        self.cookieCleaningCard.switchButton.blockSignals(True)
+        self.cookieCleaningCard.switchButton.setChecked(cleaning_enabled)
+        self.cookieCleaningCard.switchButton.blockSignals(False)
+
         # 设置 Cookie 模式
         if current_source == AuthSourceType.FILE:
             self.cookieModeCard.comboBox.setCurrentIndex(2)  # 手动文件
             if auth_service._current_file_path:
                 self.cookieFileCard.setContent(auth_service._current_file_path)
-        elif current_source == AuthSourceType.DLE:
+        elif current_source == AuthSourceType.WEBVIEW2:
             self.cookieModeCard.comboBox.setCurrentIndex(1)  # 登录获取
         else:
             self.cookieModeCard.comboBox.setCurrentIndex(0)  # 自动提取
@@ -1855,8 +2114,8 @@ class SettingsPage(QWidget):
         self.cookieModeCard.comboBox.blockSignals(False)
         self.browserCard.comboBox.blockSignals(False)
 
-        # 加载 DLE 账号列表
-        self._reload_dle_account_combo(select_current=True)
+        # 加载 WebView2 账号列表
+        self._reload_webview2_account_combo(select_current=True)
 
         # 触发可见性更新 (Cookie sub-options)
         self._on_cookie_mode_changed(self.cookieModeCard.comboBox.currentIndex())
@@ -1923,8 +2182,14 @@ class SettingsPage(QWidget):
         self.playlistSkipAuthcheckCard.switchButton.setChecked(skip_authcheck)
         self.playlistSkipAuthcheckCard.switchButton.blockSignals(False)
 
+        # Postprocess: download thumbnail
+        download_thumbnail = bool(config_manager.get("download_thumbnail", False))
+        self.downloadThumbnailCard.switchButton.blockSignals(True)
+        self.downloadThumbnailCard.switchButton.setChecked(download_thumbnail)
+        self.downloadThumbnailCard.switchButton.blockSignals(False)
+
         # Postprocess: embed thumbnail
-        embed_thumbnail = bool(config_manager.get("embed_thumbnail", True))
+        embed_thumbnail = bool(config_manager.get("embed_thumbnail", False))
         self.embedThumbnailCard.switchButton.blockSignals(True)
         self.embedThumbnailCard.switchButton.setChecked(embed_thumbnail)
         self.embedThumbnailCard.switchButton.blockSignals(False)
@@ -1986,6 +2251,25 @@ class SettingsPage(QWidget):
             config_manager.get("vr_eac_auto_convert", False)
         )
         self.vrEacAutoConvertCard.switchButton.blockSignals(False)
+
+        # Quick Mode Settings
+        quick_thresh = str(config_manager.get("quick_playlist_expand_threshold", 50))
+        try:
+            th_idx = ["10", "30", "50", "100", "200"].index(quick_thresh)
+        except ValueError:
+            th_idx = 2
+        self.quickPlaylistExpandThresholdCard.comboBox.blockSignals(True)
+        self.quickPlaylistExpandThresholdCard.comboBox.setCurrentIndex(th_idx)
+        self.quickPlaylistExpandThresholdCard.comboBox.blockSignals(False)
+
+        quick_max = str(config_manager.get("quick_max_total_tasks", 500))
+        try:
+            mt_idx = ["100", "300", "500", "1000", "无限制"].index(quick_max)
+        except ValueError:
+            mt_idx = 2
+        self.quickMaxTotalTasksCard.comboBox.blockSignals(True)
+        self.quickMaxTotalTasksCard.comboBox.setCurrentIndex(mt_idx)
+        self.quickMaxTotalTasksCard.comboBox.blockSignals(False)
 
         vr_hw_mode = str(config_manager.get("vr_hw_accel_mode", "auto"))
         hw_mode_map = {"auto": 0, "cpu": 1, "gpu": 2}
@@ -2106,9 +2390,18 @@ class SettingsPage(QWidget):
             parent=self,
         )
 
+    def _on_download_thumbnail_changed(self, checked: bool) -> None:
+        """处理独立封面下载开关变更"""
+        config_manager.set("download_thumbnail", bool(checked))
+        if checked and hasattr(self, "embedThumbnailCard"):
+            self.embedThumbnailCard.switchButton.setChecked(False)
+
     def _on_embed_thumbnail_changed(self, checked: bool) -> None:
         """处理封面嵌入开关变更"""
         config_manager.set("embed_thumbnail", bool(checked))
+        if checked and hasattr(self, "downloadThumbnailCard"):
+            self.downloadThumbnailCard.switchButton.setChecked(False)
+
         InfoBar.success(
             "设置已更新",
             "已开启封面嵌入（支持 MP4/MKV/MP3/M4A/FLAC/OGG/OPUS 等格式）"
@@ -2286,10 +2579,10 @@ class SettingsPage(QWidget):
             auth_service.set_source(source, auto_refresh=True)
 
             self.browserCard.setVisible(True)
-            self.dleAccountCard.setVisible(False)
-            self.dleAddAccountCard.setVisible(False)
-            self.dleRemoveAccountCard.setVisible(False)
-            self.dleLoginCard.setVisible(False)
+            self.webview2AccountCard.setVisible(False)
+            self.webview2AddAccountCard.setVisible(False)
+            self.webview2RemoveAccountCard.setVisible(False)
+            self.webview2LoginCard.setVisible(False)
             self.refreshCookieCard.setVisible(True)
             self.cookieFileCard.setVisible(False)
 
@@ -2301,16 +2594,16 @@ class SettingsPage(QWidget):
             )
 
         elif index == 1:
-            # DLE 登录获取模式
-            auth_service.set_source(AuthSourceType.DLE, auto_refresh=False)
+            # WebView2 登录获取模式
+            auth_service.set_source(AuthSourceType.WEBVIEW2, auto_refresh=False)
 
-            self._reload_dle_account_combo(select_current=True)
+            self._reload_webview2_account_combo(select_current=True)
 
             self.browserCard.setVisible(False)
-            self.dleAccountCard.setVisible(True)
-            self.dleAddAccountCard.setVisible(True)
-            self.dleRemoveAccountCard.setVisible(True)
-            self.dleLoginCard.setVisible(True)
+            self.webview2AccountCard.setVisible(True)
+            self.webview2AddAccountCard.setVisible(True)
+            self.webview2RemoveAccountCard.setVisible(True)
+            self.webview2LoginCard.setVisible(True)
             self.refreshCookieCard.setVisible(False)
             self.cookieFileCard.setVisible(False)
 
@@ -2326,10 +2619,10 @@ class SettingsPage(QWidget):
             auth_service.set_source(AuthSourceType.FILE, auto_refresh=False)
 
             self.browserCard.setVisible(False)
-            self.dleAccountCard.setVisible(False)
-            self.dleAddAccountCard.setVisible(False)
-            self.dleRemoveAccountCard.setVisible(False)
-            self.dleLoginCard.setVisible(False)
+            self.webview2AccountCard.setVisible(False)
+            self.webview2AddAccountCard.setVisible(False)
+            self.webview2RemoveAccountCard.setVisible(False)
+            self.webview2LoginCard.setVisible(False)
             self.refreshCookieCard.setVisible(False)
             self.cookieFileCard.setVisible(True)
 
@@ -2362,16 +2655,13 @@ class SettingsPage(QWidget):
         if 0 <= index < len(browser_map):
             source, name = browser_map[index]
 
-            # DLE 登录按钮在浏览器提取模式下始终隐藏
-            self.dleLoginCard.setVisible(False)
+            # WebView2 登录按钮在浏览器提取模式下始终隐藏
+            self.webview2LoginCard.setVisible(False)
 
             # Chromium 内核浏览器 v130+ 需要管理员权限
             from ..auth.auth_service import ADMIN_REQUIRED_BROWSERS
 
-            # DLE 方案不再需要管理员权限 (Edge/Chrome)
-            is_dle_supported = source in (AuthSourceType.EDGE, AuthSourceType.CHROME)
-
-            if not is_dle_supported and source in ADMIN_REQUIRED_BROWSERS and not is_admin():
+            if source in ADMIN_REQUIRED_BROWSERS and not is_admin():
                 box = MessageBox(
                     f"{name} 需要管理员权限",
                     f"{name} 使用了 App-Bound 加密保护，\n"
@@ -2455,18 +2745,18 @@ class SettingsPage(QWidget):
             self._cookie_worker.finished.connect(on_finished, Qt.ConnectionType.QueuedConnection)
             self._cookie_worker.start()
 
-    def _on_dle_login_clicked(self):
-        """DLE 登录按钮点击 - 启动浏览器登录流程"""
+    def _on_webview2_login_clicked(self):
+        """WebView2 登录按钮点击 - 启动浏览器登录流程"""
         from ..auth.auth_service import AuthSourceType, auth_service
 
-        # 保证处于 DLE 模式
-        auth_service.set_source(AuthSourceType.DLE, auto_refresh=False)
+        # 保证处于 WebView2 模式
+        auth_service.set_source(AuthSourceType.WEBVIEW2, auto_refresh=False)
 
-        account = auth_service.current_dle_account
+        account = auth_service.current_webview2_account
         account_name = account.display_name if account else "默认账号"
 
-        self.dleLoginCard.button.setEnabled(False)
-        self.dleLoginCard.setContent(
+        self.webview2LoginCard.button.setEnabled(False)
+        self.webview2LoginCard.setContent(
             f"正在后台提取登录态（{account_name}），必要时会自动显示登录窗口..."
         )
 
@@ -2476,15 +2766,15 @@ class SettingsPage(QWidget):
         # 挂载完成回调（worker 已在 _do_cookie_refresh 中创建）
         if self._cookie_worker:
 
-            def _on_dle_finished(success: bool, message: str, need_admin: bool = False):
+            def _on_webview2_finished(success: bool, message: str, need_admin: bool = False):
                 # 恢复按钮状态
-                self.dleLoginCard.button.setEnabled(True)
+                self.webview2LoginCard.button.setEnabled(True)
 
                 if success:
-                    self.dleLoginCard.setContent("✅ 登录成功，Cookie 已提取")
+                    self.webview2LoginCard.setContent("✅ 登录成功，Cookie 已提取")
                     from ..auth.cookie_sentinel import cookie_sentinel
 
-                    current_acc = auth_service.current_dle_account
+                    current_acc = auth_service.current_webview2_account
                     acc_cookie = current_acc.cached_cookie_path if current_acc else "未知"
                     InfoBar.success(
                         "登录成功",
@@ -2495,7 +2785,7 @@ class SettingsPage(QWidget):
                         parent=self,
                     )
                 else:
-                    self.dleLoginCard.setContent("❌ 登录未完成，请重新点击「登录 YouTube」")
+                    self.webview2LoginCard.setContent("❌ 登录未完成，请重新点击「登录 YouTube」")
                     # 解析错误消息，去掉「刷新异常:」前缀
                     clean_msg = message
                     if clean_msg.startswith("刷新异常: "):
@@ -2510,18 +2800,18 @@ class SettingsPage(QWidget):
                     )
 
             self._cookie_worker.finished.connect(
-                _on_dle_finished,
+                _on_webview2_finished,
                 Qt.ConnectionType.QueuedConnection,
             )
 
-    def _reload_dle_account_combo(self, select_current: bool = True) -> None:
-        """刷新 DLE 账号下拉列表"""
+    def _reload_webview2_account_combo(self, select_current: bool = True) -> None:
+        """刷新 WebView2 账号下拉列表"""
         from ..auth.auth_service import auth_service
 
-        accounts = auth_service.list_dle_accounts(platform="youtube")
-        self._dle_account_ids = [a.account_id for a in accounts]
+        accounts = auth_service.list_webview2_accounts(platform="youtube")
+        self._webview2_account_ids = [a.account_id for a in accounts]
 
-        combo = self.dleAccountCard.comboBox
+        combo = self.webview2AccountCard.comboBox
         combo.blockSignals(True)
         combo.clear()
 
@@ -2531,37 +2821,37 @@ class SettingsPage(QWidget):
                 label += " (默认)"
             combo.addItem(label)
 
-        if select_current and self._dle_account_ids:
-            cur = auth_service.current_dle_account_id
-            idx = self._dle_account_ids.index(cur) if cur in self._dle_account_ids else 0
+        if select_current and self._webview2_account_ids:
+            cur = auth_service.current_webview2_account_id
+            idx = self._webview2_account_ids.index(cur) if cur in self._webview2_account_ids else 0
             combo.setCurrentIndex(idx)
 
         combo.blockSignals(False)
 
-    def _on_dle_account_changed(self, index: int) -> None:
-        """切换当前 DLE 账号"""
+    def _on_webview2_account_changed(self, index: int) -> None:
+        """切换当前 WebView2 账号"""
         from ..auth.auth_service import auth_service
 
-        if index < 0 or index >= len(self._dle_account_ids):
+        if index < 0 or index >= len(self._webview2_account_ids):
             return
 
-        account_id = self._dle_account_ids[index]
-        if auth_service.set_current_dle_account(account_id):
-            account = auth_service.current_dle_account
+        account_id = self._webview2_account_ids[index]
+        if auth_service.set_current_webview2_account(account_id):
+            account = auth_service.current_webview2_account
             name = account.display_name if account else "未知账号"
             InfoBar.success(
-                "已切换 DLE 账号",
+                "已切换 WebView2 账号",
                 f"当前账号: {name}",
                 duration=2500,
                 parent=self,
             )
             self._update_cookie_status()
 
-    def _on_add_dle_account_clicked(self) -> None:
-        """新增 DLE 账号"""
+    def _on_add_webview2_account_clicked(self) -> None:
+        """新增 WebView2 账号"""
         from ..auth.auth_service import auth_service
 
-        dialog = DLEAccountNameDialog(self)
+        dialog = WebView2AccountNameDialog(self)
         dialog.yesButton.setText("创建")
         dialog.cancelButton.setText("取消")
         if not dialog.exec():
@@ -2572,9 +2862,11 @@ class SettingsPage(QWidget):
             InfoBar.warning("名称为空", "请输入有效账号名称", duration=2500, parent=self)
             return
 
-        account = auth_service.create_dle_account(display_name=display_name, platform="youtube")
-        auth_service.set_current_dle_account(account.account_id)
-        self._reload_dle_account_combo(select_current=True)
+        account = auth_service.create_webview2_account(
+            display_name=display_name, platform="youtube"
+        )
+        auth_service.set_current_webview2_account(account.account_id)
+        self._reload_webview2_account_combo(select_current=True)
 
         InfoBar.success(
             "账号已创建",
@@ -2584,19 +2876,21 @@ class SettingsPage(QWidget):
         )
         self._update_cookie_status()
 
-    def _on_remove_dle_account_clicked(self) -> None:
-        """删除当前 DLE 账号"""
+    def _on_remove_webview2_account_clicked(self) -> None:
+        """删除当前 WebView2 账号"""
         from qfluentwidgets import MessageBox
 
         from ..auth.auth_service import auth_service
 
-        account = auth_service.current_dle_account
+        account = auth_service.current_webview2_account
         if not account:
-            InfoBar.warning("无可删账号", "当前没有可删除的 DLE 账号", duration=2500, parent=self)
+            InfoBar.warning(
+                "无可删账号", "当前没有可删除的 WebView2 账号", duration=2500, parent=self
+            )
             return
 
         box = MessageBox(
-            "删除当前 DLE 账号",
+            "删除当前 WebView2 账号",
             f"确定删除账号「{account.display_name}」吗？\n\n至少需要保留 1 个账号。",
             self,
         )
@@ -2605,11 +2899,11 @@ class SettingsPage(QWidget):
         if not box.exec():
             return
 
-        if not auth_service.delete_dle_account(account.account_id, remove_storage=False):
+        if not auth_service.delete_webview2_account(account.account_id, remove_storage=False):
             InfoBar.error("删除失败", "至少需要保留一个账号", duration=3000, parent=self)
             return
 
-        self._reload_dle_account_combo(select_current=True)
+        self._reload_webview2_account_combo(select_current=True)
         InfoBar.success("删除成功", f"已删除: {account.display_name}", duration=3000, parent=self)
         self._update_cookie_status()
 
@@ -2617,7 +2911,7 @@ class SettingsPage(QWidget):
         """手动刷新 Cookie 按钮点击"""
         from qfluentwidgets import MessageBox
 
-        from ..auth.auth_service import AuthSourceType, auth_service
+        from ..auth.auth_service import auth_service
         from ..utils.admin_utils import is_admin
 
         current_source = auth_service.current_source
@@ -2625,10 +2919,7 @@ class SettingsPage(QWidget):
         # 检查是否是 Chromium 内核浏览器且非管理员 - 直接提示重启
         from ..auth.auth_service import ADMIN_REQUIRED_BROWSERS
 
-        # DLE 方案不再需要管理员权限 (Edge/Chrome)
-        is_dle_supported = current_source in (AuthSourceType.EDGE, AuthSourceType.CHROME)
-
-        if not is_dle_supported and current_source in ADMIN_REQUIRED_BROWSERS and not is_admin():
+        if current_source in ADMIN_REQUIRED_BROWSERS and not is_admin():
             browser_name = auth_service.current_source_display
 
             box = MessageBox(
@@ -2777,8 +3068,8 @@ class SettingsPage(QWidget):
                 return
 
             if not info["exists"]:
-                if current_source == AuthSourceType.DLE:
-                    status_text = "🔑 DLE 模式 — 尚未登录，请点击「登录 YouTube」按钮"
+                if current_source == AuthSourceType.WEBVIEW2:
+                    status_text = "🔑 WebView2 模式 — 尚未登录，请点击「登录 YouTube」按钮"
                 elif current_source == AuthSourceType.FILE:
                     status_text = "❌ Cookie 文件不存在，请重新选择文件"
                 else:
@@ -2840,6 +3131,11 @@ class SettingsPage(QWidget):
 
     def _on_check_updates_startup_changed(self, checked: bool) -> None:
         config_manager.set("check_updates_on_startup", checked)
+
+    def _on_cookie_cleaning_changed(self, checked: bool) -> None:
+        from ..core.config_manager import config_manager
+
+        config_manager.set("cookie_cleaning_enabled", checked)
 
     def _on_update_source_changed(self, index: int) -> None:
         source_map = {0: "github", 1: "ghproxy"}

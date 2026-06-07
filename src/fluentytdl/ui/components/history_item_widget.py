@@ -123,6 +123,9 @@ class HistoryItemWidget(CardWidget):
         if not record.file_exists:
             meta_parts.append("⚠ 文件丢失")
 
+        if record.quality_deviation:
+            meta_parts.append(f"⚠️ {record.quality_deviation}")
+
         self.meta_label = CaptionLabel(" · ".join(meta_parts), self)
         self.meta_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
         font = self.meta_label.font()

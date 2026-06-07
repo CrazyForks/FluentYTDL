@@ -195,7 +195,7 @@ class HistoryPage(QWidget):
         self.scroll_layout.addStretch(1)
 
         self._update_stats()
-        
+
         # 始终通过搜索过滤机制统一设置卡片的可见性
         # 这也是修复 Qt 在父控件可见性变化时，新添加卡片 isHidden() 初始值不同步导致“交替显示”Bug 的关键
         if hasattr(self, "search_box"):
@@ -212,9 +212,9 @@ class HistoryPage(QWidget):
         card.reparse_requested.connect(self.reparse_requested.emit)
         self._cards.insert(0, card)
         self.scroll_layout.insertWidget(0, card)
-        
+
         self._update_stats()
-        
+
         if hasattr(self, "search_box"):
             self._on_search(self.search_box.text())
         else:

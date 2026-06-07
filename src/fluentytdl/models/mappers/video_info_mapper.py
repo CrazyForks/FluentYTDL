@@ -38,7 +38,7 @@ class VideoInfoMapper:
         subtitle_tracks = cls.extract_subtitle_tracks(raw)
         subtitle_languages = cls.get_subtitle_languages(subtitle_tracks)
         video_formats = cls.clean_video_formats(raw)
-        
+
         best_height = 0
         for f in video_formats:
             if f.height > best_height:

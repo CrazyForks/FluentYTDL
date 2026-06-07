@@ -601,8 +601,11 @@ class POTManager:
 
             # 检查标准插件目录
             plugin_dir = (
-                exe.parent / "yt-dlp-plugins" / "bgutil-ytdlp-pot-provider"
-                / "yt_dlp_plugins" / "extractor"
+                exe.parent
+                / "yt-dlp-plugins"
+                / "bgutil-ytdlp-pot-provider"
+                / "yt_dlp_plugins"
+                / "extractor"
             )
 
             if not plugin_dir.exists():

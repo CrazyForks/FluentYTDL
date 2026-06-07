@@ -53,7 +53,7 @@ class CookieRepairDialog(QDialog):
         layout.addWidget(title_label)
 
         # 根据验证模式动态调整说明文本
-        if self._auth_source == "dle":
+        if self._auth_source == "webview2":
             desc_text = (
                 "YouTube 需要重新验证身份，请选择以下方式修复：\n\n"
                 "• 重新登录：点击下方按钮在浏览器中重新登录 YouTube\n"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
@@ -10,17 +10,21 @@ from qfluentwidgets import (
     LineEdit,
     PrimaryPushButton,
     PushButton,
+    SegmentedWidget,
     SubtitleLabel,
 )
+
+from .quick_add_panel import QuickAddPanel
 
 
 class ParsePage(QWidget):
     """独立的解析页面
 
-    允许用户手动粘贴链接并触发解析。
+    允许用户手动粘贴链接并触发解析，或使用批量快速下载。
     """
 
     parse_requested = Signal(str)
+    quick_download_requested = Signal(list, object)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -33,20 +37,35 @@ class ParsePage(QWidget):
         self.vBoxLayout.setContentsMargins(30, 30, 30, 30)
         self.vBoxLayout.setSpacing(0)
 
-        # Center container (keeps content nicely centered on wide windows)
-        self.centerWidget = QWidget(self)
+        self.pivot = SegmentedWidget(self)
+        self.pivot.addItem("standard", "精确解析")
+        self.pivot.addItem("quick", "批量快速下载")
+        self.vBoxLayout.addWidget(self.pivot, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.vBoxLayout.addSpacing(20)
+
+        self.stackedWidget = QStackedWidget(self)
+        self.vBoxLayout.addWidget(self.stackedWidget, 1)
+
+        # ====================================================
+        # 1. Standard Page
+        # ====================================================
+        self.standardPage = QWidget(self)
+        self.standardLayout = QVBoxLayout(self.standardPage)
+        self.standardLayout.setContentsMargins(0, 0, 0, 0)
+        self.standardLayout.setSpacing(0)
+
+        # Center container
+        self.centerWidget = QWidget(self.standardPage)
         self.centerLayout = QVBoxLayout(self.centerWidget)
         self.centerLayout.setContentsMargins(0, 0, 0, 0)
         self.centerLayout.setSpacing(20)
         self.centerLayout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        # Keep content centered horizontally, but not too vertically centered (avoid feeling empty)
-        self.vBoxLayout.addStretch(1)
-        self.vBoxLayout.addWidget(self.centerWidget, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.vBoxLayout.addStretch(1)
+        self.standardLayout.addStretch(1)
+        self.standardLayout.addWidget(self.centerWidget, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.standardLayout.addStretch(1)
 
-        # 1. 顶部标题
-        self.titleLabel = SubtitleLabel("新建任务", self)
+        self.titleLabel = SubtitleLabel("精确解析", self.standardPage)
         self.centerLayout.addWidget(self.titleLabel)
 
         # 2. 核心操作区 (卡片风格)
@@ -108,6 +127,20 @@ class ParsePage(QWidget):
         self.tipsLabel.setWordWrap(True)
         self.tipsLabel.setMaximumWidth(760)
         self.centerLayout.addWidget(self.tipsLabel)
+
+        self.stackedWidget.addWidget(self.standardPage)
+
+        # ====================================================
+        # 2. Quick Add Page
+        # ====================================================
+        self.quickAddPage = QuickAddPanel(self)
+        self.quickAddPage.download_requested.connect(self.quick_download_requested)
+        self.stackedWidget.addWidget(self.quickAddPage)
+
+        self.pivot.currentItemChanged.connect(
+            lambda x: self.stackedWidget.setCurrentIndex(0 if x == "standard" else 1)
+        )
+        self.stackedWidget.setCurrentIndex(0)
 
         # Connect to theme changes
         from qfluentwidgets import qconfig

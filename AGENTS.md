@@ -84,12 +84,15 @@ pythonVersion = "3.10"
 # Many report* settings are relaxed — do not add new type:ignore without discussion
 ```
 
-### UI Rules
+### UI Rules (PySide6-Fluent-Widgets Best Practices)
 
-- **MUST** use QFluentWidgets (FluentWindow, InfoBar, etc.)
-- **NEVER** use raw QMessageBox, QDialog, or QWidget for new UI
-- Use QPainter delegates for list items (avoids QWidget overhead for large lists)
-- Dark mode support: use `CustomInfoBar`, not raw InfoBar
+- **MUST** use QFluentWidgets (`FluentWindow`, `InfoBar`, `MessageBox`, etc.).
+- **NEVER** use raw `QMessageBox`, `QDialog`, or plain `QWidget` when building new UI components. Always prefer `qfluentwidgets` equivalents.
+- **Imports**: Prefer direct imports from `qfluentwidgets` (e.g., `from qfluentwidgets import PushButton`) rather than mixing raw `PySide6.QtWidgets` unless for layouts (e.g., `QVBoxLayout`).
+- **Theme Adaptation**: ABSOLUTELY NO hardcoded colors. Use `isDarkTheme()` or QFluentWidgets' `ThemeColor` macros to ensure seamless Light/Dark mode transitions.
+- **Routing & Pages**: Complex sub-interfaces must inherit from core page components (like `ScrollArea` or `QWidget` styled appropriately) and be registered via the main window's navigation/router interface.
+- **Delegates**: Use QPainter delegates for list items (avoids QWidget overhead for large lists).
+- **Dark mode support**: use `CustomInfoBar`, not raw InfoBar.
 
 ### File Naming
 
@@ -122,6 +125,8 @@ See `docs/YTDLP_KNOWLEDGE_EN.md` for the full empirical knowledge base.
 - **Chromium v130+**: needs admin for App-Bound Encryption decryption
 - **403 recovery**: auto-detect cookie expiry keywords, prompt refresh
 - **JSON cookie files**: reject with warning (yt-dlp expects Netscape format)
+- **WebView2 Mode**: WebView2 is the project's internal name for the WebView2-based cookie extraction method (formerly known as DLE). In code, always use `AuthSourceType.WEBVIEW2` and the term "webview2". In user-facing UI text, use "登录获取 (WebView2)" or "WebView2 登录". **NEVER** rename it back to "DLE" or use other terms.
+- **WebView2 Provider**: The current implementation uses `WebView2CookieProvider` (in `providers/webview2_provider.py`). When referencing the provider, use "WebView2CookieProvider" in code and "WebView2" in user-facing contexts.
 
 ## 6. Post-Processing Pipeline Order
 

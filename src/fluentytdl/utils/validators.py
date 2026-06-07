@@ -14,19 +14,19 @@ class UrlValidator:
     YOUTUBE_REGEX = (
         r"^(https?://)?(www\.)?(m\.)?(youtube\.com|youtu\.be)/"
         r"("
-        r"@[\w.-]+(/(videos|shorts))?"       # 频道 @Handle（含可选标签页）
-        r"|channel/[\w-]+(/(videos|shorts))?" # 频道 ID
-        r"|c/[\w.-]+(/(videos|shorts))?"      # 旧自定义 URL
-        r"|user/[\w.-]+(/(videos|shorts))?"   # 旧用户名
-        r"|watch\?v=[\w-]+"                   # 标准视频
-        r"|embed/[\w-]+"                      # 嵌入
-        r"|v/[\w-]+"                          # 旧格式
-        r"|shorts/[\w-]+"                     # Shorts
-        r"|live/[\w-]+"                       # 直播
-        r"|playlist\?list=[\w-]+"             # 播放列表
-        r"|[\w-]+"                            # 短链接 / 其他
+        r"@[\w.-]+(/(videos|shorts))?"  # 频道 @Handle（含可选标签页）
+        r"|channel/[\w-]+(/(videos|shorts))?"  # 频道 ID
+        r"|c/[\w.-]+(/(videos|shorts))?"  # 旧自定义 URL
+        r"|user/[\w.-]+(/(videos|shorts))?"  # 旧用户名
+        r"|watch\?v=[\w-]+"  # 标准视频
+        r"|embed/[\w-]+"  # 嵌入
+        r"|v/[\w-]+"  # 旧格式
+        r"|shorts/[\w-]+"  # Shorts
+        r"|live/[\w-]+"  # 直播
+        r"|playlist\?list=[\w-]+"  # 播放列表
+        r"|[\w-]+"  # 短链接 / 其他
         r")"
-        r"(\?[\w=&.-]*)?"                     # 可选查询参数
+        r"(\?[\w=&.-]*)?"  # 可选查询参数
         r"$"
     )
 

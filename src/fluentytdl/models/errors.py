@@ -5,6 +5,7 @@ from typing import Literal
 
 class ErrorCode(IntEnum):
     """全局统一错误码"""
+
     SUCCESS = 0
     GENERAL = 1
     LOGIN_REQUIRED = 2
@@ -17,18 +18,24 @@ class ErrorCode(IntEnum):
     RATE_LIMITED = 9
     COOKIE_EXPIRED = 10
     DISK_FULL = 11
+    VIDEO_REMOVED = 12
+    LIVE_STREAM = 13
+    URL_INVALID = 14
+    FILE_SYSTEM_ERROR = 15
+    DOWNLOAD_INTERRUPTED = 16
     UNKNOWN = 99
 
 
 @dataclass
 class DiagnosedError:
     """标准化错误诊断对象"""
+
     code: ErrorCode
     severity: Literal["fatal", "recoverable", "warning"]
-    user_title: str          # 用户看到的简短标题
-    user_message: str        # 详细解释与建议
-    fix_action: str | None   # 关联 UI 的修复动作（如 relogin, switch_proxy 等）
-    technical_detail: str    # 原始错误日志，用于记录
+    user_title: str  # 用户看到的简短标题
+    user_message: str  # 详细解释与建议
+    fix_action: str | None  # 关联 UI 的修复动作（如 relogin, switch_proxy 等）
+    technical_detail: str  # 原始错误日志，用于记录
     snapshot_path: str = ""  # 错误现场日志路径（暂留）
     recovery_hint: str = ""  # UI 上按钮的提示词（如“点此重新登录”）
 
@@ -62,6 +69,7 @@ class DiagnosedError:
 
 class YtDlpExecutionError(Exception):
     """当 yt-dlp 子进程非正常退出时抛出，携带完整的上下文字段以便后续诊断"""
+
     def __init__(self, exit_code: int, stderr: str, parsed_json: dict | None = None):
         super().__init__(f"yt-dlp 执行失败 (退出码: {exit_code})")
         self.exit_code = exit_code

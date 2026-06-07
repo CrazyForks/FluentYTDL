@@ -390,7 +390,9 @@ class DownloadExecutor:
                 if ratio < 0.5:
                     logger.warning(
                         "文件大小 ({}) 仅为预期大小 ({}) 的 {:.0%}，判定为不完整下载",
-                        actual_size, expected_total_bytes, ratio,
+                        actual_size,
+                        expected_total_bytes,
+                        ratio,
                     )
                     is_valid = False
 
@@ -399,7 +401,9 @@ class DownloadExecutor:
                     output_path = valid_path_found
                 logger.warning(
                     "yt-dlp 退出码 {} (非零)，但输出文件有效 ({}, {:.1f} KB)。忽略错误。",
-                    rc, output_path, actual_size / 1024,
+                    rc,
+                    output_path,
+                    actual_size / 1024,
                 )
             else:
                 raise YtDlpExecutionError(exit_code=rc, stderr=last_lines)

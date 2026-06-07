@@ -90,7 +90,7 @@ def restart_as_admin(reason: str = "", auto_restart: bool = False) -> bool:
             logger.warning(f"用户取消了管理员权限请求 (返回码: {ret})")
             return False
 
-    except Exception as e:
+    except Exception:
         from ..utils.logger import logger
 
         logger.exception("请求管理员重启失败")

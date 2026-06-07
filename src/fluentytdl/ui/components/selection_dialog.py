@@ -150,7 +150,6 @@ def _normalize_info_payload(info: Any) -> dict[str, Any]:
     return normalized
 
 
-
 def _get_table_selection_qss() -> str:
     from qfluentwidgets import isDarkTheme
 
@@ -691,8 +690,6 @@ def _clean_audio_formats(info: Any) -> list[dict[str, Any]]:
     return out
 
 
-
-
 class PlaylistFormatDialog(MessageBoxBase):
     """用于播放列表单项的"高级格式选择"弹窗 (复用各类 SelectorWidget)"""
 
@@ -718,7 +715,7 @@ class PlaylistFormatDialog(MessageBoxBase):
             self.selector = VideoFormatSelectorWidget(info, self)
 
         self.viewLayout.addWidget(self.selector)
-        
+
         # 新增：单视频独立字幕配置区域
         self._subtitle_override_widget = None
         if self._mode not in ("subtitle", "cover"):
@@ -732,22 +729,21 @@ class PlaylistFormatDialog(MessageBoxBase):
         from PySide6.QtWidgets import QHBoxLayout
         from qfluentwidgets import CheckBox, PushButton
 
-        
         row = QHBoxLayout()
         row.setContentsMargins(0, 5, 0, 0)
-        
+
         self.sub_override_check = CheckBox("为此视频独立配置字幕", self)
-        
+
         self.sub_override_btn = PushButton("选择字幕...", self)
         self.sub_override_btn.setEnabled(False)
         self.sub_override_result = None
-        
+
         row.addWidget(self.sub_override_check)
         row.addSpacing(10)
         row.addWidget(self.sub_override_btn)
         row.addStretch(1)
         self.viewLayout.addLayout(row)
-        
+
         self.sub_override_check.stateChanged.connect(
             lambda state: self.sub_override_btn.setEnabled(bool(state))
         )
@@ -755,13 +751,16 @@ class PlaylistFormatDialog(MessageBoxBase):
 
     def _open_subtitle_picker(self, info):
         from ..dialogs.subtitle_picker_dialog import SubtitlePickerDialog
+
         container = None
         if hasattr(self.selector, "get_selection_result"):
             result = self.selector.get_selection_result()
             if isinstance(result, dict):
                 container = result.get("merge_output_format")
-                
-        dialog = SubtitlePickerDialog(info, container, initial_result=self.sub_override_result, parent=self)
+
+        dialog = SubtitlePickerDialog(
+            info, container, initial_result=self.sub_override_result, parent=self
+        )
         if dialog.exec():
             self.sub_override_result = dialog.get_result()
             n = len(self.sub_override_result.selected_tracks)
@@ -794,24 +793,24 @@ class PlaylistFormatDialog(MessageBoxBase):
             return self.selector.get_summary_text()  # type: ignore[attr-defined]
 
     def get_subtitle_override(self) -> dict[str, Any] | None:
-        if not hasattr(self, 'sub_override_check') or not self.sub_override_check.isChecked():
+        if not hasattr(self, "sub_override_check") or not self.sub_override_check.isChecked():
             return None
-            
+
         if not self.sub_override_result:
             return {
                 "override_languages": [],
                 "has_manual": True,
                 "has_auto": False,
                 "embed_subtitles": False,
-                "output_format": "srt"
+                "output_format": "srt",
             }
-            
+
         return {
             "override_languages": self.sub_override_result.override_languages,
             "has_manual": self.sub_override_result.has_manual,
             "has_auto": self.sub_override_result.has_auto,
             "embed_subtitles": self.sub_override_result.embed_subtitles,
-            "output_format": self.sub_override_result.output_format
+            "output_format": self.sub_override_result.output_format,
         }
 
 
@@ -1222,7 +1221,7 @@ class SelectionDialog(MessageBoxBase):
 
         from ...models.errors import ErrorCode
         from ...utils.error_parser import diagnose_error
-        
+
         category = ErrorCode.GENERAL
         if raw_error:
             category = diagnose_error(1, raw_error).code
@@ -1230,35 +1229,38 @@ class SelectionDialog(MessageBoxBase):
         text = f"{title}\n\n{content}"
         if suggestion:
             text += f"\n\n建议操作：\n{suggestion}"
-        
+
         # === 根据分类决定显示哪个面板 ===
         if category in (ErrorCode.LOGIN_REQUIRED, ErrorCode.COOKIE_EXPIRED):
             self.titleLabel.setText("身份验证失败")
             # 不用长文显示 _error_label，避免视觉打断
             self.retryWidget.hide()
-            
+
             from ...auth.auth_service import AuthSourceType, auth_service
             from .cookie_repair_dialog import CookieRepairDialog
-            
+
             current_source = auth_service.current_source
             source_map = {
-                AuthSourceType.DLE: "dle",
+                AuthSourceType.WEBVIEW2: "webview2",
                 AuthSourceType.FILE: "file",
             }
             auth_source_str = source_map.get(current_source, "browser")
-            
-            dialog = CookieRepairDialog(raw_error, parent=self.window(), auth_source=auth_source_str)
-            
-            if current_source == AuthSourceType.DLE:
+
+            dialog = CookieRepairDialog(
+                raw_error, parent=self.window(), auth_source=auth_source_str
+            )
+
+            if current_source == AuthSourceType.WEBVIEW2:
                 dialog.setWindowTitle("需要重新登录 YouTube")
                 dialog.repair_btn.setText("重新登录")
             elif current_source == AuthSourceType.FILE:
                 dialog.setWindowTitle("Cookie 文件需要更新")
                 dialog.repair_btn.setText("重新导入")
-            
+
             def on_auto_repair():
-                if current_source == AuthSourceType.DLE:
+                if current_source == AuthSourceType.WEBVIEW2:
                     from ...core.controller import Controller
+
                     ctrl = Controller.get_instance()
                     dialog.accept()
                     if ctrl:
@@ -1266,6 +1268,7 @@ class SelectionDialog(MessageBoxBase):
                     self.reject()
                 elif current_source == AuthSourceType.FILE:
                     from ...core.controller import Controller
+
                     ctrl = Controller.get_instance()
                     dialog.accept()
                     if ctrl:
@@ -1273,17 +1276,20 @@ class SelectionDialog(MessageBoxBase):
                     self.reject()
                 else:
                     from ...auth.cookie_sentinel import cookie_sentinel
+
                     success, msg = cookie_sentinel.force_refresh_with_uac()
                     dialog.show_repair_result(success, msg)
                     if success:
                         from PySide6.QtCore import QTimer
+
                         QTimer.singleShot(1500, self.start_extraction)
-                        
+
             dialog.repair_requested.connect(on_auto_repair)
-            
+
             def on_manual_import():
                 dialog.accept()
                 from PySide6.QtWidgets import QDialog
+
                 try:
                     from fluentytdl.ui.components.cookie_import_dialog import CookieImportDialog
                 except ImportError:
@@ -1291,6 +1297,7 @@ class SelectionDialog(MessageBoxBase):
                 import_dlg = CookieImportDialog(self.window())
                 if import_dlg.exec() == QDialog.DialogCode.Accepted:
                     from ...auth.cookie_sentinel import cookie_sentinel
+
                     cookie_sentinel.force_refresh()
                     self.start_extraction()
 
@@ -1303,7 +1310,7 @@ class SelectionDialog(MessageBoxBase):
             except Exception:
                 pass
             self.viewLayout.addWidget(self._error_label)
-            
+
             lower = raw_error.lower()
             if "cookies" in lower or "not a bot" in lower or "sign in" in lower:
                 self.retryWidget.show()
@@ -2819,8 +2826,14 @@ class SelectionDialog(MessageBoxBase):
                             if vr_id in selected_format:
                                 ydl_opts["__fluentytdl_use_android_vr"] = True
                                 ydl_opts["__android_vr_format_ids"] = android_vr_ids
-                                logger.debug("get_selected_tasks: VR format {} detected, enabling android_vr client", vr_id)
-                                logger.debug("get_selected_tasks: android_vr has {} formats available", len(android_vr_ids))
+                                logger.debug(
+                                    "get_selected_tasks: VR format {} detected, enabling android_vr client",
+                                    vr_id,
+                                )
+                                logger.debug(
+                                    "get_selected_tasks: android_vr has {} formats available",
+                                    len(android_vr_ids),
+                                )
                                 break
 
                     # VR 模式：始终使用 android_vr 客户端
@@ -2840,11 +2853,16 @@ class SelectionDialog(MessageBoxBase):
             if self.video_info:
                 # 优先使用缓存的用户选择（在 accept() 中已询问）
                 if self._subtitle_choice_made:
-                    logger.debug("get_selected_tasks: Using cached subtitle choice: {}", self._subtitle_embed_choice)
+                    logger.debug(
+                        "get_selected_tasks: Using cached subtitle choice: {}",
+                        self._subtitle_embed_choice,
+                    )
                     embed_override = self._subtitle_embed_choice
                 else:
                     # 如果没有缓存，再询问（不应该发生，但作为后备）
-                    logger.debug("get_selected_tasks: No cached choice, calling _check_subtitle_and_ask()")
+                    logger.debug(
+                        "get_selected_tasks: No cached choice, calling _check_subtitle_and_ask()"
+                    )
                     try:
                         embed_override = self._check_subtitle_and_ask()
                         logger.debug("get_selected_tasks: embed_override = {}", embed_override)
@@ -2854,9 +2872,13 @@ class SelectionDialog(MessageBoxBase):
                         return []
                     except Exception as e:
                         # 其他异常
-                        logger.error("get_selected_tasks: Exception in _check_subtitle_and_ask - {}", e)
+                        logger.error(
+                            "get_selected_tasks: Exception in _check_subtitle_and_ask - {}", e
+                        )
 
-                        logger.exception("get_selected_tasks: _check_subtitle_and_ask exception details")
+                        logger.exception(
+                            "get_selected_tasks: _check_subtitle_and_ask exception details"
+                        )
                         # 继续下载，但不设置字幕
                         embed_override = None
 
@@ -2879,14 +2901,24 @@ class SelectionDialog(MessageBoxBase):
                         # 外置文件：始终不嵌入，忽略用户的弹窗选择
                         ydl_opts["embedsubtitles"] = False
 
-                    logger.debug("get_selected_tasks: embed_type={}, embed_override={}, final embedsubtitles={}", embed_type, embed_override, ydl_opts.get('embedsubtitles'))
+                    logger.debug(
+                        "get_selected_tasks: embed_type={}, embed_override={}, final embedsubtitles={}",
+                        embed_type,
+                        embed_override,
+                        ydl_opts.get("embedsubtitles"),
+                    )
 
                 # 确保容器格式兼容字幕嵌入
                 ensure_subtitle_compatible_container(ydl_opts)
 
                 logger.debug("get_selected_tasks: subtitle_opts = {}", subtitle_opts)
-                logger.debug("get_selected_tasks: final embedsubtitles = {}", ydl_opts.get('embedsubtitles'))
-                logger.debug("get_selected_tasks: final merge_output_format = {}", ydl_opts.get('merge_output_format'))
+                logger.debug(
+                    "get_selected_tasks: final embedsubtitles = {}", ydl_opts.get("embedsubtitles")
+                )
+                logger.debug(
+                    "get_selected_tasks: final merge_output_format = {}",
+                    ydl_opts.get("merge_output_format"),
+                )
 
             self._apply_download_dir_to_opts(ydl_opts)
             tasks.append((title, url, ydl_opts, thumb))
@@ -2985,7 +3017,11 @@ class SelectionDialog(MessageBoxBase):
         from ...processing.subtitle_manager import extract_subtitle_tracks
 
         subtitle_config = config_manager.get_subtitle_config()
-        logger.debug("_check_subtitle_and_ask: subtitle_enabled={}, embed_mode={}", subtitle_config.enabled, subtitle_config.embed_mode)
+        logger.debug(
+            "_check_subtitle_and_ask: subtitle_enabled={}, embed_mode={}",
+            subtitle_config.enabled,
+            subtitle_config.embed_mode,
+        )
 
         if not subtitle_config.enabled:
             logger.debug("_check_subtitle_and_ask: Subtitle disabled, returning None")
@@ -3005,7 +3041,9 @@ class SelectionDialog(MessageBoxBase):
             )
             box.yesButton.setText("继续下载")
             box.cancelButton.setText("取消")
-            logger.debug("_check_subtitle_and_ask: About to call box.exec() for no subtitle warning")
+            logger.debug(
+                "_check_subtitle_and_ask: About to call box.exec() for no subtitle warning"
+            )
             result = box.exec()
             logger.debug("_check_subtitle_and_ask: box.exec() returned {}", result)
             if not result:
@@ -3021,7 +3059,10 @@ class SelectionDialog(MessageBoxBase):
             if len(tracks) > 5:
                 lang_display += f" 等 {len(tracks)} 种语言"
 
-            logger.debug("_check_subtitle_and_ask: embed_mode is 'ask', showing confirmation dialog with langs: {}", lang_display)
+            logger.debug(
+                "_check_subtitle_and_ask: embed_mode is 'ask', showing confirmation dialog with langs: {}",
+                lang_display,
+            )
             box = MessageBox(
                 "📝 字幕嵌入确认",
                 f"检测到可用字幕：{lang_display}\n\n"
@@ -3033,7 +3074,9 @@ class SelectionDialog(MessageBoxBase):
             box.cancelButton.setText("仅下载文件")
             logger.debug("_check_subtitle_and_ask: About to call box.exec() for embed confirmation")
             result = box.exec()
-            logger.debug("_check_subtitle_and_ask: box.exec() returned {} (type: {})", result, type(result))
+            logger.debug(
+                "_check_subtitle_and_ask: box.exec() returned {} (type: {})", result, type(result)
+            )
             return bool(result)
 
         logger.debug("_check_subtitle_and_ask: Returning None (use config default)")
@@ -3097,7 +3140,9 @@ class SelectionDialog(MessageBoxBase):
 
             if has_selector:
                 # 有格式选择器：字幕选择已完成，格式处理在 get_selected_tasks() 中完成
-                logger.debug("accept: Has format selector, subtitle choice done, format will be handled in get_selected_tasks")
+                logger.debug(
+                    "accept: Has format selector, subtitle choice done, format will be handled in get_selected_tasks"
+                )
                 # 不设置 download_tasks，让 MainWindow 调用 get_selected_tasks()
                 super().accept()
                 return

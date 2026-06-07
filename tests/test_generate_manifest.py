@@ -4,13 +4,11 @@ import hashlib
 import sys
 from pathlib import Path
 
-import pytest
-
 # Resolve scripts/ for direct execution
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from generate_manifest import generate_manifest, parse_version_prefix, sha256_file
+from generate_manifest import generate_manifest, parse_version_prefix, sha256_file  # noqa: E402
 
 
 class TestParseVersionPrefix:

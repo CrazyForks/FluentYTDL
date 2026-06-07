@@ -80,7 +80,7 @@ class UnifiedTaskListPage(QWidget):
 
     batch_start_requested = Signal(list)
     batch_pause_requested = Signal(list)
-    batch_delete_requested = Signal(list)
+    batch_delete_requested = Signal(list, bool)
 
     # Navbar trigger
     route_to_parse = Signal()
@@ -183,6 +183,7 @@ class UnifiedTaskListPage(QWidget):
         self.pivot.addItem(routeKey="running", text="下载中")
         self.pivot.addItem(routeKey="queued", text="排队中")
         self.pivot.addItem(routeKey="paused", text="已暂停")
+        self.pivot.addItem(routeKey="quality_guard", text="质量守卫")
         self.pivot.addItem(routeKey="completed", text="已完成")
         self.pivot.addItem(routeKey="error", text="已失败")
         self.pivot.currentItemChanged.connect(self._on_pivot_changed)
@@ -230,7 +231,9 @@ class UnifiedTaskListPage(QWidget):
         self.v_layout.addWidget(self.stack, 1)
 
         # === 任务列表 ListView ===
-        self.list_view = QListView(self)
+        from qfluentwidgets import ListView
+
+        self.list_view = ListView(self)
         self.list_view.setModel(self.proxy_model)
         self.list_view.setItemDelegate(self.delegate)
         self.list_view.setFrameShape(QFrame.Shape.NoFrame)
@@ -292,43 +295,32 @@ class UnifiedTaskListPage(QWidget):
         self.stack.addWidget(self.empty_placeholder)
         self.stack.setCurrentWidget(self.list_view)
 
-        # === 悬浮批量命令栏 (CommandBar) ===
-        from qfluentwidgets import Action, CommandBar
+        # === 悬浮批量操作面板 ===
+        from .batch_operation_panel import BatchOperationPanel
 
-        self.command_bar = CommandBar(self)
-        self.command_bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        # Default shadow and border for CommandBar in FluentWidgets is good
+        self.batch_panel = BatchOperationPanel(self)
 
-        # 创建 Action
-        self.action_select_all = Action(FluentIcon.ACCEPT, "全选", self)
-        self.action_start = Action(FluentIcon.PLAY, "开始", self)
-        self.action_pause = Action(FluentIcon.PAUSE, "暂停", self)
-        self.action_delete = Action(FluentIcon.DELETE, "删除", self)
-        self.action_exit = Action(FluentIcon.CANCEL, "退出批量", self)
-
-        self.command_bar.addAction(self.action_select_all)
-        self.command_bar.addSeparator()
-        self.command_bar.addAction(self.action_start)
-        self.command_bar.addAction(self.action_pause)
-        self.command_bar.addAction(self.action_delete)
-        self.command_bar.addSeparator()
-        self.command_bar.addAction(self.action_exit)
-
-        # 连接 Action 信号
-        self.action_select_all.triggered.connect(self.select_all)
-        self.action_start.triggered.connect(
+        # 连接面板信号 → 页面信号
+        self.batch_panel.select_all_requested.connect(self.select_all)
+        self.batch_panel.deselect_all_requested.connect(lambda: self.model.set_all_selected(False))
+        self.batch_panel.batch_start_requested.connect(
             lambda: self.batch_start_requested.emit(self.get_selected_rows())
         )
-        self.action_pause.triggered.connect(
+        self.batch_panel.batch_pause_requested.connect(
             lambda: self.batch_pause_requested.emit(self.get_selected_rows())
         )
-        self.action_delete.triggered.connect(
-            lambda: self.batch_delete_requested.emit(self.get_selected_rows())
+        self.batch_panel.batch_delete_requested.connect(
+            lambda delete_files: self.batch_delete_requested.emit(
+                self.get_selected_rows(), delete_files
+            )
         )
-        self.action_exit.triggered.connect(lambda: self.set_selection_mode(False))
+        self.batch_panel.batch_exit_requested.connect(lambda: self.set_selection_mode(False))
+
+        # 选中状态变化时更新面板计数
+        self.model.selection_changed.connect(self._update_batch_count)
 
         # 初始隐藏
-        self.command_bar.hide()
+        self.batch_panel.hide()
 
         from qfluentwidgets import qconfig
 
@@ -352,12 +344,12 @@ class UnifiedTaskListPage(QWidget):
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
-        # 固定悬浮栏到底部中央
-        if hasattr(self, "command_bar"):
-            w = self.command_bar.sizeHint().width() + 20
-            h = self.command_bar.sizeHint().height()
+        # 固定悬浮面板到底部中央
+        if hasattr(self, "batch_panel"):
+            w = self.batch_panel.sizeHint().width() + 20
+            h = self.batch_panel.height()
             # 距底部 30 像素
-            self.command_bar.setGeometry((self.width() - w) // 2, self.height() - h - 30, w, h)
+            self.batch_panel.setGeometry((self.width() - w) // 2, self.height() - h - 30, w, h)
 
     def _update_style(self):
         from qfluentwidgets import isDarkTheme
@@ -375,20 +367,27 @@ class UnifiedTaskListPage(QWidget):
 
         self._is_batch_mode = enabled
         self.delegate.set_selection_mode(enabled)
-        # 触发全列表重绘以显示/隐藏复选框
-        self.model.layoutChanged.emit()
 
-        # 控制底层悬浮栏显示
+        # 控制底层悬浮面板显示
         if enabled:
             # 取消之前的所有选中状态，避免残留
-            for task in self.model._tasks:
-                task["is_selected"] = False
-            self.command_bar.show()
-            self.command_bar.raise_()
+            self.model.set_all_selected(False)
+            self.batch_panel.show()
+            self.batch_panel.raise_()
+            self._update_batch_count()
         else:
-            self.command_bar.hide()
+            self.batch_panel.hide()
+            # 安全地通知所有行重绘以隐藏复选框
+            self.model.set_all_selected(False)
 
         self.selection_mode_changed.emit(enabled)
+
+    def _update_batch_count(self) -> None:
+        """更新批量面板的选中计数"""
+        if hasattr(self, "batch_panel"):
+            selected = len(self.model.get_selected_rows())
+            total = self.model.rowCount()
+            self.batch_panel.update_count(selected, total)
 
     def select_all(self) -> None:
         """选择所有可见的卡片"""

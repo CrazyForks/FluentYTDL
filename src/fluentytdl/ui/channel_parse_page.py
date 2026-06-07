@@ -102,6 +102,7 @@ class ChannelParsePage(QWidget):
         self.btnLayout.addWidget(self.scopeLabel)
 
         from qfluentwidgets import ComboBox
+
         self.scopeCombo = ComboBox(self)
         self.scopeCombo.addItem("全部 / 智能探测", userData="all")
         self.scopeCombo.addItem("仅常规视频", userData="videos")

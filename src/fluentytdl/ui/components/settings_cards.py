@@ -159,8 +159,6 @@ class ComponentSettingCard(SettingCard):
             exe_name = "deno.exe"
         elif self.component_key == "pot-provider":
             exe_name = "bgutil-pot-provider.exe"
-        elif self.component_key == "ytarchive":
-            exe_name = "ytarchive.exe"
         elif self.component_key == "atomicparsley":
             exe_name = "AtomicParsley.exe"
 

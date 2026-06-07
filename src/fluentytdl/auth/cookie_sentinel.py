@@ -179,10 +179,10 @@ class CookieSentinel:
             logger.debug("[CookieSentinel] Cookie 文件缺少来源元数据")
             return False, None
 
-        # DLE 多账号场景下，source 可能写成 dle:<account_id>，此时视为与 dle 一致
+        # WebView2 多账号场景下，source 可能写成 webview2:<account_id>，此时视为与 dle 一致
         normalized_actual = actual_source
-        if isinstance(actual_source, str) and actual_source.startswith("dle:"):
-            normalized_actual = "dle"
+        if isinstance(actual_source, str) and actual_source.startswith("webview2:"):
+            normalized_actual = "webview2"
 
         if normalized_actual != expected_source:
             logger.debug(
@@ -304,18 +304,20 @@ class CookieSentinel:
                     logger.info("[CookieSentinel] 未启用验证源，跳过静默刷新")
                     return
 
-                # DLE 模式是交互式流程（需用户登录），不能在启动时自动触发
-                if current_source == AuthSourceType.DLE:
+                # WebView2 模式是交互式流程（需用户登录），不能在启动时自动触发
+                if current_source == AuthSourceType.WEBVIEW2:
                     cache_file = auth_service.get_cookie_file_for_ytdlp(
                         platform="youtube", force_refresh=False
                     )
                     if cache_file and Path(cache_file).exists():
-                        account = auth_service.current_dle_account
+                        account = auth_service.current_webview2_account
                         source_tag = (
-                            f"dle:{account.account_id}" if account and account.account_id else "dle"
+                            f"webview2:{account.account_id}"
+                            if account and account.account_id
+                            else "webview2"
                         )
 
-                        logger.info("[CookieSentinel] DLE 模式：使用已缓存的 Cookie 文件")
+                        logger.info("[CookieSentinel] WebView2 模式：使用已缓存的 Cookie 文件")
                         import shutil
 
                         shutil.copy2(str(cache_file), self.cookie_path)
@@ -327,13 +329,13 @@ class CookieSentinel:
                         self._save_meta(source_tag, auth_service.last_status.cookie_count)
 
                         if auth_service.last_status.valid:
-                            logger.info("[CookieSentinel] DLE Cookie 有效")
+                            logger.info("[CookieSentinel] WebView2 Cookie 有效")
                         else:
                             logger.warning(
-                                f"[CookieSentinel] DLE Cookie 无效: {auth_service.last_status.message}"
+                                f"[CookieSentinel] WebView2 Cookie 无效: {auth_service.last_status.message}"
                             )
                     else:
-                        logger.info("[CookieSentinel] DLE 模式：无缓存 Cookie，等待用户登录")
+                        logger.info("[CookieSentinel] WebView2 模式：无缓存 Cookie，等待用户登录")
                     return
 
                 # 获取期望的来源标识
@@ -446,10 +448,12 @@ class CookieSentinel:
             if success:
                 # 提取成功，保存元数据，清除回退状态
                 source_id = current_source.value
-                if current_source == AuthSourceType.DLE:
-                    account = auth_service.current_dle_account
+                if current_source == AuthSourceType.WEBVIEW2:
+                    account = auth_service.current_webview2_account
                     source_id = (
-                        f"dle:{account.account_id}" if account and account.account_id else "dle"
+                        f"webview2:{account.account_id}"
+                        if account and account.account_id
+                        else "webview2"
                     )
 
                 self._save_meta(source_id, auth_service.last_status.cookie_count)
@@ -524,7 +528,12 @@ class CookieSentinel:
         # 检测来源不匹配
         source_mismatch = False
         if self.exists and actual_source and configured_source:
-            source_mismatch = actual_source != configured_source
+            # WebView2 多账号时 actual_source 格式为 "webview2:<account_id>"
+            # 归一化后与 configured_source "webview2" 比较
+            normalized_actual = (
+                actual_source.split(":")[0] if ":" in actual_source else actual_source
+            )
+            source_mismatch = normalized_actual != configured_source
 
         # 实时读取 Cookie 文件，获取真实数量和有效性
         cookie_count = 0
@@ -579,16 +588,16 @@ class CookieSentinel:
             "arc": "Arc",
             "firefox": "Firefox",
             "librewolf": "LibreWolf",
-            "dle": "登录获取 (DLE)",
+            "webview2": "登录获取 (WebView2)",
             "file": "手动导入",
         }
 
-        if source_id.startswith("dle:"):
+        if source_id.startswith("webview2:"):
             account_id = source_id.split(":", 1)[1]
-            account = auth_service.current_dle_account
+            account = auth_service.current_webview2_account
             if account and account.account_id == account_id:
-                return f"登录获取 (DLE - {account.display_name})"
-            return f"登录获取 (DLE - {account_id[:8]})"
+                return f"登录获取 (WebView2 - {account.display_name})"
+            return f"登录获取 (WebView2 - {account_id[:8]})"
 
         return display_names.get(source_id, source_id)
 

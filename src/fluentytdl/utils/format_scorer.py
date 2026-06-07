@@ -96,6 +96,7 @@ class ScoringContext:
     audio_track_count: int = 1
     """音轨数量（> 1 时因 mp4 对多音轨支持不佳，强制或建议升级为 mkv）"""
 
+
 # ── 音频打分 ──────────────────────────────────────────────────
 
 # 偏好权重常数（等差间距，第 10 个偏好仍有效）
@@ -115,6 +116,7 @@ def score_audio_format(f: dict[str, Any], ctx: ScoringContext) -> int:
     """
     lang = str(f.get("language") or "").strip().lower()
     ttype = str(f.get("audio_track_type") or "").strip().lower()
+    format_note = str(f.get("format_note") or "").strip().lower()
     abr = int(f.get("abr") or f.get("tbr") or 0)
     ext = str(f.get("ext") or "").strip().lower()
     acodec = str(f.get("acodec") or "").strip().lower()
@@ -126,10 +128,25 @@ def score_audio_format(f: dict[str, Any], ctx: ScoringContext) -> int:
         if ext in {"m4a", "aac"} or "mp4a" in acodec or "aac" in acodec:
             affinity_bonus = 2000
 
-    is_orig = ttype == "original" or lang in {"orig", "original"}
+    # 综合判断是否为原音 (yt-dlp 经常将 original 放在 format_note 中)
+    is_orig = (
+        ttype == "original"
+        or "original" in format_note
+        or "default" in format_note
+        or lang in {"orig", "original"}
+    )
+
+    # 配音类型加权：确保在同一语言偏好等级下，原音 > 人工配音 > AI配音
+    dub_bonus = 0
+    if is_orig:
+        dub_bonus = 50000
+    elif "auto" in format_note or "translated" in format_note or "ai " in format_note:
+        dub_bonus = -50000
+    elif "dubbed" in format_note or ttype == "dubbed":
+        dub_bonus = 10000
 
     for i, pref in enumerate(ctx.preferred_audio_langs):
-        score = _AUDIO_PREF_BASE - i * _AUDIO_PREF_STEP + affinity_bonus
+        score = _AUDIO_PREF_BASE - i * _AUDIO_PREF_STEP + affinity_bonus + dub_bonus
         p = pref.strip().lower()
         if p == "orig" and is_orig:
             return score + abr
@@ -138,8 +155,8 @@ def score_audio_format(f: dict[str, Any], ctx: ScoringContext) -> int:
 
     # 无偏好命中
     if is_orig:
-        return _AUDIO_ORIG_BONUS + affinity_bonus + abr
-    return affinity_bonus + abr
+        return _AUDIO_ORIG_BONUS + affinity_bonus + dub_bonus + abr
+    return affinity_bonus + dub_bonus + abr
 
 
 # ── 视频打分（保留旧函数签名供其他模块按需调用）────────────────
@@ -185,8 +202,6 @@ def score_video_format(f: dict[str, Any], is_simple_mode: bool = True) -> int:
 
 
 # ── 容器决策 ──────────────────────────────────────────────────
-
-
 
 
 def decide_merge_container(

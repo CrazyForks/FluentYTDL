@@ -4,6 +4,7 @@
 所有容器格式决策和字幕兼容性修正必须通过本模块执行。
 禁止在其他文件中复制此逻辑。
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -12,9 +13,7 @@ from typing import Any
 _SUBTITLE_COMPATIBLE_CONTAINERS = {"mp4", "mkv", "mov", "m4v"}
 
 
-def choose_lossless_merge_container(
-    video_ext: str | None, audio_ext: str | None
-) -> str | None:
+def choose_lossless_merge_container(video_ext: str | None, audio_ext: str | None) -> str | None:
     """无损合并容器推断。
 
     - mp4+m4a → mp4
@@ -61,7 +60,9 @@ def ensure_subtitle_compatible_container(opts: dict[str, Any]) -> None:
         opts["merge_output_format"] = "mkv"
 
 
-def check_container_codec_compat(container: str, vcodec: str | None, acodec: str | None) -> list[str]:
+def check_container_codec_compat(
+    container: str, vcodec: str | None, acodec: str | None
+) -> list[str]:
     """
     检查容器与编解码器的兼容性，返回警告消息列表。
     """
@@ -77,7 +78,9 @@ def check_container_codec_compat(container: str, vcodec: str | None, acodec: str
 
     if container == "mp4":
         if vcodec.startswith("vp") or vcodec.startswith("av01"):
-            warnings.append(f"⚠️ {vcodec.upper()} 视频流封装为 MP4 可能需要转码或支持不佳，可能耗时较长。")
+            warnings.append(
+                f"⚠️ {vcodec.upper()} 视频流封装为 MP4 可能需要转码或支持不佳，可能耗时较长。"
+            )
         if acodec == "opus":
             warnings.append("⚠️ Opus 音频流封装为 MP4 通常需要重做编码，将触发 FFmpeg 慢速转码。")
 
@@ -90,7 +93,9 @@ def check_container_codec_compat(container: str, vcodec: str | None, acodec: str
     return warnings
 
 
-def check_subtitle_container_compat(container: str, embed_subtitles: bool, subtitle_lang_count: int) -> str | None:
+def check_subtitle_container_compat(
+    container: str, embed_subtitles: bool, subtitle_lang_count: int
+) -> str | None:
     """
     检查显式指定的容器与字幕嵌入的兼容性。
     返回冲突描述字符串，或 None 表示无冲突。
@@ -109,7 +114,9 @@ def check_subtitle_container_compat(container: str, embed_subtitles: bool, subti
     return None
 
 
-def ensure_audio_multistream_compatible_container(opts: dict[str, Any], audio_track_count: int) -> None:
+def ensure_audio_multistream_compatible_container(
+    opts: dict[str, Any], audio_track_count: int
+) -> None:
     """确保容器格式支持多音轨（原地修改 opts）。"""
     if audio_track_count <= 1 and not opts.get("audio_multistreams"):
         return

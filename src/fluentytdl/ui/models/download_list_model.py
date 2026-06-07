@@ -57,7 +57,7 @@ class DownloadListModel(QAbstractListModel):
 
     def add_task(self, worker: DownloadWorker, title: str, thumbnail: str) -> None:
         """从主程序追加一个全新的任务进入列队末尾或头部"""
-        # 我们插入到头部 (最新任务在最上面)
+        # 我们插入到头部 (类似于队列，先添加的在最上面)
         row = 0
         self.beginInsertRows(QModelIndex(), row, row)
 
@@ -169,7 +169,15 @@ class DownloadListModel(QAbstractListModel):
     # === 状态汇总统计 (适配顶部 Pivot) ===
 
     def get_counts_by_state(self) -> dict[str, int]:
-        counts = {"all": 0, "running": 0, "queued": 0, "paused": 0, "completed": 0, "error": 0}
+        counts = {
+            "all": 0,
+            "running": 0,
+            "queued": 0,
+            "paused": 0,
+            "quality_guard": 0,
+            "completed": 0,
+            "error": 0,
+        }
         for task in self._tasks:
             worker = task.get("worker")
             if not worker:

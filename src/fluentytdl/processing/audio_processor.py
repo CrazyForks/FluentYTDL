@@ -315,7 +315,13 @@ class AudioProcessor:
 
             env = get_clean_env()
             result = subprocess.run(
-                cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, **kwargs
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+                **kwargs,
             )
 
             if result.returncode != 0:
@@ -425,7 +431,13 @@ class AudioProcessor:
 
             env = get_clean_env()
             result = subprocess.run(
-                cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, **kwargs
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+                **kwargs,
             )
 
             if result.returncode != 0:

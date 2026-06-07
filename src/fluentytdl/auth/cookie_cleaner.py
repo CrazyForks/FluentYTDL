@@ -58,7 +58,7 @@ class CookieCleaner:
 
     @classmethod
     def clean(
-        cls, cookies: list[dict[str, Any]], platform: str = "youtube"
+        cls, cookies: list[dict[str, Any]], platform: str = "youtube", enable_cleaning: bool = True
     ) -> list[dict[str, Any]]:
         """
         清洗 Cookie 列表
@@ -98,7 +98,7 @@ class CookieCleaner:
 
             # 1. 域名过滤
             domain = cookie.get("domain", "")
-            if allowed_domains and domain not in allowed_domains:
+            if enable_cleaning and allowed_domains and domain not in allowed_domains:
                 # 尝试模糊匹配 (如 .google.com 匹配)
                 if not any(domain.endswith(d) or d.endswith(domain) for d in allowed_domains):
                     ignored_domains.add(domain)
@@ -106,7 +106,7 @@ class CookieCleaner:
 
             # 2. Name 过滤 (仅限 YouTube)
             name = cookie.get("name", "")
-            if allowed_names is not None and name not in allowed_names:
+            if enable_cleaning and allowed_names is not None and name not in allowed_names:
                 ignored_names.add(name)
                 continue
 

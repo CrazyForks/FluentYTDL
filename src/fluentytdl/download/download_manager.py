@@ -58,16 +58,25 @@ class DownloadManager(QObject):
                 )
                 continue
 
-            # 如果重启前是运行/解析状态，自动降级为暂停，防止重启瞬间并发爆炸
-            if state in ("running", "downloading", "parsing"):
+            # 如果重启前是运行、解析或排队状态，一律自动降级为暂停，不自动恢复下载
+            if state in ("running", "downloading", "parsing", "queued"):
                 state = "paused"
                 task_db.update_task_status(
                     row["id"], state, row.get("progress", 0.0), "⏸️ 下载已暂停 (应用重启)"
                 )
-                
+
             # error 状态不入队也不 start，仅创建 Worker 壳展示在 UI
             if state == "error":
-                self._restore_task_to_ui(row, opts, state)
+                cached = {"title": row.get("title", ""), "thumbnail": row.get("thumbnail_url", "")}
+                worker = self.create_worker(
+                    row["url"], opts, cached_info=cached, restore_db_id=row["id"]
+                )
+                worker._final_state = "error"
+                worker.progress_val = row.get("progress", 0.0)
+                worker.status_text = row.get("status_text", "")
+                worker.v_title = row.get("title", "")
+                worker.v_thumbnail = row.get("thumbnail_url", "")
+                worker.output_path = row.get("output_path", "")
                 continue
 
             cached = {"title": row.get("title", ""), "thumbnail": row.get("thumbnail_url", "")}
@@ -229,11 +238,33 @@ class DownloadManager(QObject):
         return False
 
     def stop_all(self) -> None:
-        # Clear queued tasks first (so they won't start after pausing).
         self._pending_workers.clear()
         for worker in list(self.active_workers):
             if worker.isRunning():
-                worker.stop()
+                worker.cancel()
+
+    def suspend_pending(self) -> int:
+        """挂起所有处于排队状态的任务。返回被挂起的任务数量"""
+        count = 0
+        pending_list = list(self._pending_workers)
+        self._pending_workers.clear()
+
+        for worker in pending_list:
+            if not worker.isRunning() and not worker.isFinished():
+                worker._final_state = "quality_guard"
+                from ..storage.db_writer_thread import db_writer
+
+                db_writer.enqueue_status(
+                    worker.db_id, "quality_guard", 0.0, "风控防御：质量异常过多，排队任务已挂起"
+                )
+                if hasattr(worker, "unified_status"):
+                    worker.unified_status.emit("quality_guard", 0.0, "风控防御挂起")
+                count += 1
+
+        if count > 0:
+            self.task_updated.emit()
+
+        return count
 
     def shutdown(self, grace_ms: int = 2000) -> bool:
         """Stop all workers and wait for them to exit.
@@ -276,7 +307,7 @@ class DownloadManager(QObject):
         self._remove_from_pending(worker)
         if worker in self.active_workers:
             if worker.isRunning():
-                worker.stop()
+                worker.cancel()
                 # 移除阻塞式等待，防 UI 卡死
             self.active_workers.remove(worker)
             self.task_updated.emit()

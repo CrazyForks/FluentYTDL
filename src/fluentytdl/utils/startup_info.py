@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 
@@ -44,7 +43,6 @@ def _quick_detect_version(key: str, exe_path: Path) -> str:
         "ffmpeg": [str(exe_path), "-version"],
         "deno": [str(exe_path), "--version"],
         "pot-provider": [str(exe_path), "--version"],
-        "ytarchive": [str(exe_path), "--version"],
         "atomicparsley": [str(exe_path), "--version"],
     }
 
@@ -84,10 +82,6 @@ def _quick_detect_version(key: str, exe_path: Path) -> str:
             m = re.search(r"(\d+\.\d+\.\d+)", first_line)
             if m:
                 return m.group(1)
-        elif key == "ytarchive":
-            m = re.search(r"v?(\d+\.\d+\.\d+)", first_line)
-            if m:
-                return m.group(1)
         elif key == "atomicparsley":
             m = re.search(r"(\d{8}\.\d{6})", first_line)
             if m:
@@ -123,9 +117,7 @@ def log_startup_info() -> None:
 
     logger.info("=" * 50)
     logger.info(f"  FluentYTDL {__version__} 启动")
-    logger.info(
-        f"  Python {sys.version.split()[0]} | PySide6 {pyside_version} | Qt {qt_version}"
-    )
+    logger.info(f"  Python {sys.version.split()[0]} | PySide6 {pyside_version} | Qt {qt_version}")
     logger.info(f"  安装类型: {install_type} | 路径: {app_dir}")
     logger.info("-" * 50)
 
@@ -142,7 +134,6 @@ def log_startup_info() -> None:
         ("ffmpeg", "ffmpeg/ffmpeg.exe"),
         ("deno", "deno/deno.exe"),
         ("pot-provider", "pot-provider/bgutil-pot-provider.exe"),
-        ("ytarchive", "ytarchive/ytarchive.exe"),
         ("atomicparsley", "atomicparsley/AtomicParsley.exe"),
     ]
 

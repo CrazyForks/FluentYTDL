@@ -279,8 +279,6 @@ class DownloadItemCard(CardWidget):
         except Exception:
             pass
 
-
-
     def _jump_to_settings(self, hint: str) -> None:
         """跳转到设置页并显示提示"""
         try:
@@ -452,14 +450,20 @@ class DownloadItemCard(CardWidget):
         self.actionBtn.setEnabled(True)
         self.actionBtn.setIcon(FluentIcon.PLAY)
         self.actionBtn.setToolTip("继续/重试")
-        
+
         if fix_action:
             # 如果包含诊断出的修复方案，使用 MessageBox 弹出并引导修复
             try:
                 from .fix_registry import execute_fix_action
+
+                detail_text = (
+                    f"{technical_detail[:1000]}..."
+                    if len(technical_detail) > 1000
+                    else technical_detail
+                )
                 box = MessageBox(
                     friendly_title,
-                    f"{err_msg}\n\n[技术详情]\n{technical_detail[:200]}...",
+                    f"{err_msg}\n\n[技术详情]\n{detail_text}",
                     parent=self.window(),
                 )
                 box.yesButton.setText(recovery_hint or "去处理")

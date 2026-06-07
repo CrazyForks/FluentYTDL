@@ -77,7 +77,7 @@ class ChannelExtractWorker(QThread):
 
     progress = Signal(str)  # 进度消息
     finished_tab = Signal(str, dict)  # (tab_name, info_dict)
-    finished_all = Signal(dict) # 汇总信息和状态，用于更新UI组合
+    finished_all = Signal(dict)  # 汇总信息和状态，用于更新UI组合
     error = Signal(dict)
 
     def __init__(
@@ -102,27 +102,31 @@ class ChannelExtractWorker(QThread):
             for i, tab in enumerate(self.target_tabs, 1):
                 if self._cancel_event.is_set():
                     return
-                
+
                 # Format progress message
-                tab_display = {"videos": "常规视频", "shorts": "Shorts", "streams": "直播回放"}.get(tab, tab)
+                tab_display = {"videos": "常规视频", "shorts": "Shorts", "streams": "直播回放"}.get(
+                    tab, tab
+                )
                 self.progress.emit(f"正在解析 {tab_display} ({i}/{total})...")
-                
+
                 url = f"{self.base_url}/{tab}"
-                
+
                 # 直播页面的特定处理，避免卡死在进行中的直播
                 extra_args = ["--flat-playlist", "--lazy-playlist"]
                 if tab == "streams":
                     extra_args.extend(["--match-filter", "is_live != True"])
-                
+
                 try:
                     ydl_opts = dict(youtube_service.build_ydl_options(self.options))
-                    ydl_opts.update({
-                        "skip_download": True,
-                        "extract_flat": True,
-                        "lazy_playlist": True,
-                        "ignoreerrors": False,
-                    })
-                    
+                    ydl_opts.update(
+                        {
+                            "skip_download": True,
+                            "extract_flat": True,
+                            "lazy_playlist": True,
+                            "ignoreerrors": False,
+                        }
+                    )
+
                     info = run_dump_single_json(
                         url, ydl_opts, extra_args=extra_args, cancel_event=self._cancel_event
                     )
@@ -141,10 +145,10 @@ class ChannelExtractWorker(QThread):
                         # 其他错误也标记为不支持以跳过，避免整个任务崩溃
                         logger.warning(f"频道 {tab} 标签页解析出错: {e}")
                         results[tab] = {"status": "unsupported", "data": None}
-            
+
             if self._cancel_event.is_set():
                 return
-                
+
             self.finished_all.emit(results)
 
         except Exception as exc:
@@ -345,7 +349,7 @@ class DownloadWorker(QThread):
                 return "paused"
             return "running"
         fs = getattr(self, "_final_state", "queued")
-        if fs in ("completed", "error", "cancelled", "paused"):
+        if fs in ("completed", "error", "cancelled", "paused", "quality_guard"):
             return fs
         if self.isFinished():
             return "completed"
@@ -443,8 +447,6 @@ class DownloadWorker(QThread):
                 except Exception:
                     pass
 
-
-
     def _clean_part_files(self) -> None:
         """清理 sandbox 内的 .part/.ytdl 残骸，避免 403 后断点续传撞过期 token。"""
         if not hasattr(self, "sandbox_dir") or not self.sandbox_dir:
@@ -491,6 +493,7 @@ class DownloadWorker(QThread):
             # 合并 YoutubeService 的基础反封锁/网络配置
             base_opts = youtube_service.build_ydl_options()
             import copy
+
             merged = copy.deepcopy(base_opts)
             merged.update(copy.deepcopy(self.opts))
 
@@ -527,15 +530,16 @@ class DownloadWorker(QThread):
                 self.download_dir = os.path.abspath(os.getcwd())
 
             # === 沙盒模式分离临时文件与最终目录 ===
-            if not self.opts.get("skip_download", False) and not self.opts.get("__fluentytdl_is_cover_direct", False):
+            if not self.opts.get("skip_download", False) and not self.opts.get(
+                "__fluentytdl_is_cover_direct", False
+            ):
                 db_id_str = str(getattr(self, "db_id", id(self)))
-                self.sandbox_dir = os.path.abspath(os.path.join(self.download_dir, ".fluent_temp", f"task_{db_id_str}"))
+                self.sandbox_dir = os.path.abspath(
+                    os.path.join(self.download_dir, ".fluent_temp", f"task_{db_id_str}")
+                )
                 os.makedirs(self.sandbox_dir, exist_ok=True)
-                
-                merged["paths"] = {
-                    "home": self.sandbox_dir,
-                    "temp": self.sandbox_dir
-                }
+
+                merged["paths"] = {"home": self.sandbox_dir, "temp": self.sandbox_dir}
 
             # === Feature Pipeline: Configuration & Pre-flight ===
             # 构建上下文并运行 Feature 链
@@ -628,48 +632,68 @@ class DownloadWorker(QThread):
                     try:
                         feature.on_post_process(context)
                     except Exception as e:
-                        logger.exception("后处理功能 {} 发生异常: {}", feature.__class__.__name__, e)
+                        logger.exception(
+                            "后处理功能 {} 发生异常: {}", feature.__class__.__name__, e
+                        )
                         context.emit_warning(f"后处理异常 ({feature.__class__.__name__}): {str(e)}")
-                
+
                 # ── 转移上岸 (Extraction) ──
                 if hasattr(self, "sandbox_dir") and os.path.exists(self.sandbox_dir):
                     self._clean_logger.force_update("completed", 99.0, "📦 正在整理文件...")
                     import shutil
-                    
+
                     final_moved_path = None
                     try:
                         for entry in os.scandir(self.sandbox_dir):
-                            if entry.is_file() and not entry.name.endswith(".part") and not entry.name.endswith(".ytdl"):
+                            if (
+                                entry.is_file()
+                                and not entry.name.endswith(".part")
+                                and not entry.name.endswith(".ytdl")
+                            ):
                                 src = entry.path
                                 dst = os.path.join(self.download_dir, entry.name)
-                                
+
                                 # Move the file
                                 if os.path.exists(dst):
                                     os.remove(dst)
                                 shutil.move(src, dst)
-                                
+
                                 # Check if this is the main output path
-                                if self.output_path and os.path.basename(self.output_path) == entry.name:
+                                if (
+                                    self.output_path
+                                    and os.path.basename(self.output_path) == entry.name
+                                ):
                                     final_moved_path = dst
-                                elif not self.output_path and not entry.name.endswith((".jpg", ".jpeg", ".png", ".webp", ".srt", ".vtt", ".ass", ".lrc")):
+                                elif not self.output_path and not entry.name.endswith(
+                                    (
+                                        ".jpg",
+                                        ".jpeg",
+                                        ".png",
+                                        ".webp",
+                                        ".srt",
+                                        ".vtt",
+                                        ".ass",
+                                        ".lrc",
+                                    )
+                                ):
                                     final_moved_path = dst
-                                
+
                         if final_moved_path:
                             self.output_path = final_moved_path
                             self.output_path_ready.emit(final_moved_path)
                         elif self.output_path and not self.output_path.startswith(self.sandbox_dir):
                             self.output_path_ready.emit(self.output_path)
-                            
+
                         # Clean up sandbox
                         shutil.rmtree(self.sandbox_dir, ignore_errors=True)
                     except Exception as e:
                         logger.warning("移动沙盒文件失败: {}", e)
                         if self.output_path:
-                             self.output_path_ready.emit(self.output_path)
+                            self.output_path_ready.emit(self.output_path)
                 else:
                     if self.output_path:
                         self.output_path_ready.emit(self.output_path)
-                
+
                 self._clean_logger.force_update("completed", 100.0, "✅ 下载并处理完成！")
                 self.completed.emit()
 
@@ -685,13 +709,15 @@ class DownloadWorker(QThread):
         except YtDlpExecutionError as exc:
             logger.exception("yt-dlp 执行错误: {}", self.url)
             pct = getattr(self, "progress_val", 0.0)
-            
+
             # 使用新的诊断引擎生成结构化错误
             diag = diagnose_error(exc.exit_code, exc.stderr, exc.parsed_json)
-            
+
             # 更新内部状态和日志
-            self._clean_logger.force_update("error", pct, f"❌ {diag.user_title}: {diag.user_message}")
-            
+            self._clean_logger.force_update(
+                "error", pct, f"❌ {diag.user_title}: {diag.user_message}"
+            )
+
             # 传递结构化的 DiagnosedError 给 UI 层
             self.error.emit(diag.to_dict())
 
@@ -699,9 +725,9 @@ class DownloadWorker(QThread):
             msg = str(exc)
             logger.exception("下载过程发生未知异常: {}", self.url)
             pct = getattr(self, "progress_val", 0.0)
-            
+
             self._clean_logger.force_update("error", pct, f"❌ 错误: {msg}")
-            
+
             # 兼容旧逻辑：如果是纯文本 Exception，依然通过 translate_error 进行基本的处理
             # 实际上 translate_error 也可以被废弃，我们现在直接传结构化 dict
             err_dict = translate_error(exc)
@@ -772,7 +798,7 @@ class DownloadWorker(QThread):
         subtitleslangs = opts.get("subtitleslangs")
         if isinstance(subtitleslangs, (list, tuple)) and subtitleslangs:
             cmd += ["--sub-langs", ",".join(str(lang) for lang in subtitleslangs)]
-        
+
         convert_subs = opts.get("convertsubtitles")
         if isinstance(convert_subs, str) and convert_subs:
             cmd += ["--convert-subs", convert_subs]
@@ -827,6 +853,7 @@ class DownloadWorker(QThread):
                 pass
 
         from ..download.output_parser import YtDlpOutputParser
+
         parser = YtDlpOutputParser()
         self._clean_logger.force_update("parsing", 0.0, "⚡ 正在初始化提取引擎...")
 
@@ -900,6 +927,7 @@ class DownloadWorker(QThread):
                 logger.warning("[LightweightExtract] yt-dlp 退出码 {}", rc)
                 self._clean_logger.force_update("error", 100.0, f"❌ 错误: yt-dlp 退出码 {rc}")
                 from ..youtube.error_translator import translate_error
+
                 self.error.emit(translate_error(RuntimeError(f"yt-dlp 退出码 {rc}")))
             else:
                 self._clean_logger.force_update("completed", 100.0, "✅ 提取完成")
@@ -928,8 +956,8 @@ class DownloadWorker(QThread):
         opts = self.opts
         outtmpl = opts.get("outtmpl")
         if isinstance(outtmpl, str) and outtmpl:
-             cmd += ["-o", outtmpl]
-        
+            cmd += ["-o", outtmpl]
+
         # Paths
         paths = opts.get("paths")
         if isinstance(paths, dict):
@@ -937,7 +965,7 @@ class DownloadWorker(QThread):
             if isinstance(home, str) and home.strip():
                 cmd += ["-P", home.strip()]
                 self.download_dir = os.path.abspath(home.strip())
-                
+
         # Proxy
         proxy = opts.get("proxy")
         if isinstance(proxy, str) and proxy:
@@ -946,7 +974,7 @@ class DownloadWorker(QThread):
         cmd.append(self.url)
         logger.info("[CoverDirect] cmd={}", " ".join(cmd))
         env = prepare_yt_dlp_env()
-        
+
         extra_kw: dict[str, Any] = {}
         if os.name == "nt":
             try:
@@ -959,19 +987,28 @@ class DownloadWorker(QThread):
         try:
             cwd = self.download_dir or os.getcwd()
             os.makedirs(cwd, exist_ok=True)
-            
+
             proc = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=False, env=env, cwd=cwd, **extra_kw,
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=False,
+                env=env,
+                cwd=cwd,
+                **extra_kw,
             )
             self._proc_ref = proc
             assert proc.stdout is not None
-            
+
             for raw in proc.stdout:
                 if self.is_cancelled:
                     try:
                         if os.name == "nt":
-                            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
+                            subprocess.run(
+                                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                                capture_output=True,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+                            )
                         else:
                             proc.terminate()
                     except Exception:
@@ -984,13 +1021,18 @@ class DownloadWorker(QThread):
                 except UnicodeDecodeError:
                     line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
                 if line and "Destination:" in line:
-                    self._clean_logger.force_update("downloading", 50.0, f"正在保存: {os.path.basename(line.split('Destination: ')[-1])}")
-                    
+                    self._clean_logger.force_update(
+                        "downloading",
+                        50.0,
+                        f"正在保存: {os.path.basename(line.split('Destination: ')[-1])}",
+                    )
+
             rc = proc.wait()
             self._proc_ref = None
             if rc != 0:
                 self._clean_logger.force_update("error", 100.0, f"❌ 错误: yt-dlp 退出码 {rc}")
                 from ..youtube.error_translator import translate_error
+
                 self.error.emit(translate_error(RuntimeError(f"yt-dlp 退出码 {rc}")))
             else:
                 self._clean_logger.force_update("completed", 100.0, "✅ 下载完成")
@@ -999,6 +1041,7 @@ class DownloadWorker(QThread):
             logger.exception("[CoverDirect] 提取失败: {}", self.url)
             self._clean_logger.force_update("error", 0.0, f"❌ 错误: {exc}")
             from ..youtube.error_translator import translate_error
+
             self.error.emit(translate_error(exc))
         finally:
             self.is_running = False

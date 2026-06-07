@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from ..core.config_manager import config_manager
 from ..utils.logger import logger
 from .cookie_cleaner import CookieCleaner
 
@@ -80,8 +81,8 @@ class AuthSourceType(str, Enum):
     LIBREWOLF = "librewolf"  # LibreWolf
     # 其它第三方定制
     CENT = "centbrowser"  # 百分浏览器
-    # DLE 登录获取
-    DLE = "dle"  # 动态本地插件注入登录
+    # WebView2 登录获取
+    WEBVIEW2 = "webview2"  # 动态本地注入登录
     # 其他
     FILE = "file"  # 手动导入的 cookies.txt
 
@@ -167,8 +168,8 @@ class AuthProfile:
 
 
 @dataclass
-class DLEAccount:
-    """DLE 多账号配置"""
+class WebView2Account:
+    """WebView2 多账号配置"""
 
     account_id: str
     display_name: str
@@ -185,7 +186,7 @@ class DLEAccount:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> DLEAccount:
+    def from_dict(cls, data: dict[str, Any]) -> WebView2Account:
         known = {f.name for f in cls.__dataclass_fields__.values()}
         return cls(**{k: v for k, v in data.items() if k in known})
 
@@ -209,25 +210,25 @@ class AuthService:
 
         self._config_path = self.cache_dir / "auth_config.json"
         self._profiles_path = self.cache_dir / "profiles.json"
-        self._dle_accounts_dir = self._runtime_bin_dir / "dle_user"
-        self._dle_accounts_path = self._dle_accounts_dir / "accounts.json"
-        self._dle_accounts_dir.mkdir(parents=True, exist_ok=True)
+        self._webview2_accounts_dir = self._runtime_bin_dir / "dle_user"
+        self._webview2_accounts_path = self._webview2_accounts_dir / "accounts.json"
+        self._webview2_accounts_dir.mkdir(parents=True, exist_ok=True)
 
         # 当前配置
         self._current_source: AuthSourceType = AuthSourceType.NONE
         self._current_file_path: str | None = None
         self._auto_refresh: bool = True
         self._last_status: AuthStatus = AuthStatus()
-        self._current_dle_account_id: str | None = None
+        self._current_webview2_account_id: str | None = None
 
         # 高级：多账户配置
         self._profiles: dict[str, AuthProfile] = {}
-        self._dle_accounts: dict[str, DLEAccount] = {}
+        self._webview2_accounts: dict[str, WebView2Account] = {}
 
         self._load_config()
-        self._load_dle_accounts()
-        self._migrate_legacy_dle_cache_if_needed()
-        self._ensure_current_dle_account_valid()
+        self._load_webview2_accounts()
+        self._migrate_legacy_webview2_cache_if_needed()
+        self._ensure_current_webview2_account_valid()
 
     # ==================== 属性 ====================
 
@@ -257,7 +258,7 @@ class AuthService:
             AuthSourceType.FIREFOX: "Firefox 浏览器",
             AuthSourceType.LIBREWOLF: "LibreWolf 浏览器",
             AuthSourceType.CENT: "百分浏览器 (Cent)",
-            AuthSourceType.DLE: "登录获取 (推荐)",
+            AuthSourceType.WEBVIEW2: "登录获取 (推荐)",
             AuthSourceType.FILE: "手动导入文件",
         }
         return names.get(self._current_source, "未知")
@@ -273,16 +274,16 @@ class AuthService:
         return self._last_status
 
     @property
-    def current_dle_account_id(self) -> str | None:
-        """当前激活的 DLE 账号 ID"""
-        return self._current_dle_account_id
+    def current_webview2_account_id(self) -> str | None:
+        """当前激活的 WebView2 账号 ID"""
+        return self._current_webview2_account_id
 
     @property
-    def current_dle_account(self) -> DLEAccount | None:
-        """当前激活的 DLE 账号"""
-        if not self._current_dle_account_id:
+    def current_webview2_account(self) -> WebView2Account | None:
+        """当前激活的 WebView2 账号"""
+        if not self._current_webview2_account_id:
             return None
-        return self._dle_accounts.get(self._current_dle_account_id)
+        return self._webview2_accounts.get(self._current_webview2_account_id)
 
     # ==================== 核心方法 ====================
 
@@ -359,8 +360,9 @@ class AuthService:
                         cookies = self._parse_netscape_cookies(content)
                         original_count = len(cookies)
 
-                        # 清洗
-                        cookies = CookieCleaner.clean(cookies, platform)
+                        cookies = CookieCleaner.clean(
+                            cookies, platform, config_manager.get("cookie_cleaning_enabled", True)
+                        )
                         cleaned_count = len(cookies)
                         if original_count != cleaned_count:
                             logger.info(
@@ -383,17 +385,17 @@ class AuthService:
                     )
                     return None
 
-            elif self._current_source == AuthSourceType.DLE:
-                # DLE 登录获取：使用动态插件提取
-                cache_file = self._get_dle_cache_file(platform)
+            elif self._current_source == AuthSourceType.WEBVIEW2:
+                # WebView2 登录获取：使用动态插件提取
+                cache_file = self._get_webview2_cache_file(platform)
 
-                # DLE 是交互式流程，仅在用户显式点击刷新 (force_refresh=True) 时才启动浏览器
+                # WebView2 是交互式流程，仅在用户显式点击刷新 (force_refresh=True) 时才启动浏览器
                 # 其他场景（启动同步、下载前检查）只使用已有缓存
                 if force_refresh:
                     try:
                         from .providers.webview2_provider import WebView2CookieProvider
 
-                        account = self.current_dle_account
+                        account = self.current_webview2_account
                         profile_dir = account.profile_dir if account else None
                         account_label = account.display_name if account else "default"
                         profile_has_data = False
@@ -405,7 +407,7 @@ class AuthService:
                             except Exception:
                                 profile_has_data = False
 
-                        logger.info(f"开始 DLE 登录流程（账号: {account_label}）...")
+                        logger.info(f"开始 WebView2 登录流程（账号: {account_label}）...")
                         provider = WebView2CookieProvider()
                         cookies = provider.extract_cookies(
                             storage_path=profile_dir,
@@ -435,27 +437,31 @@ class AuthService:
                                     "http_only": c.get("httpOnly", False),
                                 }
                             )
-                        cookies_dicts = CookieCleaner.clean(cookies_dicts, platform)
+                        cookies_dicts = CookieCleaner.clean(
+                            cookies_dicts,
+                            platform,
+                            config_manager.get("cookie_cleaning_enabled", True),
+                        )
 
                         # 写入 Netscape 格式缓存
                         self._write_netscape_file(cookies_dicts, cache_file)
-                        self._mark_current_dle_account_refreshed(
+                        self._mark_current_webview2_account_refreshed(
                             cache_file=cache_file,
                             cookie_count=len(cookies_dicts),
                             valid=True,
                         )
 
                         logger.info(
-                            f"DLE 登录成功，Cookie 已保存: {cache_file} ({len(cookies_dicts)} 个)"
+                            f"WebView2 登录成功，Cookie 已保存: {cache_file} ({len(cookies_dicts)} 个)"
                         )
 
                     except Exception as e:
-                        logger.error(f"DLE 登录流程失败: {e}")
+                        logger.error(f"WebView2 登录流程失败: {e}")
                         self._last_status = AuthStatus(
                             valid=False,
                             message=f"登录失败: {e}",
                         )
-                        self._mark_current_dle_account_refreshed(
+                        self._mark_current_webview2_account_refreshed(
                             cache_file=cache_file,
                             cookie_count=0,
                             valid=False,
@@ -467,7 +473,7 @@ class AuthService:
                     self._update_status_from_file(str(cache_file))
                     return str(cache_file)
                 else:
-                    logger.info("DLE 模式：无缓存 Cookie，请在设置页点击「立即刷新」登录获取")
+                    logger.info("WebView2 模式：无缓存 Cookie，请在设置页点击「立即刷新」登录获取")
                     self._last_status = AuthStatus(
                         valid=False,
                         message="尚未登录获取 Cookie，请在设置页点击「立即刷新」",
@@ -532,7 +538,9 @@ class AuthService:
             # 手动导入文件时，先进行合规清洗以反映实际的有效数量
             from .cookie_cleaner import CookieCleaner
 
-            cookies = CookieCleaner.clean(cookies, "youtube")
+            cookies = CookieCleaner.clean(
+                cookies, "youtube", config_manager.get("cookie_cleaning_enabled", True)
+            )
 
             if not cookies:
                 return AuthStatus(valid=False, message="文件为空或格式无效")
@@ -562,7 +570,9 @@ class AuthService:
             # 强化清洗过滤
             from .cookie_cleaner import CookieCleaner
 
-            cookies = CookieCleaner.clean(cookies, platform)
+            cookies = CookieCleaner.clean(
+                cookies, platform, config_manager.get("cookie_cleaning_enabled", True)
+            )
 
             # 再校验一次核心凭证
             validation = self._validate_cookies(cookies, platform)
@@ -599,7 +609,7 @@ class AuthService:
         """
         从浏览器提取 Cookie 并缓存 (rookiepy 方式)
 
-        DLE 登录获取已由 get_cookie_file_for_ytdlp 中的 DLE 分支处理，
+        WebView2 登录获取已由 get_cookie_file_for_ytdlp 中的 WebView2 分支处理，
         此方法仅用于传统浏览器提取 (rookiepy)。
         """
 
@@ -656,7 +666,9 @@ class AuthService:
             logger.info(f"从 {browser} 提取到 {len(cookies)} 个 Cookie")
 
             # 使用 CookieCleaner 进行合规清洗
-            cookies = CookieCleaner.clean(cookies, platform)
+            cookies = CookieCleaner.clean(
+                cookies, platform, config_manager.get("cookie_cleaning_enabled", True)
+            )
 
         except Exception as e:
             logger.warning(f"直接提取失败: {e}")
@@ -965,7 +977,7 @@ class AuthService:
             "source": self._current_source.value,
             "file_path": self._current_file_path,
             "auto_refresh": self._auto_refresh,
-            "current_dle_account_id": self._current_dle_account_id,
+            "current_webview2_account_id": self._current_webview2_account_id,
             "updated_at": datetime.now().isoformat(),
         }
         with open(self._config_path, "w", encoding="utf-8") as f:
@@ -974,24 +986,24 @@ class AuthService:
     def _load_config(self) -> None:
         """加载配置"""
         if not self._config_path.exists():
-            # 默认使用 DLE 登录获取
-            self._current_source = AuthSourceType.DLE
+            # 默认使用 WebView2 登录获取
+            self._current_source = AuthSourceType.WEBVIEW2
             self._auto_refresh = False
-            logger.info("首次启动，默认使用 DLE 登录获取验证")
+            logger.info("首次启动，默认使用 WebView2 登录获取验证")
             self._save_config()
             return
 
         try:
             with open(self._config_path, encoding="utf-8") as f:
                 data = json.load(f)
-            source_value = data.get("source", "dle")  # 默认 dle
-            # 如果是 none，自动切换为 dle
-            if source_value == "none":
-                source_value = "dle"
+            source_value = data.get("source", "webview2")  # 默认 dle
+            # 兼容旧配置
+            if source_value == "none" or source_value == "dle":
+                source_value = "webview2"
             self._current_source = AuthSourceType(source_value)
             self._current_file_path = data.get("file_path")
             self._auto_refresh = data.get("auto_refresh", True)
-            self._current_dle_account_id = data.get("current_dle_account_id")
+            self._current_webview2_account_id = data.get("current_webview2_account_id")
             logger.info(f"已加载验证配置: {self.current_source_display}")
 
             # 尝试恢复上次的验证状态
@@ -999,36 +1011,36 @@ class AuthService:
         except Exception as e:
             logger.error(f"加载验证配置失败: {e}")
             # 加载失败时使用默认的 DLE
-            self._current_source = AuthSourceType.DLE
+            self._current_source = AuthSourceType.WEBVIEW2
 
-    def _get_dle_cache_file(self, platform: str = "youtube") -> Path:
-        """获取当前 DLE 账号对应的缓存文件路径"""
-        self._ensure_current_dle_account_valid()
-        account = self.current_dle_account
+    def _get_webview2_cache_file(self, platform: str = "youtube") -> Path:
+        """获取当前 WebView2 账号对应的缓存文件路径"""
+        self._ensure_current_webview2_account_valid()
+        account = self.current_webview2_account
         if account and account.cached_cookie_path:
             return Path(account.cached_cookie_path)
 
         # 兜底：兼容老路径
-        return self.cache_dir / f"cached_dle_{platform}.txt"
+        return self.cache_dir / f"cached_webview2_{platform}.txt"
 
-    def _build_dle_account_paths(
+    def _build_webview2_account_paths(
         self, account_id: str, platform: str = "youtube"
     ) -> tuple[Path, Path]:
-        """构建 DLE 账号 profile 与缓存路径"""
-        root = self._dle_accounts_dir / account_id
+        """构建 WebView2 账号 profile 与缓存路径"""
+        root = self._webview2_accounts_dir / account_id
         profile_dir = root / "profile"
         cache_file = root / "cookies.txt"
         profile_dir.mkdir(parents=True, exist_ok=True)
         return profile_dir, cache_file
 
-    def _mark_current_dle_account_refreshed(
+    def _mark_current_webview2_account_refreshed(
         self,
         cache_file: Path,
         cookie_count: int,
         valid: bool,
     ) -> None:
-        """刷新后回写当前 DLE 账号状态"""
-        account = self.current_dle_account
+        """刷新后回写当前 WebView2 账号状态"""
+        account = self.current_webview2_account
         if not account:
             return
 
@@ -1036,43 +1048,43 @@ class AuthService:
         account.last_extracted_at = datetime.now().isoformat()
         account.cookie_count = cookie_count
         account.valid = valid
-        self._save_dle_accounts()
+        self._save_webview2_accounts()
 
-    # ==================== DLE 多账号管理 ====================
+    # ==================== WebView2 多账号管理 ====================
 
-    def list_dle_accounts(self, platform: str = "youtube") -> list[DLEAccount]:
-        """列出 DLE 账号"""
-        self._load_dle_accounts()
-        return [a for a in self._dle_accounts.values() if a.platform == platform]
+    def list_webview2_accounts(self, platform: str = "youtube") -> list[WebView2Account]:
+        """列出 WebView2 账号"""
+        self._load_webview2_accounts()
+        return [a for a in self._webview2_accounts.values() if a.platform == platform]
 
-    def create_dle_account(
+    def create_webview2_account(
         self,
         display_name: str,
         platform: str = "youtube",
         notes: str | None = None,
-    ) -> DLEAccount:
-        """创建 DLE 账号"""
+    ) -> WebView2Account:
+        """创建 WebView2 账号"""
         account_id = uuid4().hex
-        profile_dir, cache_file = self._build_dle_account_paths(account_id, platform)
-        account = DLEAccount(
+        profile_dir, cache_file = self._build_webview2_account_paths(account_id, platform)
+        account = WebView2Account(
             account_id=account_id,
             display_name=display_name.strip() or "未命名账号",
             platform=platform,
             profile_dir=str(profile_dir),
             cached_cookie_path=str(cache_file),
-            is_default=(len(self._dle_accounts) == 0),
+            is_default=(len(self._webview2_accounts) == 0),
             notes=notes,
         )
-        self._dle_accounts[account_id] = account
+        self._webview2_accounts[account_id] = account
 
-        if not self._current_dle_account_id:
-            self._current_dle_account_id = account_id
+        if not self._current_webview2_account_id:
+            self._current_webview2_account_id = account_id
             self._save_config()
 
-        self._save_dle_accounts()
+        self._save_webview2_accounts()
         return account
 
-    def update_dle_account(
+    def update_webview2_account(
         self,
         account_id: str,
         *,
@@ -1080,8 +1092,8 @@ class AuthService:
         notes: str | None = None,
         is_default: bool | None = None,
     ) -> bool:
-        """更新 DLE 账号元信息"""
-        account = self._dle_accounts.get(account_id)
+        """更新 WebView2 账号元信息"""
+        account = self._webview2_accounts.get(account_id)
         if not account:
             return False
 
@@ -1090,65 +1102,65 @@ class AuthService:
         if notes is not None:
             account.notes = notes
         if is_default is True:
-            for a in self._dle_accounts.values():
+            for a in self._webview2_accounts.values():
                 a.is_default = False
             account.is_default = True
 
-        self._save_dle_accounts()
+        self._save_webview2_accounts()
         return True
 
-    def delete_dle_account(self, account_id: str, remove_storage: bool = False) -> bool:
-        """删除 DLE 账号"""
-        account = self._dle_accounts.get(account_id)
+    def delete_webview2_account(self, account_id: str, remove_storage: bool = False) -> bool:
+        """删除 WebView2 账号"""
+        account = self._webview2_accounts.get(account_id)
         if not account:
             return False
 
-        if len(self._dle_accounts) <= 1:
-            logger.warning("至少需要保留一个 DLE 账号，拒绝删除")
+        if len(self._webview2_accounts) <= 1:
+            logger.warning("至少需要保留一个 WebView2 账号，拒绝删除")
             return False
 
-        self._dle_accounts.pop(account_id, None)
+        self._webview2_accounts.pop(account_id, None)
 
         if remove_storage:
-            account_root = self._dle_accounts_dir / account_id
+            account_root = self._webview2_accounts_dir / account_id
             try:
                 shutil.rmtree(account_root, ignore_errors=True)
             except Exception as e:
-                logger.warning(f"删除 DLE 账号存储目录失败: {e}")
+                logger.warning(f"删除 WebView2 账号存储目录失败: {e}")
 
-        if self._current_dle_account_id == account_id:
-            self._current_dle_account_id = next(iter(self._dle_accounts.keys()), None)
+        if self._current_webview2_account_id == account_id:
+            self._current_webview2_account_id = next(iter(self._webview2_accounts.keys()), None)
             self._save_config()
 
         # 保证始终有一个默认账号
-        if not any(a.is_default for a in self._dle_accounts.values()):
-            first = next(iter(self._dle_accounts.values()), None)
+        if not any(a.is_default for a in self._webview2_accounts.values()):
+            first = next(iter(self._webview2_accounts.values()), None)
             if first:
                 first.is_default = True
 
-        self._save_dle_accounts()
+        self._save_webview2_accounts()
         return True
 
-    def set_current_dle_account(self, account_id: str) -> bool:
-        """设置当前激活 DLE 账号"""
-        if account_id not in self._dle_accounts:
+    def set_current_webview2_account(self, account_id: str) -> bool:
+        """设置当前激活 WebView2 账号"""
+        if account_id not in self._webview2_accounts:
             return False
-        self._current_dle_account_id = account_id
+        self._current_webview2_account_id = account_id
         self._save_config()
 
-        # 按用户预期：切换 DLE 账号时，立即将该账号 Cookie 同步到统一 bin/cookies.txt
-        self._sync_current_dle_cookie_to_unified_cookiefile()
+        # 按用户预期：切换 WebView2 账号时，立即将该账号 Cookie 同步到统一 bin/cookies.txt
+        self._sync_current_webview2_cookie_to_unified_cookiefile()
         return True
 
-    def _sync_current_dle_cookie_to_unified_cookiefile(self) -> bool:
-        """将当前 DLE 账号的 Cookie 覆盖同步到统一 bin/cookies.txt"""
-        account = self.current_dle_account
+    def _sync_current_webview2_cookie_to_unified_cookiefile(self) -> bool:
+        """将当前 WebView2 账号的 Cookie 覆盖同步到统一 bin/cookies.txt"""
+        account = self.current_webview2_account
         if not account or not account.cached_cookie_path:
             return False
 
         src = Path(account.cached_cookie_path)
         if not src.exists():
-            logger.info("当前 DLE 账号尚无 Cookie 缓存，跳过同步到 bin/cookies.txt")
+            logger.info("当前 WebView2 账号尚无 Cookie 缓存，跳过同步到 bin/cookies.txt")
             return False
 
         try:
@@ -1157,31 +1169,35 @@ class AuthService:
             cookie_sentinel.cookie_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, cookie_sentinel.cookie_path)
             self._update_status_from_file(str(src))
-            cookie_sentinel._save_meta(f"dle:{account.account_id}", self._last_status.cookie_count)
+            cookie_sentinel._save_meta(
+                f"webview2:{account.account_id}", self._last_status.cookie_count
+            )
             logger.info(
-                f"已切换到 DLE 账号 {account.display_name}，并同步 Cookie 到 {cookie_sentinel.cookie_path}"
+                f"已切换到 WebView2 账号 {account.display_name}，并同步 Cookie 到 {cookie_sentinel.cookie_path}"
             )
             return True
         except Exception as e:
-            logger.warning(f"同步当前 DLE 账号 Cookie 到统一文件失败: {e}")
+            logger.warning(f"同步当前 WebView2 账号 Cookie 到统一文件失败: {e}")
             return False
 
-    def _save_dle_accounts(self) -> None:
-        """保存 DLE 账号配置"""
+    def _save_webview2_accounts(self) -> None:
+        """保存 WebView2 账号配置"""
         data = {
             "version": 1,
-            "accounts": [a.to_dict() for a in self._dle_accounts.values()],
+            "accounts": [a.to_dict() for a in self._webview2_accounts.values()],
             "updated_at": datetime.now().isoformat(),
         }
-        with open(self._dle_accounts_path, "w", encoding="utf-8") as f:
+        with open(self._webview2_accounts_path, "w", encoding="utf-8") as f:
             f.write(json.dumps(data, ensure_ascii=False, indent=2))
 
-    def _load_dle_accounts(self) -> None:
-        """加载 DLE 账号配置"""
-        self._dle_accounts = {}
-        old_accounts_path = self.cache_dir / "dle_accounts.json"
+    def _load_webview2_accounts(self) -> None:
+        """加载 WebView2 账号配置"""
+        self._webview2_accounts = {}
+        old_accounts_path = self.cache_dir / "webview2_accounts.json"
         path_to_load = (
-            self._dle_accounts_path if self._dle_accounts_path.exists() else old_accounts_path
+            self._webview2_accounts_path
+            if self._webview2_accounts_path.exists()
+            else old_accounts_path
         )
         if not path_to_load.exists():
             return
@@ -1190,11 +1206,11 @@ class AuthService:
                 data = json.load(f)
 
             for raw in data.get("accounts", []):
-                acc = DLEAccount.from_dict(raw)
+                acc = WebView2Account.from_dict(raw)
                 if not acc.account_id:
                     continue
                 # 将账号目录统一迁移到 bin/dle_user/<account_id>/ 下
-                profile_dir, cache_file = self._build_dle_account_paths(
+                profile_dir, cache_file = self._build_webview2_account_paths(
                     acc.account_id, acc.platform
                 )
                 old_cookie = Path(acc.cached_cookie_path) if acc.cached_cookie_path else None
@@ -1215,49 +1231,49 @@ class AuthService:
                 # 路径统一写回新结构
                 acc.profile_dir = str(profile_dir)
                 acc.cached_cookie_path = str(cache_file)
-                self._dle_accounts[acc.account_id] = acc
+                self._webview2_accounts[acc.account_id] = acc
 
             # 若是从旧位置加载，落盘到新位置
-            if path_to_load != self._dle_accounts_path:
-                self._save_dle_accounts()
+            if path_to_load != self._webview2_accounts_path:
+                self._save_webview2_accounts()
         except Exception as e:
-            logger.error(f"加载 DLE 账号配置失败: {e}")
+            logger.error(f"加载 WebView2 账号配置失败: {e}")
 
-    def _ensure_current_dle_account_valid(self) -> None:
-        """确保当前激活 DLE 账号存在"""
+    def _ensure_current_webview2_account_valid(self) -> None:
+        """确保当前激活 WebView2 账号存在"""
         # 没有任何账号时创建默认账号
-        if not self._dle_accounts:
-            default = self.create_dle_account("默认账号", platform="youtube")
+        if not self._webview2_accounts:
+            default = self.create_webview2_account("默认账号", platform="youtube")
             default.is_default = True
-            self._save_dle_accounts()
+            self._save_webview2_accounts()
 
-        if self._current_dle_account_id in self._dle_accounts:
+        if self._current_webview2_account_id in self._webview2_accounts:
             return
 
         # 优先默认账号，其次第一个
-        default = next((a for a in self._dle_accounts.values() if a.is_default), None)
-        chosen = default or next(iter(self._dle_accounts.values()), None)
+        default = next((a for a in self._webview2_accounts.values() if a.is_default), None)
+        chosen = default or next(iter(self._webview2_accounts.values()), None)
         if chosen:
-            self._current_dle_account_id = chosen.account_id
+            self._current_webview2_account_id = chosen.account_id
             self._save_config()
 
-    def _migrate_legacy_dle_cache_if_needed(self) -> None:
-        """将旧单账号 DLE 缓存迁移到默认账号"""
-        legacy = self.cache_dir / "cached_dle_youtube.txt"
+    def _migrate_legacy_webview2_cache_if_needed(self) -> None:
+        """将旧单账号 WebView2 缓存迁移到默认账号"""
+        legacy = self.cache_dir / "cached_webview2_youtube.txt"
         if not legacy.exists():
             return
 
         # 已经迁移过（存在账号化缓存）则不再处理
         has_account_cache = any(
             Path(a.cached_cookie_path).exists()
-            for a in self._dle_accounts.values()
+            for a in self._webview2_accounts.values()
             if a.cached_cookie_path
         )
         if has_account_cache:
             return
 
-        self._ensure_current_dle_account_valid()
-        account = self.current_dle_account
+        self._ensure_current_webview2_account_valid()
+        account = self.current_webview2_account
         if not account:
             return
 
@@ -1267,14 +1283,14 @@ class AuthService:
             shutil.copy2(legacy, target)
             account.last_extracted_at = datetime.now().isoformat()
             account.valid = True
-            self._save_dle_accounts()
-            logger.info(f"已将旧 DLE 缓存迁移到账号 {account.display_name}: {target}")
+            self._save_webview2_accounts()
+            logger.info(f"已将旧 WebView2 缓存迁移到账号 {account.display_name}: {target}")
 
-            # 若当前正在 DLE 模式，迁移后同步到统一 cookiefile
-            if self._current_source == AuthSourceType.DLE:
-                self._sync_current_dle_cookie_to_unified_cookiefile()
+            # 若当前正在 WebView2 模式，迁移后同步到统一 cookiefile
+            if self._current_source == AuthSourceType.WEBVIEW2:
+                self._sync_current_webview2_cookie_to_unified_cookiefile()
         except Exception as e:
-            logger.warning(f"迁移旧 DLE 缓存失败: {e}")
+            logger.warning(f"迁移旧 WebView2 缓存失败: {e}")
 
     def _resolve_runtime_bin_dir(self) -> Path:
         """解析运行目录下的 bin 路径（开发态/打包态统一）。"""

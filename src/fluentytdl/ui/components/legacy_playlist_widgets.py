@@ -565,7 +565,7 @@ class PlaylistFormatDialog(MessageBoxBase):
             self.selector = VideoFormatSelectorWidget(info, self)
 
         self.viewLayout.addWidget(self.selector)
-        
+
         # 新增：单视频独立字幕配置区域
         self._subtitle_override_widget = None
         if self._mode not in ("subtitle", "cover"):
@@ -579,22 +579,21 @@ class PlaylistFormatDialog(MessageBoxBase):
         from PySide6.QtWidgets import QHBoxLayout
         from qfluentwidgets import CheckBox, PushButton
 
-        
         row = QHBoxLayout()
         row.setContentsMargins(0, 5, 0, 0)
-        
+
         self.sub_override_check = CheckBox("为此视频独立配置字幕", self)
-        
+
         self.sub_override_btn = PushButton("选择字幕...", self)
         self.sub_override_btn.setEnabled(False)
         self.sub_override_result = None
-        
+
         row.addWidget(self.sub_override_check)
         row.addSpacing(10)
         row.addWidget(self.sub_override_btn)
         row.addStretch(1)
         self.viewLayout.addLayout(row)
-        
+
         self.sub_override_check.stateChanged.connect(
             lambda state: self.sub_override_btn.setEnabled(bool(state))
         )
@@ -602,13 +601,16 @@ class PlaylistFormatDialog(MessageBoxBase):
 
     def _open_subtitle_picker(self, info):
         from ..dialogs.subtitle_picker_dialog import SubtitlePickerDialog
+
         container = None
         if hasattr(self.selector, "get_selection_result"):
             result = self.selector.get_selection_result()
             if isinstance(result, dict):
                 container = result.get("merge_output_format")
-                
-        dialog = SubtitlePickerDialog(info, container, initial_result=self.sub_override_result, parent=self)
+
+        dialog = SubtitlePickerDialog(
+            info, container, initial_result=self.sub_override_result, parent=self
+        )
         if dialog.exec():
             self.sub_override_result = dialog.get_result()
             n = len(self.sub_override_result.selected_tracks)
@@ -641,22 +643,22 @@ class PlaylistFormatDialog(MessageBoxBase):
             return self.selector.get_summary_text()  # type: ignore[attr-defined]
 
     def get_subtitle_override(self) -> dict[str, Any] | None:
-        if not hasattr(self, 'sub_override_check') or not self.sub_override_check.isChecked():
+        if not hasattr(self, "sub_override_check") or not self.sub_override_check.isChecked():
             return None
-            
+
         if not self.sub_override_result:
             return {
                 "override_languages": [],
                 "has_manual": True,
                 "has_auto": False,
                 "embed_subtitles": False,
-                "output_format": "srt"
+                "output_format": "srt",
             }
-            
+
         return {
             "override_languages": self.sub_override_result.override_languages,
             "has_manual": self.sub_override_result.has_manual,
             "has_auto": self.sub_override_result.has_auto,
             "embed_subtitles": self.sub_override_result.embed_subtitles,
-            "output_format": self.sub_override_result.output_format
+            "output_format": self.sub_override_result.output_format,
         }

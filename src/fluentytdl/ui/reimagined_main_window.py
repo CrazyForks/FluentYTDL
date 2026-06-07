@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import time
 from enum import Enum
 from typing import Any
 
@@ -35,6 +34,7 @@ from ..core.config_manager import config_manager
 from ..download.download_manager import download_manager
 from ..utils.logger import logger
 from ..utils.paths import resource_path
+from .channel_parse_page import ChannelParsePage
 from .components.clipboard_monitor import ClipboardMonitor
 from .components.download_config_window import DownloadConfigWindow
 from .cover_download_page import CoverDownloadPage
@@ -45,7 +45,6 @@ from .settings_page import SettingsPage
 from .subtitle_download_page import SubtitleDownloadPage
 from .unified_task_list_page import UnifiedTaskListPage
 from .vr_parse_page import VRParsePage
-from .channel_parse_page import ChannelParsePage
 from .welcome_wizard import WelcomeWizardDialog
 
 
@@ -222,6 +221,7 @@ class MainWindow(FluentWindow):
         self.parse_page.parse_requested.connect(
             lambda url: self.show_selection_dialog(url, smart_detect=False, playlist_flat=True)
         )
+        self.parse_page.quick_download_requested.connect(self.handle_quick_download_requested)
         self.vr_parse_page.parse_requested.connect(self.show_vr_selection_dialog)
         self.channel_parse_page.parse_requested.connect(self._show_channel_dialog)
         self.subtitle_page.parse_requested.connect(self.show_subtitle_selection_dialog)
@@ -305,7 +305,10 @@ class MainWindow(FluentWindow):
 
         # 2.1 频道下载
         self.addSubInterface(
-            self.channel_parse_page, FluentIcon.VIDEO, "频道下载", position=NavigationItemPosition.TOP
+            self.channel_parse_page,
+            FluentIcon.VIDEO,
+            "频道下载",
+            position=NavigationItemPosition.TOP,
         )
 
         # 2.2 字幕下载
@@ -370,6 +373,14 @@ class MainWindow(FluentWindow):
         )
         clear_completed.clicked.connect(self.on_clear_completed)
 
+        # 清空全部
+        clear_all = TransparentToolButton(FluentIcon.BROOM, self)
+        clear_all.setToolTip("清空全部任务")
+        clear_all.installEventFilter(
+            ToolTipFilter(clear_all, showDelay=300, position=ToolTipPosition.BOTTOM)
+        )
+        clear_all.clicked.connect(self.on_clear_all)
+
         # 批量操作按钮
         from qfluentwidgets import TransparentPushButton
 
@@ -402,6 +413,7 @@ class MainWindow(FluentWindow):
         page.action_layout.addWidget(pause_all)
         page.action_layout.addWidget(open_dir)
         page.action_layout.addWidget(clear_completed)
+        page.action_layout.addWidget(clear_all)
 
         # 分隔
         page.action_layout.addSpacing(16)
@@ -471,7 +483,7 @@ class MainWindow(FluentWindow):
 
     def closeEvent(self, event):
         """窗口关闭事件：最小化到托盘或优雅退出"""
-        if hasattr(self, 'tray_icon') and self.tray_icon and self.tray_icon.isVisible():
+        if hasattr(self, "tray_icon") and self.tray_icon and self.tray_icon.isVisible():
             self.hide()
             event.ignore()
         else:
@@ -583,11 +595,19 @@ class MainWindow(FluentWindow):
             logger.info(f"Closed sub-window. Active windows: {len(self._active_sub_windows)}")
 
     def show_selection_dialog(
-        self, url: str, smart_detect: bool = False, playlist_flat: bool = False, target_tab: str | None = None
+        self,
+        url: str,
+        smart_detect: bool = False,
+        playlist_flat: bool = False,
+        target_tab: str | None = None,
     ):
         self._remember_recent_target_url(url)
         self._show_config_window(
-            url, mode="default", smart_detect=smart_detect, playlist_flat=playlist_flat, target_tab=target_tab
+            url,
+            mode="default",
+            smart_detect=smart_detect,
+            playlist_flat=playlist_flat,
+            target_tab=target_tab,
         )
 
     def show_vr_selection_dialog(self, url: str, smart_detect: bool = True):
@@ -597,9 +617,12 @@ class MainWindow(FluentWindow):
     def _show_channel_dialog(self, url: str, target_tab: str = "all") -> None:
         """频道解析入口：规范化 URL 后，走播放列表 flat 解析路径，传递 target_tab。"""
         from ..youtube.youtube_service import YoutubeService
+
         # 始终传递 "all" 来获取纯净的 base_url，因为具体的 tab 会由 ChannelExtractWorker 拼接
         normalized = YoutubeService._normalize_channel_url(url, "all")
-        self.show_selection_dialog(normalized, smart_detect=False, playlist_flat=True, target_tab=target_tab)
+        self.show_selection_dialog(
+            normalized, smart_detect=False, playlist_flat=True, target_tab=target_tab
+        )
 
     def handle_vr_switch_request(self, url: str):
         """响应智能检测的 VR 切换请求"""
@@ -639,6 +662,52 @@ class MainWindow(FluentWindow):
         logger.info("[DEBUG] Switching to task_page")
         self.switchTo(self.task_page)
         logger.info("[DEBUG] Bulk add processing complete")
+
+    def handle_quick_download_requested(self, urls: list[str], params: Any):
+        """处理快速模式下载请求"""
+        if not self.controller:
+            logger.error("AppController not provided to MainWindow!")
+            return
+
+        from qfluentwidgets import StateToolTip
+
+        self._quick_add_tooltip = StateToolTip("解析中", "正在获取资源信息...", self.window())
+        self._quick_add_tooltip.move(self._quick_add_tooltip.getSuitablePos())
+        self._quick_add_tooltip.show()
+
+        def on_progress(msg: str):
+            if hasattr(self, "_quick_add_tooltip") and self._quick_add_tooltip:
+                self._quick_add_tooltip.setContent(msg)
+
+        def on_error(msg: str):
+            if hasattr(self, "_quick_add_tooltip") and self._quick_add_tooltip:
+                self._quick_add_tooltip.setContent("解析失败")
+                self._quick_add_tooltip.setState(True)
+                self._quick_add_tooltip = None
+
+            InfoBar.error(
+                title="快速下载失败",
+                content=msg,
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=5000,
+                parent=self,
+            )
+
+        def on_finished(created_workers):
+            if hasattr(self, "_quick_add_tooltip") and self._quick_add_tooltip:
+                self._quick_add_tooltip.setContent(f"成功添加 {len(created_workers)} 个任务")
+                self._quick_add_tooltip.setState(True)
+                self._quick_add_tooltip = None
+
+            for worker, t_title, t_thumb in created_workers:
+                self.task_page.model.add_task(worker, t_title, str(t_thumb) if t_thumb else "")
+            self.switchTo(self.task_page)
+
+        self.controller.handle_quick_add_tasks(
+            urls, params, {"progress": on_progress, "error": on_error, "finished": on_finished}
+        )
 
     def on_open_target_folder(self, row: int):
         task = self.task_page.model.get_task(row)
@@ -711,32 +780,21 @@ class MainWindow(FluentWindow):
 
                 # AlwaysAsk: 提示用户中途取消的双项选择
                 title = "取消下载任务"
-                content = (
-                    "此任务正在下载中。请选择取消方式：\n（未完成的临时缓存文件将会被自动清理）"
-                )
+                content = "此任务正在下载中。确定要取消该任务吗？"
                 box = MessageBox(title, content, self)
-                box.yesButton.setText("🗑️ 移除并删除文件")
-                box.cancelButton.setText("取消")
+                box.yesButton.setText("确定取消")
+                box.cancelButton.setText("暂不取消")
 
-                from qfluentwidgets import PushButton
+                from qfluentwidgets import CheckBox
 
-                keep_btn = PushButton("📋 仅移除记录", box)
-                keep_btn.setFixedHeight(box.yesButton.height())
-                self._delete_dialog_keep_clicked = False
+                chk = CheckBox("同时清理未完成的临时缓存文件", box)
+                chk.setChecked(True)
+                box.textLayout.addWidget(chk)
 
-                def _on_keep():
-                    self._delete_dialog_keep_clicked = True
-                    box.accept()
-
-                keep_btn.clicked.connect(_on_keep)
-                try:
-                    box.buttonLayout.insertWidget(1, keep_btn)
-                except Exception:
-                    box.buttonGroup.layout().insertWidget(1, keep_btn)
                 if not box.exec():
                     return
 
-                force_delete = not self._delete_dialog_keep_clicked
+                force_delete = chk.isChecked()
                 if self.controller:
                     self.controller.handle_remove_task(worker, force_delete_files=force_delete)
                 self.task_page.model.remove_task(row)
@@ -748,32 +806,21 @@ class MainWindow(FluentWindow):
             has_local_file = bool(final_path and os.path.exists(str(final_path)))
 
             if has_local_file:
-                content = "请选择删除方式："
+                content = "确定要从列表中移除此任务记录吗？"
                 box = MessageBox(title, content, self)
-                box.yesButton.setText("🗑️ 删除记录并删除文件")
+                box.yesButton.setText("删除")
                 box.cancelButton.setText("取消")
 
-                # 插入一个 "仅删除记录" 按钮在 yes 和 cancel 之间
-                from qfluentwidgets import PushButton
+                from qfluentwidgets import CheckBox
 
-                keep_btn = PushButton("📋 仅删除记录", box)
-                keep_btn.setFixedHeight(box.yesButton.height())
-                self._delete_dialog_keep_clicked = False
-
-                def _on_keep():
-                    self._delete_dialog_keep_clicked = True
-                    box.accept()
-
-                keep_btn.clicked.connect(_on_keep)
-                try:
-                    box.buttonLayout.insertWidget(1, keep_btn)
-                except Exception:
-                    box.buttonGroup.layout().insertWidget(1, keep_btn)
+                chk = CheckBox("同时删除已下载的本地文件", box)
+                chk.setChecked(False)
+                box.textLayout.addWidget(chk)
 
                 if not box.exec():
                     return
 
-                force_delete = not self._delete_dialog_keep_clicked
+                force_delete = chk.isChecked()
             else:
                 # 没有本地文件，直接确认删除记录
                 content = "确定要从列表中移除此任务记录吗？"
@@ -889,35 +936,66 @@ class MainWindow(FluentWindow):
                 self.task_page.model.dataChanged.emit(idx, idx, [Qt.ItemDataRole.UserRole])
 
     def on_batch_start(self, rows: list[int]):
-        for row in rows:
-            self.on_pause_resume_task(row)
+        """批量开始任务"""
         self.task_page.set_selection_mode(False)
 
-    def on_batch_pause(self, rows: list[int]):
+        workers_to_start = []
+        row_map = {}
         for row in rows:
             task = self.task_page.model.get_task(row)
             if task and task.get("worker"):
-                worker = task["worker"]
-                if worker.isRunning():
-                    if hasattr(worker, "pause"):
-                        worker.pause()
-                    else:
-                        if hasattr(worker, "stop"):
-                            worker.stop()
-                        elif hasattr(worker, "cancel"):
-                            worker.cancel()
+                w = task["worker"]
+                workers_to_start.append(w)
+                row_map[w] = row
 
-    def on_batch_delete(self, rows: list[int]):
+        if not self.controller or not workers_to_start:
+            return
+
+        # 采用切片（Chunking）方式异步执行，防止批量写入 SQLite 时长期阻塞主线程导致 Segfault
+        def process_chunk():
+            if not workers_to_start:
+                return
+
+            chunk = []
+            # 每次处理 2 个，让出控制权让事件循环处理 QThread 和 UI 绘制
+            for _ in range(min(2, len(workers_to_start))):
+                chunk.append(workers_to_start.pop(0))
+
+            recreated_workers = self.controller.handle_batch_start(chunk)
+            for old_w, new_w in recreated_workers:
+                r = row_map.get(old_w)
+                if r is not None:
+                    t = self.task_page.model.get_task(r)
+                    if t:
+                        t["worker"] = new_w
+                        self.task_page.model._bind_worker_signals(new_w, t)
+                        idx = self.task_page.model.index(r, 0)
+                        self.task_page.model.dataChanged.emit(idx, idx, [Qt.ItemDataRole.UserRole])
+
+            if workers_to_start:
+                QTimer.singleShot(50, process_chunk)
+
+        QTimer.singleShot(0, process_chunk)
+
+    def on_batch_pause(self, rows: list[int]):
+        workers_to_pause = []
+        for row in rows:
+            task = self.task_page.model.get_task(row)
+            if task and task.get("worker"):
+                workers_to_pause.append(task["worker"])
+
+        if self.controller and workers_to_pause:
+            self.controller.handle_batch_pause(workers_to_pause)
+
+        self.task_page.set_selection_mode(False)
+
+    def on_batch_delete(self, rows: list[int], delete_files: bool = False):
         if not rows:
             return
 
-        raw_policy = config_manager.get("deletion_policy")
-        policy = DeletionPolicy.from_config_str(raw_policy)
-
-        # ── 分类：活跃任务 vs 已完成任务 ──
-        active_workers: list = []  # 需要取消的活跃任务
-        finished_workers: list = []  # 已完成/出错任务
-        rows_to_remove: set[int] = set()
+        # ── 分类任务 ──
+        workers_to_delete = []
+        workers_to_delete_set = set()
 
         for row in rows:
             task = self.task_page.model.get_task(row)
@@ -927,148 +1005,61 @@ class MainWindow(FluentWindow):
             if not worker:
                 continue
 
-            rows_to_remove.add(row)
+            workers_to_delete.append(worker)
+            workers_to_delete_set.add(id(worker))
 
-            state = worker.effective_state
-
-            if state in ("running", "queued", "paused", "downloading"):
-                active_workers.append(worker)
-            else:
-                finished_workers.append(worker)
-
-        if not rows_to_remove:
+        if not workers_to_delete:
             return
 
-        n_active = len(active_workers)
-        n_finished = len(finished_workers)
-        n_total = len(rows_to_remove)
-
-        # 检查已完成任务中有多少有本地文件
-        n_with_files = 0
-        for w in finished_workers:
-            fp = getattr(w, "output_path", getattr(w, "_final_filepath", ""))
-            if fp and os.path.exists(str(fp)):
-                n_with_files += 1
-
-        # ── 快速通道：仅移除记录 + 无活跃任务 ──
-        if policy == DeletionPolicy.KEEP_FILES and n_active == 0:
-            for w in finished_workers:
-                if self.controller:
-                    self.controller.handle_remove_task(w, force_delete_files=False)
-            for row in sorted(list(rows_to_remove), reverse=True):
-                try:
-                    self.task_page.model.remove_task(row)
-                except Exception:
-                    pass
-            self.task_page.set_selection_mode(False)
-            return
-
-        # ── 快速通道：彻底删除 + 无活跃任务 ──
-        if policy == DeletionPolicy.DELETE_FILES and n_active == 0:
-            for w in finished_workers:
-                if self.controller:
-                    self.controller.handle_remove_task(w, force_delete_files=True)
-            for row in sorted(list(rows_to_remove), reverse=True):
-                try:
-                    self.task_page.model.remove_task(row)
-                except Exception:
-                    pass
-            self.task_page.set_selection_mode(False)
-            return
-
-        # ── 构造提示文案 ──
-        desc_parts = []
-        if n_active > 0:
-            desc_parts.append(f"{n_active} 个下载中的任务（将自动取消并清理缓存）")
-        if n_finished > 0:
-            if n_with_files > 0:
-                desc_parts.append(f"{n_finished} 个已完成任务（其中 {n_with_files} 个有本地文件）")
-            else:
-                desc_parts.append(f"{n_finished} 个已完成任务")
-
-        title = f"批量删除 {n_total} 个任务"
-        content = "选中的任务包含：\n" + "\n".join(f"• {p}" for p in desc_parts)
-
-        if n_with_files > 0 or n_active > 0:
-            # 迅雷/IDM 风格双按钮
-            content += "\n\n请选择删除方式："
-            box = MessageBox(title, content, self)
-            if n_with_files > 0:
-                box.yesButton.setText(f"🗑️ 删除记录并删除文件 ({n_with_files} 个)")
-            else:
-                box.yesButton.setText("🗑️ 移除并删除文件")
-            box.cancelButton.setText("取消")
-
-            from qfluentwidgets import PushButton
-
-            keep_btn = PushButton("📋 仅删除记录", box)
-            keep_btn.setFixedHeight(box.yesButton.height())
-            self._batch_delete_keep_clicked = False
-
-            def _on_keep():
-                self._batch_delete_keep_clicked = True
-                box.accept()
-
-            keep_btn.clicked.connect(_on_keep)
-            try:
-                box.buttonLayout.insertWidget(1, keep_btn)
-            except Exception:
-                box.buttonGroup.layout().insertWidget(1, keep_btn)
-
-            if not box.exec():
+        # 采用切片（Chunking）方式异步执行，防止批量删除 SQLite/Model 节点时阻塞主线程
+        def process_chunk():
+            if not workers_to_delete:
+                # 任务处理完后，从模型中动态反查要删除的行号（需从底往上删避免索引越界）
+                rows_to_remove = []
+                for i in range(self.task_page.model.rowCount() - 1, -1, -1):
+                    t = self.task_page.model.get_task(i)
+                    if t and id(t.get("worker")) in workers_to_delete_set:
+                        rows_to_remove.append(i)
+                for row in rows_to_remove:
+                    try:
+                        self.task_page.model.remove_task(row)
+                    except Exception:
+                        pass
+                self.task_page.set_selection_mode(False)
                 return
 
-            force_delete_finished = not self._batch_delete_keep_clicked
-        else:
-            # 没有本地文件的情况，只需确认
-            box = MessageBox(title, content, self)
-            box.yesButton.setText("确认删除")
-            box.cancelButton.setText("取消")
-            if not box.exec():
-                return
-            force_delete_finished = False
+            chunk = []
+            for _ in range(min(5, len(workers_to_delete))):
+                chunk.append(workers_to_delete.pop(0))
 
-        # ── 执行 ──
-        # 活跃任务/已完成任务：共同遵循用户的双项选择
-        for w in active_workers:
-            try:
-                if self.controller:
-                    self.controller.handle_remove_task(w, force_delete_files=force_delete_finished)
-            except Exception:
-                pass
+            if self.controller:
+                self.controller.handle_batch_remove(chunk, force_delete_files=delete_files)
 
-        # 已完成任务：根据用户选择
-        for w in finished_workers:
-            try:
-                if self.controller:
-                    self.controller.handle_remove_task(w, force_delete_files=force_delete_finished)
-            except Exception:
-                pass
+            if workers_to_delete:
+                QTimer.singleShot(50, process_chunk)
+            else:
+                # 触发模型移除
+                QTimer.singleShot(0, process_chunk)
 
-        for row in sorted(list(rows_to_remove), reverse=True):
-            try:
-                self.task_page.model.remove_task(row)
-            except Exception:
-                pass
-
-        self.task_page.set_selection_mode(False)
+        QTimer.singleShot(0, process_chunk)
 
     def on_start_all(self):
-        for i in range(self.task_page.model.rowCount()):
-            task = self.task_page.model.get_task(i)
-            if not task:
-                continue
-
-            worker = task.get("worker")
-            if not worker:
-                continue
-
-            s = worker.effective_state
-            if s in {"paused", "error", "queued"}:
-                self.on_pause_resume_task(i)
+        rows = []
+        for row in range(self.task_page.proxy_model.rowCount()):
+            src_idx = self.task_page.proxy_model.mapToSource(
+                self.task_page.proxy_model.index(row, 0)
+            )
+            rows.append(src_idx.row())
+        self.on_batch_start(rows)
 
     def on_pause_all(self):
-        download_manager.stop_all()
+        rows = []
+        for row in range(self.task_page.proxy_model.rowCount()):
+            src_idx = self.task_page.proxy_model.mapToSource(
+                self.task_page.proxy_model.index(row, 0)
+            )
+            rows.append(src_idx.row())
+        self.on_batch_pause(rows)
 
     def on_clear_completed(self):
         clearable_rows = []
@@ -1083,8 +1074,17 @@ class MainWindow(FluentWindow):
         if not clearable_rows:
             return
 
-        n_completed = sum(1 for r in clearable_rows if self.task_page.model.get_task(r).get("worker").effective_state == "completed")
-        n_error = sum(1 for r in clearable_rows if self.task_page.model.get_task(r).get("worker").effective_state in ("error", "cancelled"))
+        n_completed = sum(
+            1
+            for r in clearable_rows
+            if self.task_page.model.get_task(r).get("worker").effective_state == "completed"
+        )
+        n_error = sum(
+            1
+            for r in clearable_rows
+            if self.task_page.model.get_task(r).get("worker").effective_state
+            in ("error", "cancelled")
+        )
 
         parts = []
         if n_completed:
@@ -1095,11 +1095,38 @@ class MainWindow(FluentWindow):
         if MessageBox(
             "清空记录", f"确定要清空 {'、'.join(parts)} 的任务记录吗？\n(不会删除本地文件)", self
         ).exec():
-            for row in sorted(clearable_rows, reverse=True):
+            workers_to_remove = []
+            for row in clearable_rows:
                 task = self.task_page.model.get_task(row)
                 if task and task.get("worker"):
-                    if self.controller:
-                        self.controller.handle_remove_task(task["worker"], force_delete_files=False)
+                    workers_to_remove.append(task["worker"])
+
+            if self.controller and workers_to_remove:
+                self.controller.handle_batch_remove(workers_to_remove, force_delete_files=False)
+
+            for row in sorted(clearable_rows, reverse=True):
+                self.task_page.model.remove_task(row)
+
+    def on_clear_all(self):
+        if self.task_page.model.rowCount() == 0:
+            return
+
+        if MessageBox(
+            "清空全部任务",
+            "确定要清空所有任务记录吗？\n如果任务正在下载中，也会被一并取消。(不会删除本地文件)",
+            self,
+        ).exec():
+            all_rows = list(range(self.task_page.model.rowCount()))
+            workers_to_remove = []
+            for row in all_rows:
+                task = self.task_page.model.get_task(row)
+                if task and task.get("worker"):
+                    workers_to_remove.append(task["worker"])
+
+            if self.controller and workers_to_remove:
+                self.controller.handle_batch_remove(workers_to_remove, force_delete_files=False)
+
+            for row in sorted(all_rows, reverse=True):
                 self.task_page.model.remove_task(row)
 
     def on_open_download_dir(self):
@@ -1126,19 +1153,68 @@ class MainWindow(FluentWindow):
         self.help_btn.clicked.connect(self.show_help_window)
         self.help_btn.setFixedSize(46, 32)
 
+        # 在标题栏添加通知按钮
+        self.notif_btn = TransparentToolButton(FluentIcon.RINGER, self.titleBar)
+        self.notif_btn.setToolTip("消息中心")
+        self.notif_btn.installEventFilter(
+            ToolTipFilter(self.notif_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
+        )
+        self.notif_btn.clicked.connect(self.show_notification_panel)
+        self.notif_btn.setFixedSize(46, 32)
+
+        from qfluentwidgets import InfoBadge, InfoBadgePosition
+
+        self.notif_badge = InfoBadge.error(
+            0, self.titleBar, target=self.notif_btn, position=InfoBadgePosition.TOP_RIGHT
+        )
+        self.notif_badge.hide()
+
+        from ..notification import notification_center
+
+        notification_center.unread_count_changed.connect(self._on_unread_count_changed)
+
+        # 初始化徽章
+        self._on_unread_count_changed(notification_center.get_unread_count())
+
         # 查找插入位置：尝试插在系统按钮组的最左边
         layout = self.titleBar.layout()
-        # Insert the help button to the left of the system buttons (min/max/close)
+        # Insert the buttons to the left of the system buttons (min/max/close)
         # Assuming system buttons are the last three widgets in the title bar layout
         insert_widget = getattr(layout, "insertWidget", None) if layout else None
         count = getattr(layout, "count", None) if layout else None
         if callable(insert_widget) and callable(count):
             count_value = count()
             if isinstance(count_value, int):
+                insert_widget(count_value - 3, self.notif_btn, 0, Qt.AlignmentFlag.AlignRight)
                 insert_widget(count_value - 3, self.help_btn, 0, Qt.AlignmentFlag.AlignRight)
 
         # 给 help_btn 设置右边距，让它离系统按钮远一点
         self.help_btn.setContentsMargins(0, 0, 10, 0)
+
+    def _on_unread_count_changed(self, count: int):
+        if count > 0:
+            self.notif_badge.setNum(count if count < 100 else 99)
+            self.notif_badge.show()
+        else:
+            self.notif_badge.hide()
+
+    def show_notification_panel(self):
+        from qfluentwidgets import Flyout, FlyoutAnimationType
+
+        from .notification_panel import NotificationFlyoutView
+
+        if getattr(self, "_notif_flyout", None):
+            try:
+                if self._notif_flyout.isVisible():
+                    self._notif_flyout.close()
+                    return
+            except RuntimeError:
+                pass
+
+        view = NotificationFlyoutView(self)
+        self._notif_flyout = Flyout.make(
+            view, self.notif_btn, self, aniType=FlyoutAnimationType.PULL_UP
+        )
 
     def show_help_window(self):
         if not getattr(self, "_help_window", None):
@@ -1173,7 +1249,7 @@ class MainWindow(FluentWindow):
             config_manager.set("has_shown_welcome_guide", True)
 
         # 检查Cookie状态（延迟5秒，让启动时的静默刷新完成）
-        QTimer.singleShot(5000, self.check_cookie_status)
+        QTimer.singleShot(5000, lambda: self.check_cookie_status(is_startup=True))
 
     def on_admin_mode_cookie_refresh(self):
         """管理员模式启动后自动刷新Cookie"""
@@ -1190,8 +1266,8 @@ class MainWindow(FluentWindow):
             logger.info("[AdminMode] 手动文件模式，跳过自动刷新")
             return
 
-        if auth_service.current_source == AuthSourceType.DLE:
-            logger.info("[AdminMode] 登录模式(DLE)，跳过自动刷新（需要用户交互）")
+        if auth_service.current_source == AuthSourceType.WEBVIEW2:
+            logger.info("[AdminMode] 登录模式(WebView2)，跳过自动刷新（需要用户交互）")
             return
 
         browser_name = auth_service.current_source_display
@@ -1226,7 +1302,7 @@ class MainWindow(FluentWindow):
             logger.exception("[AdminMode] Cookie刷新异常")
             InfoBar.error("Cookie提取异常", str(e), duration=5000, parent=self)
 
-    def check_cookie_status(self):
+    def check_cookie_status(self, is_startup: bool = False):
         """
         统一 Cookie 有效性检查（适用于所有验证模式）
 
@@ -1250,7 +1326,7 @@ class MainWindow(FluentWindow):
 
             source_name = auth_service.current_source_display
 
-            # ── 统一有效性检查（适用于 DLE / 浏览器 / 手动导入） ──
+            # ── 统一有效性检查（适用于 WebView2 / 浏览器 / 手动导入） ──
             # 只检查两层：
             #   1. cookie_sentinel.exists → Cookie 文件是否存在
             #   2. auth_service.last_status.valid → 关键字段完整性 + 过期检查
@@ -1260,7 +1336,7 @@ class MainWindow(FluentWindow):
 
             if not cookie_sentinel.exists:
                 is_invalid = True
-                if current_source == AuthSourceType.DLE:
+                if current_source == AuthSourceType.WEBVIEW2:
                     reason = "尚未登录获取 Cookie"
                 elif current_source == AuthSourceType.FILE:
                     reason = "尚未导入 Cookie 文件"
@@ -1272,6 +1348,19 @@ class MainWindow(FluentWindow):
 
             if is_invalid:
                 logger.warning(f"[MainWindow] Cookie 无效 ({source_name}): {reason}")
+
+                if is_startup and not cookie_sentinel.exists:
+                    # 第一次运行不主动弹强打扰对话框，给个横幅引导即可
+                    from qfluentwidgets import InfoBar, InfoBarPosition
+                    action = "登录" if current_source == AuthSourceType.WEBVIEW2 else "导入"
+                    InfoBar.warning(
+                        "Cookie 未准备就绪", 
+                        f"为了保证下载稳定，建议您先前往设置页进行{action}以获取 Cookie",
+                        duration=10000, 
+                        position=InfoBarPosition.TOP_RIGHT, 
+                        parent=self
+                    )
+                    return
 
                 # Chromium 浏览器非管理员 → 特殊处理：提示以管理员重启
                 from ..auth.auth_service import ADMIN_REQUIRED_BROWSERS
@@ -1320,7 +1409,7 @@ class MainWindow(FluentWindow):
 
         # 映射 auth_source 字符串
         source_map = {
-            AuthSourceType.DLE: "dle",
+            AuthSourceType.WEBVIEW2: "webview2",
             AuthSourceType.FILE: "file",
         }
         auth_source_str = source_map.get(source_type, "browser")
@@ -1328,7 +1417,7 @@ class MainWindow(FluentWindow):
         dialog = CookieRepairDialog(reason, parent=self, auth_source=auth_source_str)
 
         # 根据模式定制按钮文案
-        if source_type == AuthSourceType.DLE:
+        if source_type == AuthSourceType.WEBVIEW2:
             dialog.repair_btn.setText("重新登录")
             dialog.setWindowTitle("需要重新登录 YouTube")
         elif source_type == AuthSourceType.FILE:
@@ -1339,8 +1428,8 @@ class MainWindow(FluentWindow):
 
         # 自动修复信号
         def on_auto_repair():
-            if source_type == AuthSourceType.DLE:
-                # DLE → 跳转到设置页面的登录区域
+            if source_type == AuthSourceType.WEBVIEW2:
+                # WebView2 → 跳转到设置页面的登录区域
                 dialog.accept()
                 self.switchTo(self.settings_interface)
             elif source_type == AuthSourceType.FILE:

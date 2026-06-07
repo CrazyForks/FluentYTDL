@@ -122,12 +122,14 @@ def _webview_subprocess(
     def _schedule_destroy(win_ref) -> None:
         """延迟 1s 销毁窗口，让管道数据先抵达父进程。"""
         import threading
+
         def _do():
             time.sleep(1)
             try:
                 win_ref.destroy()
             except Exception:
                 pass
+
         threading.Thread(target=_do, daemon=True).start()
 
     _log(f"=== 子进程启动 === PID={os.getpid()}")
@@ -137,9 +139,13 @@ def _webview_subprocess(
     # ── 导入 pywebview ──
     try:
         import webview
-        _log(f"import webview 成功: {webview.__version__ if hasattr(webview, '__version__') else '?'}")
+
+        _log(
+            f"import webview 成功: {webview.__version__ if hasattr(webview, '__version__') else '?'}"
+        )
     except Exception as exc:
         import traceback
+
         tb = traceback.format_exc()
         error_msg = f"pywebview 加载失败: {exc}\n{tb}"
         _log(error_msg)
@@ -206,7 +212,9 @@ def _webview_subprocess(
                     continue
 
                 yt_names = _get_cookie_names(yt_cookies)
-                _log(f"[{elapsed}s] YouTube 域 {len(yt_cookies)} 个 Cookie, names={list(yt_names)[:10]}")
+                _log(
+                    f"[{elapsed}s] YouTube 域 {len(yt_cookies)} 个 Cookie, names={list(yt_names)[:10]}"
+                )
 
                 if not LOGIN_INDICATOR_YT & yt_names:
                     _log(f"[{elapsed}s] 尚未检测到 LOGIN_INFO")
@@ -222,7 +230,9 @@ def _webview_subprocess(
                     time.sleep(3)
                     google_cookies = win.get_cookies() or []
                     google_names = _get_cookie_names(google_cookies)
-                    _log(f"Google 域 {len(google_cookies)} 个 Cookie, names={list(google_names)[:10]}")
+                    _log(
+                        f"Google 域 {len(google_cookies)} 个 Cookie, names={list(google_names)[:10]}"
+                    )
                 except Exception as e:
                     _log(f"⚠️ 获取 Google Cookie 失败: {e}")
 
@@ -252,6 +262,7 @@ def _webview_subprocess(
 
         except Exception as exc:
             import traceback
+
             tb = traceback.format_exc()
             _log(f"💥 _background_poll 未捕获异常: {exc}\n{tb}")
             try:
@@ -342,7 +353,7 @@ def _format_cookies(raw_cookies: list) -> list[dict[str, Any]]:
 class WebView2CookieProvider:
     """
     WebView2 Cookie 提取器 (pywebview + multiprocessing 双进程模型)
-    替代旧的 DLEProvider (Deno + CDP + 临时扩展)。
+    替代旧的 WebView2Provider (Deno + CDP + 临时扩展)。
     """
 
     def extract_cookies(

@@ -74,12 +74,15 @@ pythonVersion = "3.10"
 # 很多 report* 设置已放宽 — 不要随意添加新的 type:ignore
 ```
 
-### UI 规则
+### UI 规则 (PySide6-Fluent-Widgets 最佳实践)
 
-- **必须**使用 QFluentWidgets（FluentWindow、InfoBar 等）
-- **绝不**使用原始 QMessageBox、QDialog 或 QWidget 创建新 UI
-- 列表项使用 QPainter 委托（避免大量列表的 QWidget 开销）
-- 暗色模式支持：使用 `CustomInfoBar`，而非原始 InfoBar
+- **必须**使用 QFluentWidgets (`FluentWindow`、`InfoBar`、`MessageBox` 等)。
+- **绝不**使用原始 `QMessageBox`、`QDialog` 或纯 `QWidget` 来创建新 UI 组件，优先使用库内等效组件。
+- **导入规范**：优先直接从 `qfluentwidgets` 导入组件（例如 `from qfluentwidgets import PushButton`），除非是纯布局类（如 `QVBoxLayout`），否则避免混合使用原生 `PySide6.QtWidgets`。
+- **主题适配**：绝对禁止对颜色硬编码。必须使用 `isDarkTheme()` 配合或使用 `ThemeColor` 宏，以保证浅色/暗色模式的无缝切换。
+- **路由与页面**：复杂的子界面必须继承自核心页面组件（如 `ScrollArea` 或适当的 `QWidget`），并通过主界面的侧边栏或路由器进行注册。
+- **列表项优化**：列表项必须使用 `QPainter` 委托（避免大量列表带来巨大的 `QWidget` 性能开销）。
+- **暗色模式支持**：使用 `CustomInfoBar`，而非原始 InfoBar。
 
 ### 文件命名
 
@@ -110,8 +113,10 @@ pythonVersion = "3.10"
 - **懒清理**：新提取成功前绝不删除旧 cookies
 - **必需 cookies**：SID、HSID、SSID、SAPISID、APISID
 - **Chromium v130+**：需要管理员权限进行应用绑定加密解密
-- **403 恢复**：自动检测 cookie 过期关键词，提示刷新
-- **JSON cookie 文件**：拒绝并给出警告（yt-dlp 只接受 Netscape 格式）
+- **403 错误恢复**：自动检测 Cookie 过期关键字，提示刷新
+- **JSON Cookie 文件**：拒绝并警告（yt-dlp 仅支持 Netscape 格式）
+- **WebView2 模式**：WebView2 是项目内基于 WebView2 的 Cookie 提取机制的新名称（以前称为 DLE）。在代码中，必须始终使用 `AuthSourceType.WEBVIEW2` 和术语 `webview2`。在 UI 文本中，使用 `登录获取 (WebView2)` 或 `WebView2 登录`。**绝对不要**将其重新命名回 `DLE`。
+- **WebView2 提取器**：当前实现使用 `WebView2CookieProvider`。在代码中引用时使用 `WebView2CookieProvider`，在用户界面中使用 `WebView2`。
 
 ## 6. 后处理管道顺序
 

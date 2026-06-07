@@ -12,16 +12,14 @@ FluentYTDL 统一组件更新协调器
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
 
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import QObject, QThread, Signal
 
 from ..utils.logger import logger
 from ..utils.paths import frozen_app_dir, is_frozen
@@ -59,7 +57,7 @@ def _parse_version_prefix(full_version: str) -> tuple[str, str]:
     """
     for pfx in ("v-", "pre-", "beta-"):
         if full_version.startswith(pfx):
-            return pfx, full_version[len(pfx):]
+            return pfx, full_version[len(pfx) :]
     return "v-", full_version
 
 
@@ -428,10 +426,14 @@ class ComponentUpdateManager(QObject):
 
         cmd = [
             str(updater_path),
-            "--pid", str(pid),
-            "--archive", str(archive_path),
-            "--dest", str(app_dir),
-            "--exe", exe_name,
+            "--pid",
+            str(pid),
+            "--archive",
+            str(archive_path),
+            "--dest",
+            str(app_dir),
+            "--exe",
+            exe_name,
         ]
 
         creationflags = 0

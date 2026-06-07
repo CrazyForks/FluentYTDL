@@ -12,26 +12,26 @@ from typing import Any
 
 class _StreamPhase:
     """单次下载任务中的多流阶段追踪器"""
-    
+
     # 阶段定义: (阶段名, 输出进度范围起始, 输出进度范围宽度)
-    VIDEO  = ("video",  0.0,  50.0)   # 0%  -> 50%
-    AUDIO  = ("audio",  50.0, 45.0)   # 50% -> 95% 
-    POST   = ("post",   95.0, 4.0)    # 95% -> 99%
-    SINGLE = ("single", 0.0,  95.0)   # 单流模式: 0% -> 95%
-    
+    VIDEO = ("video", 0.0, 50.0)  # 0%  -> 50%
+    AUDIO = ("audio", 50.0, 45.0)  # 50% -> 95%
+    POST = ("post", 95.0, 4.0)  # 95% -> 99%
+    SINGLE = ("single", 0.0, 95.0)  # 单流模式: 0% -> 95%
+
     def __init__(self):
         self._phase = None
         self._is_multi_stream = False
         self._stream_count = 0
-    
+
     def detect_phase(self, info_dict: dict) -> tuple:
         """根据 vcodec/acodec 判断当前下载的流类型，返回 (阶段, 是否发生了切换)"""
         vcodec = (info_dict.get("vcodec") or "").lower()
         acodec = (info_dict.get("acodec") or "").lower()
-        
+
         has_video = vcodec and vcodec != "none" and vcodec != "na"
         has_audio = acodec and acodec != "none" and acodec != "na"
-        
+
         if self._phase is None:
             if has_video and not has_audio:
                 self._phase = self.VIDEO
@@ -42,14 +42,14 @@ class _StreamPhase:
                 self._phase = self.SINGLE
             self._stream_count += 1
             return (self._phase, True)
-        
+
         if self._phase == self.VIDEO and has_audio and not has_video:
             self._phase = self.AUDIO
             self._stream_count += 1
             return (self._phase, True)
-        
+
         return (self._phase, False)
-    
+
     def map_progress(self, phase: tuple, raw_pct: float) -> float:
         """将单流内的原始百分比映射到全局进度"""
         if phase is None:
@@ -72,17 +72,25 @@ class CleanLogger:
     - "paused": 暂停
     """
 
-    def __init__(self, callback: Callable[[str, float, str], None], duration: float = 0.0):
+    def __init__(
+        self,
+        callback: Callable[[str, float, str], None],
+        duration: float = 0.0,
+        playlist_tracker: Any = None,
+    ):
         """
         :param callback: 向外发射的清理后信号方法 (状态码, float进度, 友好状态文案)
+        :param playlist_tracker: 可选的 PlaylistProgressTracker 实例
         """
         self.callback = callback
+        self.playlist_tracker = playlist_tracker
         self._current_state = "queued"
         self._current_percent = 0.0
         self._current_msg = "等待下载..."
         self._stream_phase = _StreamPhase()
         self._phase_just_switched = False
         self._duration = duration
+
     def _emit(self, state: str, percent: float, msg: str) -> None:
         # 进度不后退规则（仅在同一阶段内生效）
         # 阶段切换时允许视觉上的 "重置"（实际是映射后的递增）
@@ -122,6 +130,38 @@ class CleanLogger:
             self._emit("parsing", 0, "🧩 正在组装 m3u8 碎片地图...")
             return
 
+        # 播放列表进度拦截
+        if self.playlist_tracker:
+            pt_res = self.playlist_tracker.parse_line(msg)
+            if pt_res:
+                p_state, p_pct, p_msg = pt_res
+                self._emit(p_state, p_pct, p_msg)
+                return
+            elif msg.startswith("[download] Destination:") or msg.startswith(
+                "[ExtractAudio] Destination:"
+            ):
+                # 获取当前视频的文件名（有时可以从中提取标题）
+                import os
+
+                # Extract filename without path and extension
+                basename = os.path.basename(msg.split("Destination: ")[1].strip())
+                title = os.path.splitext(basename)[0]
+                self.playlist_tracker.current_title = title
+                self._emit(
+                    "downloading",
+                    self.playlist_tracker.overall_percent,
+                    self.playlist_tracker.build_status_text(),
+                )
+                return
+            elif "has already been downloaded" in msg:
+                self.playlist_tracker.mark_item_completed()
+                self._emit(
+                    "downloading",
+                    self.playlist_tracker.overall_percent,
+                    self.playlist_tracker.build_status_text(),
+                )
+                return
+
         # 翻译并判断是否为后处理阶段
         processed_msg = ""
         # 英文日志到中文的翻译
@@ -145,7 +185,15 @@ class CleanLogger:
             processed_msg = "🖼️ 正在下载视频封面图..."
 
         if processed_msg:
-            self._emit("processing", self._current_percent, processed_msg)
+            # 单 Worker 播放列表模式：替换 msg 但保持整体进度格式
+            if self.playlist_tracker:
+                if "Merging formats into" in msg or "[Merger]" in msg:
+                    # 合并开始，可以认为当前条目下载已经 100%（不过 yt-dlp 通常会有 separate log）
+                    pass
+                msg = f"[{self.playlist_tracker.current_item}/{self.playlist_tracker.total_items}] {self.playlist_tracker.current_title} — 后处理: {processed_msg.replace('...', '')}"
+                self._emit("processing", self.playlist_tracker.overall_percent, msg)
+            else:
+                self._emit("processing", self._current_percent, processed_msg)
 
     def handle_progress(self, progress_data: dict[str, Any]) -> None:
         """处理 yt-dlp 的原生 progress 回调 (来自 dict)"""
@@ -157,13 +205,13 @@ class CleanLogger:
         if status == "ffmpeg_progress":
             time_sec = progress_data.get("time_sec", 0.0)
             speed = progress_data.get("speed", "1x")
-            
+
             if self._duration > 0:
                 raw_pct = (time_sec / self._duration) * 100.0
                 raw_pct = min(100.0, max(0.0, raw_pct))
             else:
                 raw_pct = 50.0  # unknown duration
-                
+
             pct = self._stream_phase.map_progress(_StreamPhase.POST, raw_pct)
             pct = round(pct, 1)
             msg = f"🔄 FFmpeg 转码中 {raw_pct:.1f}% | 速度: {speed}..."
@@ -257,7 +305,20 @@ class CleanLogger:
                 f"{stream_type} | ⬇️ {speed_str} | {downloaded_str}/{total_str} | 剩余: {eta_str}"
             )
 
-            self._emit("downloading", pct, detail_text)
+            # 如果是播放列表模式，劫持最终输出
+            if self.playlist_tracker:
+                if info and info.get("title"):
+                    self.playlist_tracker.current_title = info.get("title")
+                self.playlist_tracker.update_item_progress(pct, speed, eta, dl_bytes)
+                if pct >= 100.0:
+                    self.playlist_tracker.mark_item_completed()
+
+                # 发射组装好的文本，但是进度条是总体进度
+                final_pct = self.playlist_tracker.overall_percent
+                final_msg = self.playlist_tracker.build_status_text()
+                self._emit("downloading", final_pct, final_msg)
+            else:
+                self._emit("downloading", pct, detail_text)
 
         elif status == "finished":
             # [download] 标明 finish，但后续可能有 [ffmpeg] 处理
@@ -278,4 +339,3 @@ class CleanLogger:
         m, s = divmod(seconds, 60)
         h, m = divmod(m, 60)
         return f"{int(h):02d}:{int(m):02d}:{int(s):02d}" if h else f"{int(m):02d}:{int(s):02d}"
-

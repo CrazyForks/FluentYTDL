@@ -43,12 +43,8 @@ def _init_log(dest_dir: Path) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     _logger = logging.getLogger("updater")
     _logger.setLevel(logging.DEBUG)
-    handler = logging.FileHandler(
-        log_dir / "updater.log", encoding="utf-8", mode="w"
-    )
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s [updater] %(message)s", datefmt="%H:%M:%S")
-    )
+    handler = logging.FileHandler(log_dir / "updater.log", encoding="utf-8", mode="w")
+    handler.setFormatter(logging.Formatter("%(asctime)s [updater] %(message)s", datefmt="%H:%M:%S"))
     _logger.addHandler(handler)
 
 
@@ -175,7 +171,10 @@ def _extract_7z(archive_path: Path, dest_dir: Path) -> None:
         kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
     result = subprocess.run(
-        cmd, shell=True, capture_output=True, **kwargs,
+        cmd,
+        shell=True,
+        capture_output=True,
+        **kwargs,
     )
 
     if result.returncode != 0:
@@ -379,7 +378,12 @@ def main() -> int:
         # 使用 ShellExecuteW 启动 GUI 应用（等同于双击 exe，最可靠）
         # subprocess.Popen + DETACHED_PROCESS 从 windowed 进程启动 GUI 不可靠
         ret = ctypes.windll.shell32.ShellExecuteW(  # type: ignore[union-attr]
-            None, "open", str(exe_path), None, str(dest_dir), 1,  # SW_SHOWNORMAL
+            None,
+            "open",
+            str(exe_path),
+            None,
+            str(dest_dir),
+            1,  # SW_SHOWNORMAL
         )
         if ret <= 32:
             log(f"错误: ShellExecuteW 返回 {ret}，启动新版本失败")

@@ -262,7 +262,13 @@ class ThumbnailEmbedder:
 
             env = get_clean_env()
             result = subprocess.run(
-                cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore", env=env, **kwargs
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                env=env,
+                **kwargs,
             )
 
             if result.returncode == 0:
@@ -352,7 +358,13 @@ class ThumbnailEmbedder:
 
             env = get_clean_env()
             result = subprocess.run(
-                cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore", env=env, **kwargs
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                env=env,
+                **kwargs,
             )
 
             if result.returncode == 0 and os.path.exists(temp_path):

@@ -142,7 +142,6 @@ class SubtitleSelectorWidget(QFrame):
             layout.addWidget(cb)
             self.table.setCellWidget(row, 0, cell_widget)
 
-
             # 2. Language
             lang_text = f"{track.display_name} ({track.lang_code})"
             item_lang = QTableWidgetItem(lang_text)
@@ -187,7 +186,7 @@ class SubtitleSelectorWidget(QFrame):
 
     def get_selected_language_codes(self) -> tuple[list[str], bool, bool]:
         """返回 (语言代码列表, 是否包含人工, 是否包含自动)
-        
+
         供 SubtitlePickerDialog 使用，不包含 yt-dlp 控制参数。
         """
         tracks = self.get_selected_tracks()
@@ -200,7 +199,7 @@ class SubtitleSelectorWidget(QFrame):
         """根据之前的选择恢复 checkbox 状态和外部设置"""
         if not selected_langs:
             return
-            
+
         for row, track in enumerate(self._tracks):
             cell_widget = self.table.cellWidget(row, 0)
             if cell_widget:
@@ -242,6 +241,7 @@ class SubtitleSelectorWidget(QFrame):
             opts["embedsubtitles"] = True
 
         from ...core.config_manager import config_manager
+
         out_fmt = config_manager.get("subtitle_output_format", "srt")
         if out_fmt:
             opts["convertsubtitles"] = out_fmt

@@ -154,12 +154,17 @@ def _extract_subtitles_from_obj(info: Any) -> dict[str, Any]:
     for lang, tracks in subs.items():
         if isinstance(tracks, list):
             result[str(lang)] = [
-                {"url": getattr(t, "url", ""), "ext": getattr(t, "ext", "vtt"),
-                 "name": getattr(t, "name", "")}
-                if not isinstance(t, dict) else t
+                {
+                    "url": getattr(t, "url", ""),
+                    "ext": getattr(t, "ext", "vtt"),
+                    "name": getattr(t, "name", ""),
+                }
+                if not isinstance(t, dict)
+                else t
                 for t in tracks
             ]
     return result
+
 
 def _extract_auto_captions_from_obj(info: Any) -> dict[str, Any]:
     """从 DTO 对象属性中提取自动字幕数据（回退路径防御）"""
@@ -482,25 +487,34 @@ class DownloadConfigWindow(FramelessWindow):
         self._authStack = QStackedWidget(self.retryWidget)
         self.retryLayout.addWidget(self._authStack)
 
-        # --- 面板 1: DLE 登录 ---
+        # Helper for auth panel hint labels
+        def create_hint_label(text: str, parent: QWidget):
+            lbl = CaptionLabel(text, parent)
+            lbl.setWordWrap(True)
+            lbl.setStyleSheet(
+                "QLabel { background: rgba(128, 128, 128, 0.1); padding: 10px; border-radius: 6px; }"
+            )
+            return lbl
+
+        # --- 面板 1: WebView2 登录 ---
         dle_panel = QWidget()
         dle_lay = QVBoxLayout(dle_panel)
         dle_lay.setContentsMargins(0, 4, 0, 0)
-        dle_lay.setSpacing(6)
-        dle_hint = CaptionLabel(
+        dle_lay.setSpacing(10)
+        dle_hint = create_hint_label(
             "将打开独立浏览器窗口，请登录 YouTube 账号。\n登录完成后将自动提取 Cookie 并重新解析。",
             dle_panel,
         )
         dle_lay.addWidget(dle_hint)
-        dle_account_row = QWidget(dle_panel)
-        dle_account_h = QHBoxLayout(dle_account_row)
-        dle_account_h.setContentsMargins(0, 0, 0, 0)
-        dle_account_h.setSpacing(8)
-        self._dleAccountCombo = ComboBox(dle_account_row)
-        dle_account_h.addWidget(self._dleAccountCombo, 1)
-        dle_lay.addWidget(dle_account_row)
+        webview2_account_row = QWidget(dle_panel)
+        webview2_account_h = QHBoxLayout(webview2_account_row)
+        webview2_account_h.setContentsMargins(0, 0, 0, 0)
+        webview2_account_h.setSpacing(8)
+        self._webview2AccountCombo = ComboBox(webview2_account_row)
+        webview2_account_h.addWidget(self._webview2AccountCombo, 1)
+        dle_lay.addWidget(webview2_account_row)
         self._dleRetryBtn = PrimaryPushButton("登录 YouTube 并重试", dle_panel)
-        self._dleRetryBtn.clicked.connect(self._on_dle_retry_clicked)
+        self._dleRetryBtn.clicked.connect(self._on_webview2_retry_clicked)
         dle_lay.addWidget(self._dleRetryBtn)
         self._dleStatusLabel = CaptionLabel("", dle_panel)
         dle_lay.addWidget(self._dleStatusLabel)
@@ -510,8 +524,8 @@ class DownloadConfigWindow(FramelessWindow):
         extract_panel = QWidget()
         extract_lay = QVBoxLayout(extract_panel)
         extract_lay.setContentsMargins(0, 4, 0, 0)
-        extract_lay.setSpacing(6)
-        extract_hint = CaptionLabel(
+        extract_lay.setSpacing(10)
+        extract_hint = create_hint_label(
             "从本地已登录的浏览器中直接提取 Cookie。\n"
             "Chromium 内核浏览器 (Edge/Chrome) 可能需要管理员权限。",
             extract_panel,
@@ -547,8 +561,8 @@ class DownloadConfigWindow(FramelessWindow):
         import_panel = QWidget()
         import_lay = QVBoxLayout(import_panel)
         import_lay.setContentsMargins(0, 4, 0, 0)
-        import_lay.setSpacing(6)
-        import_hint = CaptionLabel(
+        import_lay.setSpacing(10)
+        import_hint = create_hint_label(
             "选择已有的 cookies.txt 文件 (Netscape 格式)。\n"
             "可使用浏览器扩展 (如 Get cookies.txt LOCALLY) 导出。",
             import_panel,
@@ -563,8 +577,8 @@ class DownloadConfigWindow(FramelessWindow):
         update_panel = QWidget()
         update_lay = QVBoxLayout(update_panel)
         update_lay.setContentsMargins(0, 4, 0, 0)
-        update_lay.setSpacing(6)
-        update_hint = CaptionLabel(
+        update_lay.setSpacing(10)
+        update_hint = create_hint_label(
             "当前解析失败可能受限于 YouTube 最新的反爬风控机制（如 poToken）。\n"
             "建议立即检测并更新 yt-dlp 核心解析组件。",
             update_panel,
@@ -590,31 +604,23 @@ class DownloadConfigWindow(FramelessWindow):
         self._authStack.addWidget(update_panel)
 
         # 绑定分段选择器
-        self._authSegment.addItem(
-            routeKey="dle", text="🔑 登录"
-        )
-        self._authSegment.addItem(
-            routeKey="extract", text="🚀 提取"
-        )
-        self._authSegment.addItem(
-            routeKey="import", text="📄 导入"
-        )
-        self._authSegment.addItem(
-            routeKey="update", text="⚙️ 更新"
-        )
-        
+        self._authSegment.addItem(routeKey="webview2", text="🔑 登录")
+        self._authSegment.addItem(routeKey="extract", text="🚀 提取")
+        self._authSegment.addItem(routeKey="import", text="📄 导入")
+        self._authSegment.addItem(routeKey="update", text="⚙️ 更新")
+
         # 移除 onClick 参数，改为监听 currentItemChanged
         self._authSegment.currentItemChanged.connect(
             lambda key: self._authStack.setCurrentIndex(
-                {"dle": 0, "extract": 1, "import": 2, "update": 3}.get(key, 0)
+                {"webview2": 0, "extract": 1, "import": 2, "update": 3}.get(key, 0)
             )
         )
-        self._authSegment.setCurrentItem("dle")
+        self._authSegment.setCurrentItem("webview2")
         self._authStack.setCurrentIndex(0)
 
-        # 初始化 DLE 账号列表
-        self._dle_account_ids: list[str] = []
-        self._reload_dle_account_combo()
+        # 初始化 WebView2 账号列表
+        self._webview2_account_ids: list[str] = []
+        self._reload_webview2_account_combo()
 
         self.viewLayout.addWidget(self.retryWidget)
         self.retryWidget.hide()
@@ -755,14 +761,19 @@ class DownloadConfigWindow(FramelessWindow):
         """打开字幕精选对话框"""
         if not self.video_info:
             return
-        
+
         # 获取当前容器格式（从格式选择器读取用户手动设置的容器覆盖）
         container = None
         if isinstance(self.selector_widget, (VideoFormatSelectorWidget, VRFormatSelectorWidget)):
-            container = getattr(self.selector_widget, 'get_container_override', lambda: None)()
-        
-        dialog = SubtitlePickerDialog(self.video_info, container, initial_result=getattr(self, '_subtitle_pick_result', None), parent=self)
-        
+            container = getattr(self.selector_widget, "get_container_override", lambda: None)()
+
+        dialog = SubtitlePickerDialog(
+            self.video_info,
+            container,
+            initial_result=getattr(self, "_subtitle_pick_result", None),
+            parent=self,
+        )
+
         if dialog.exec():
             result = dialog.get_result()
             self._subtitle_pick_result = result
@@ -809,8 +820,18 @@ class DownloadConfigWindow(FramelessWindow):
             lambda checked: self.subtitle_pick_btn.setEnabled(checked)
         )
 
-        thumb_enabled = bool(config_manager.get("embed_thumbnail", True))
-        self.cover_check = self._add_labeled_toggle(layout, container, "下载封面", thumb_enabled)
+        dl_thumb = bool(config_manager.get("download_thumbnail", False))
+        self.cover_check = self._add_labeled_toggle(layout, container, "独立封面", dl_thumb)
+
+        em_thumb = bool(config_manager.get("embed_thumbnail", False))
+        self.embed_check = self._add_labeled_toggle(layout, container, "嵌入视频", em_thumb)
+
+        self.cover_check.checkedChanged.connect(
+            lambda checked: self.embed_check.setChecked(False) if checked else None
+        )
+        self.embed_check.checkedChanged.connect(
+            lambda checked: self.cover_check.setChecked(False) if checked else None
+        )
 
         meta_enabled = bool(config_manager.get("embed_metadata", True))
         self.metadata_check = self._add_labeled_toggle(
@@ -845,9 +866,21 @@ class DownloadConfigWindow(FramelessWindow):
             lambda checked: self.playlist_subtitle_pick_btn.setEnabled(checked)
         )
 
-        thumb_enabled = bool(config_manager.get("embed_thumbnail", True))
+        dl_thumb = bool(config_manager.get("download_thumbnail", False))
         self.playlist_cover_check = self._add_labeled_toggle(
-            layout, container, "下载封面", thumb_enabled
+            layout, container, "独立封面", dl_thumb
+        )
+
+        em_thumb = bool(config_manager.get("embed_thumbnail", False))
+        self.playlist_embed_check = self._add_labeled_toggle(
+            layout, container, "嵌入视频", em_thumb
+        )
+
+        self.playlist_cover_check.checkedChanged.connect(
+            lambda checked: self.playlist_embed_check.setChecked(False) if checked else None
+        )
+        self.playlist_embed_check.checkedChanged.connect(
+            lambda checked: self.playlist_cover_check.setChecked(False) if checked else None
         )
 
         meta_enabled = bool(config_manager.get("embed_metadata", True))
@@ -868,10 +901,23 @@ class DownloadConfigWindow(FramelessWindow):
     def _on_download_clicked(self):
         # 获取任务并发送信号
         try:
+            if hasattr(self, "_preflight_warnings"):
+                self._preflight_warnings.clear()
+
             tasks = self.get_selected_tasks()
-            if tasks:
-                self.downloadRequested.emit(tasks)
-                self.close()
+            if not tasks:
+                return
+
+            warnings = getattr(self, "_preflight_warnings", [])
+            if warnings:
+                # 弹窗询问
+                from ..dialogs.quality_report_dialog import QualityReportDialog
+
+                if not QualityReportDialog(warnings, self).exec():
+                    return
+
+            self.downloadRequested.emit(tasks)
+            self.close()
         except Exception as e:
             logger.exception("_on_download_clicked 异常")
             from qfluentwidgets import InfoBar
@@ -977,11 +1023,15 @@ class DownloadConfigWindow(FramelessWindow):
         self._current_options = None
 
         from ...utils.validators import UrlValidator
+
         self._is_channel = UrlValidator.is_channel_url(self.url)
 
         if self._is_channel:
             from ...download.workers import ChannelExtractWorker
-            target_tabs = ["videos", "shorts", "streams"] if self._target_tab == "all" else [self._target_tab]
+
+            target_tabs = (
+                ["videos", "shorts", "streams"] if self._target_tab == "all" else [self._target_tab]
+            )
             w = ChannelExtractWorker(self.url, target_tabs, self._current_options)
             w.progress.connect(self._on_channel_progress)
             w.finished_all.connect(self.on_channel_parse_success)
@@ -995,7 +1045,9 @@ class DownloadConfigWindow(FramelessWindow):
             self.worker = w
             w.start()
         else:
-            w = InfoExtractWorker(self.url, self._current_options, playlist_flat=self._playlist_flat)
+            w = InfoExtractWorker(
+                self.url, self._current_options, playlist_flat=self._playlist_flat
+            )
             w.finished.connect(self.on_parse_success)
             w.error.connect(self.on_parse_error)
             self.worker = w
@@ -1020,18 +1072,32 @@ class DownloadConfigWindow(FramelessWindow):
                 entries = cache["data"].get("entries", [])
                 combined_entries.extend(entries)
 
-        if not combined_entries and all(c.get("status") in ("unsupported", "unloaded") for c in self._channel_caches.values() if c is not self._channel_caches.get("all")):
+        if not combined_entries and all(
+            c.get("status") in ("unsupported", "unloaded")
+            for c in self._channel_caches.values()
+            if c is not self._channel_caches.get("all")
+        ):
             self.on_parse_error({"title": "解析失败", "content": "未能找到任何频道内容。"})
             return
 
         # Set combined into the first loaded tab's dict as base
-        base_info = next((c["data"] for c in self._channel_caches.values() if c.get("status") == "loaded" and c.get("data")), {})
+        base_info = next(
+            (
+                c["data"]
+                for c in self._channel_caches.values()
+                if c.get("status") == "loaded" and c.get("data")
+            ),
+            {},
+        )
         info_dict = dict(base_info)
         info_dict["entries"] = combined_entries
         info_dict["_type"] = "playlist"
-        
+
         # Calculate max tab count to update UI
-        if all(self._channel_caches.get(t, {}).get("status") in ("loaded", "unsupported") for t in ["videos", "shorts", "streams"]):
+        if all(
+            self._channel_caches.get(t, {}).get("status") in ("loaded", "unsupported")
+            for t in ["videos", "shorts", "streams"]
+        ):
             self._channel_caches["all"]["status"] = "loaded"
 
         self.on_parse_success(info_dict)
@@ -1108,6 +1174,7 @@ class DownloadConfigWindow(FramelessWindow):
 
         # 频道检测：通过 URL 模式判断
         from ...utils.validators import UrlValidator
+
         self._is_channel = UrlValidator.is_channel_url(self.url)
 
         self._apply_dialog_size_for_mode()
@@ -1205,6 +1272,9 @@ class DownloadConfigWindow(FramelessWindow):
             return
         self._clear_error_augment_widgets()
         self._cookieWarningLabel.setStyleSheet(self._cookie_warning_stylesheet())
+        self._cookieWarningLabel.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         self.loadingWidget.hide()
         self.titleLabel.setText("解析失败")
         self.titleLabel.show()
@@ -1236,97 +1306,77 @@ class DownloadConfigWindow(FramelessWindow):
         title = friendly_title if friendly_title else str(err_data.get("title") or "解析失败")
         content = friendly_content if friendly_content else str(err_data.get("content") or "")
         suggestion = str(err_data.get("suggestion") or "")
+        technical_detail = str(err_data.get("technical_detail") or raw_error)
+
+        from PySide6.QtGui import QFont
+        from PySide6.QtWidgets import QTextEdit, QVBoxLayout
+        from qfluentwidgets import BodyLabel, PushButton, SimpleCardWidget
+
+        self._error_container = SimpleCardWidget(self)
+        err_layout = QVBoxLayout(self._error_container)
+        err_layout.setContentsMargins(16, 16, 16, 16)
+        err_layout.setSpacing(12)
 
         text = f"{title}\n\n{content}"
         if suggestion and not raw_error:
             text += f"\n\n建议操作：\n{suggestion}"
 
-        self._error_label = CaptionLabel(text, self)
-        try:
-            self._error_label.setWordWrap(True)
-        except Exception:
-            pass
-        self.viewLayout.addWidget(self._error_label)
+        msg_label = BodyLabel(text, self._error_container)
+        msg_label.setWordWrap(True)
+        msg_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        err_layout.addWidget(msg_label)
+
+        if technical_detail:
+            toggle_btn = PushButton("查看技术详情", self._error_container)
+            detail_edit = QTextEdit(self._error_container)
+            detail_edit.setReadOnly(True)
+            detail_edit.setPlainText(technical_detail)
+
+            # Explicitly set Consolas font to avoid Fixedsys crash
+            detail_font = QFont("Consolas", 10)
+            detail_font.setStyleHint(QFont.StyleHint.Monospace)
+            detail_edit.setFont(detail_font)
+
+            detail_edit.setMaximumHeight(150)
+            detail_edit.hide()
+
+            def _toggle_detail():
+                if detail_edit.isHidden():
+                    detail_edit.show()
+                    toggle_btn.setText("隐藏技术详情")
+                else:
+                    detail_edit.hide()
+                    toggle_btn.setText("查看技术详情")
+
+            toggle_btn.clicked.connect(_toggle_detail)
+            err_layout.addWidget(toggle_btn)
+            err_layout.addWidget(detail_edit)
+
+        self._error_label = self._error_container
+
+        # Insert error label right after the titleLabel
+        idx = self.viewLayout.indexOf(self.titleLabel)
+        self.viewLayout.insertWidget(idx + 1 if idx >= 0 else 1, self._error_label)
 
         # === 根据分类决定显示哪个面板 ===
-        if category in (ErrorCode.LOGIN_REQUIRED, ErrorCode.COOKIE_EXPIRED):
-            self._switch_to_state(WindowState.ERROR_GENERIC)
-            # 隐藏 _error_label 以免长篇大论影响体验
-            if hasattr(self, "_error_label") and self._error_label:
-                self._error_label.hide()
-                
-            from ...auth.auth_service import AuthSourceType, auth_service
-            from .cookie_repair_dialog import CookieRepairDialog
-            
-            current_source = auth_service.current_source
-            source_map = {
-                AuthSourceType.DLE: "dle",
-                AuthSourceType.FILE: "file",
-            }
-            auth_source_str = source_map.get(current_source, "browser")
-            
-            dialog = CookieRepairDialog(raw_error, parent=self.window(), auth_source=auth_source_str)
-            
-            if current_source == AuthSourceType.DLE:
-                dialog.setWindowTitle("需要重新登录 YouTube")
-                dialog.repair_btn.setText("重新登录")
-            elif current_source == AuthSourceType.FILE:
-                dialog.setWindowTitle("Cookie 文件需要更新")
-                dialog.repair_btn.setText("重新导入")
-            
-            def on_auto_repair():
-                if current_source == AuthSourceType.DLE:
-                    from ...core.controller import Controller
-                    ctrl = Controller.get_instance()
-                    dialog.accept()
-                    if ctrl:
-                        ctrl.show_settings_page()
-                    self.close()
-                elif current_source == AuthSourceType.FILE:
-                    from ...core.controller import Controller
-                    ctrl = Controller.get_instance()
-                    dialog.accept()
-                    if ctrl:
-                        ctrl.show_settings_page()
-                    self.close()
-                else:
-                    from ...auth.cookie_sentinel import cookie_sentinel
-                    success, msg = cookie_sentinel.force_refresh_with_uac()
-                    dialog.show_repair_result(success, msg)
-                    if success:
-                        from PySide6.QtCore import QTimer
-                        QTimer.singleShot(1500, self._retry_parse_with_auth)
-                        
-            dialog.repair_requested.connect(on_auto_repair)
-            
-            def on_manual_import():
-                dialog.accept()
-                from PySide6.QtWidgets import QDialog
-                try:
-                    from fluentytdl.ui.components.cookie_import_dialog import CookieImportDialog
-                except ImportError:
-                    return
-                import_dlg = CookieImportDialog(self.window())
-                if import_dlg.exec() == QDialog.DialogCode.Accepted:
-                    from ...auth.cookie_sentinel import cookie_sentinel
-                    cookie_sentinel.force_refresh()
-                    self._retry_parse_with_auth()
-
-            dialog.manual_import_requested.connect(on_manual_import)
-            dialog.show()
+        if category in (
+            ErrorCode.LOGIN_REQUIRED,
+            ErrorCode.COOKIE_EXPIRED,
+            ErrorCode.RATE_LIMITED,
+            ErrorCode.HTTP_ERROR,
+        ):
+            self._switch_to_state(WindowState.ERROR_COOKIE)
+            self._authSegment.setCurrentItem("webview2")
+            self.networkDiagWidget.hide()
         elif category == ErrorCode.NETWORK_ERROR:
             self._switch_to_state(WindowState.ERROR_NETWORK)
             self._netProbeResult.setText("")
-        elif category == ErrorCode.POTOKEN_FAILURE:
-            self._switch_to_state(WindowState.ERROR_GENERIC)
-            self.retryWidget.show()
+        elif category in (ErrorCode.POTOKEN_FAILURE, ErrorCode.EXTRACTOR_ERROR, ErrorCode.GENERAL):
+            self._switch_to_state(WindowState.ERROR_COOKIE)
             self._authSegment.setCurrentItem("update")
             self.networkDiagWidget.hide()
-        elif category in (ErrorCode.GENERAL, ErrorCode.EXTRACTOR_ERROR, ErrorCode.HTTP_ERROR, ErrorCode.FORMAT_UNAVAILABLE, ErrorCode.GEO_RESTRICTED, ErrorCode.RATE_LIMITED, ErrorCode.DISK_FULL, ErrorCode.SUCCESS, ErrorCode.UNKNOWN):
-            self._switch_to_state(WindowState.ERROR_GENERIC)
-            self.retryWidget.hide()
-            self.networkDiagWidget.hide()
         else:
+            self._switch_to_state(WindowState.ERROR_GENERIC)
             self.retryWidget.hide()
             self.networkDiagWidget.hide()
 
@@ -1440,19 +1490,19 @@ class DownloadConfigWindow(FramelessWindow):
         self.worker = w
         w.start()
 
-    def _on_dle_retry_clicked(self) -> None:
-        """DLE 登录模式重试"""
+    def _on_webview2_retry_clicked(self) -> None:
+        """WebView2 登录模式重试"""
         from ...auth.auth_service import AuthSourceType, auth_service
         from ...auth.cookie_sentinel import cookie_sentinel
 
-        self._reload_dle_account_combo()
+        self._reload_webview2_account_combo()
 
-        # 先按下拉框切换当前 DLE 账号
-        idx = self._dleAccountCombo.currentIndex()
-        if 0 <= idx < len(self._dle_account_ids):
-            auth_service.set_current_dle_account(self._dle_account_ids[idx])
+        # 先按下拉框切换当前 WebView2 账号
+        idx = self._webview2AccountCombo.currentIndex()
+        if 0 <= idx < len(self._webview2_account_ids):
+            auth_service.set_current_webview2_account(self._webview2_account_ids[idx])
 
-        account = auth_service.current_dle_account
+        account = auth_service.current_webview2_account
         account_name = account.display_name if account else "默认账号"
 
         self._dleRetryBtn.setEnabled(False)
@@ -1461,10 +1511,10 @@ class DownloadConfigWindow(FramelessWindow):
             f"正在后台提取 {account_name} 登录态，若提取失败将自动显示登录窗口..."
         )
 
-        # 切换到 DLE 模式
-        auth_service.set_source(AuthSourceType.DLE, auto_refresh=False)
+        # 切换到 WebView2 模式
+        auth_service.set_source(AuthSourceType.WEBVIEW2, auto_refresh=False)
 
-        # 在后台线程执行 DLE 登录
+        # 在后台线程执行 WebView2 登录
         from PySide6.QtCore import QThread
         from PySide6.QtCore import Signal as QSignal
 
@@ -1478,7 +1528,7 @@ class DownloadConfigWindow(FramelessWindow):
                 except Exception as e:
                     self.finished.emit(False, str(e))
 
-        self._dle_worker = _DLEWorker(self)
+        self._webview2_worker = _DLEWorker(self)
 
         def _on_done(success: bool, msg: str):
             self._dleRetryBtn.setEnabled(True)
@@ -1487,7 +1537,7 @@ class DownloadConfigWindow(FramelessWindow):
                 try:
                     from ...auth.cookie_sentinel import cookie_sentinel
 
-                    cur_acc = auth_service.current_dle_account
+                    cur_acc = auth_service.current_webview2_account
                     acc_cookie = cur_acc.cached_cookie_path if cur_acc else "未知"
                     self._dleStatusLabel.setText(
                         f"✅ {account_name} 登录成功，正在重新解析...\n"
@@ -1503,31 +1553,31 @@ class DownloadConfigWindow(FramelessWindow):
                     clean = clean[len("刷新异常: ") :]
                 self._dleStatusLabel.setText(f"❌ {clean}")
 
-        self._dle_worker.finished.connect(_on_done, Qt.ConnectionType.QueuedConnection)
-        self._dle_worker.start()
+        self._webview2_worker.finished.connect(_on_done, Qt.ConnectionType.QueuedConnection)
+        self._webview2_worker.start()
 
-    def _reload_dle_account_combo(self) -> None:
-        """刷新 DLE 账号下拉列表"""
+    def _reload_webview2_account_combo(self) -> None:
+        """刷新 WebView2 账号下拉列表"""
         try:
             from ...auth.auth_service import auth_service
 
-            accounts = auth_service.list_dle_accounts(platform="youtube")
-            self._dle_account_ids = [a.account_id for a in accounts]
+            accounts = auth_service.list_webview2_accounts(platform="youtube")
+            self._webview2_account_ids = [a.account_id for a in accounts]
 
-            self._dleAccountCombo.blockSignals(True)
-            self._dleAccountCombo.clear()
+            self._webview2AccountCombo.blockSignals(True)
+            self._webview2AccountCombo.clear()
             for acc in accounts:
                 label = acc.display_name
                 if acc.is_default:
                     label += " (默认)"
-                self._dleAccountCombo.addItem(label)
+                self._webview2AccountCombo.addItem(label)
 
-            cur = auth_service.current_dle_account_id
-            if cur in self._dle_account_ids:
-                self._dleAccountCombo.setCurrentIndex(self._dle_account_ids.index(cur))
-            elif self._dle_account_ids:
-                self._dleAccountCombo.setCurrentIndex(0)
-            self._dleAccountCombo.blockSignals(False)
+            cur = auth_service.current_webview2_account_id
+            if cur in self._webview2_account_ids:
+                self._webview2AccountCombo.setCurrentIndex(self._webview2_account_ids.index(cur))
+            elif self._webview2_account_ids:
+                self._webview2AccountCombo.setCurrentIndex(0)
+            self._webview2AccountCombo.blockSignals(False)
         except Exception:
             pass
 
@@ -1691,8 +1741,13 @@ class DownloadConfigWindow(FramelessWindow):
         info_v.addWidget(meta_lbl)
 
         if self.video_info_dto and 0 < self.video_info_dto.max_video_height <= 720:
-            warn_lbl = CaptionLabel(f"⚠️ 警告: 该视频受限，最高仅支持 {self.video_info_dto.max_video_height}p 提取", top_card)
-            warn_lbl.setStyleSheet("QLabel { color: #b8860b; font-weight: bold; background: rgba(255, 193, 7, 0.15); padding: 4px 8px; border-radius: 4px; }")
+            warn_lbl = CaptionLabel(
+                f"⚠️ 警告: 该视频受限，最高仅支持 {self.video_info_dto.max_video_height}p 提取",
+                top_card,
+            )
+            warn_lbl.setStyleSheet(
+                "QLabel { color: #b8860b; font-weight: bold; background: rgba(255, 193, 7, 0.15); padding: 4px 8px; border-radius: 4px; }"
+            )
             info_v.addWidget(warn_lbl)
 
         info_v.addStretch(1)
@@ -1765,14 +1820,19 @@ class DownloadConfigWindow(FramelessWindow):
 
             self._channel_tab_combo = ComboBox(self.contentWidget)
             self._channel_tab_combo_mapper = []
-            
+
             # 动态生成 ComboBox 选项
-            for tab, name in [("all", "全部"), ("videos", "常规视频"), ("shorts", "Shorts"), ("streams", "直播回放")]:
+            for tab, name in [
+                ("all", "全部"),
+                ("videos", "常规视频"),
+                ("shorts", "Shorts"),
+                ("streams", "直播回放"),
+            ]:
                 cache = self._channel_caches.get(tab, {})
                 if cache.get("status") != "unsupported":
                     self._channel_tab_combo.addItem(name, userData=tab)
                     self._channel_tab_combo_mapper.append(tab)
-            
+
             # 设置当前选中
             if self._channel_tab in self._channel_tab_combo_mapper:
                 idx = self._channel_tab_combo_mapper.index(self._channel_tab)
@@ -1852,7 +1912,7 @@ class DownloadConfigWindow(FramelessWindow):
         toolbar.addWidget(self.invertSelectBtn)
 
         toolbar.addSpacing(16)
-        
+
         if self._vr_mode:
             toolbar.addWidget(self.type_combo)
             toolbar.addWidget(self.preset_combo)
@@ -1863,14 +1923,15 @@ class DownloadConfigWindow(FramelessWindow):
             self.type_combo.hide()
             self.preset_combo.hide()
             self.applyPresetBtn.hide()
-            
+
             # Initial default global format for non-VR playlists
             if self._is_playlist and self._mode not in ("subtitle", "cover"):
                 from ...models.playlist_format import PlaylistGlobalFormatOverride
+
                 self._playlist_format_override = PlaylistGlobalFormatOverride(
                     download_type="video_audio",
                     preset_id="1080p",
-                    preset_intent={"type": "video_audio", "max_height": 1080, "prefer_ext": "mp4"}
+                    preset_intent={"type": "video_audio", "max_height": 1080, "prefer_ext": "mp4"},
                 )
 
         if self._mode in ("subtitle", "cover"):
@@ -1886,13 +1947,11 @@ class DownloadConfigWindow(FramelessWindow):
         list_view.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         list_view.setMouseTracking(False)
         list_view.setUniformItemSizes(True)
-        list_view.setLayoutMode(QListView.LayoutMode.Batched)
-        list_view.setBatchSize(50)
         list_view.setVerticalScrollMode(QListView.ScrollMode.ScrollPerPixel)
         list_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         list_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         list_view.viewport().setAutoFillBackground(True)
-        list_view.viewport().setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
+        list_view.viewport().setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
         list_view.setStyleSheet(
             "QListView { border: none; background: palette(window); outline: none; }"
         )
@@ -2079,7 +2138,11 @@ class DownloadConfigWindow(FramelessWindow):
     # ── 频道标签页/排序切换 ────────────────────────────────────────────────
 
     def _on_channel_tab_changed(self, index: int) -> None:
-        if not hasattr(self, "_channel_tab_combo_mapper") or index < 0 or index >= len(self._channel_tab_combo_mapper):
+        if (
+            not hasattr(self, "_channel_tab_combo_mapper")
+            or index < 0
+            or index >= len(self._channel_tab_combo_mapper)
+        ):
             return
         new_tab = self._channel_tab_combo_mapper[index]
         if new_tab == self._channel_tab:
@@ -2088,7 +2151,7 @@ class DownloadConfigWindow(FramelessWindow):
         self._reload_channel()
 
     def _on_channel_sort_changed(self, index: int) -> None:
-        new_reverse = (index == 1)  # 0=最新在前, 1=最旧在前
+        new_reverse = index == 1  # 0=最新在前, 1=最旧在前
         if new_reverse == self._channel_reverse:
             return
         self._channel_reverse = new_reverse
@@ -2124,6 +2187,7 @@ class DownloadConfigWindow(FramelessWindow):
         # 重新连接 dependency_manager 信号
         try:
             from ...core.dependency_manager import dependency_manager
+
             dependency_manager.check_finished.connect(self._on_dep_check_finished)
             dependency_manager.install_finished.connect(self._on_dep_install_finished)
             dependency_manager.check_error.connect(self._on_dep_error)
@@ -2134,9 +2198,17 @@ class DownloadConfigWindow(FramelessWindow):
         # 3. 检查缓存状态，决定是否需要发网络请求
         if self._channel_tab == "all":
             # 对于 all，检查是否所有的 target 都是 loaded 或 unsupported
-            needs_fetch = [tab for tab in ["videos", "shorts", "streams"] if self._channel_caches.get(tab, {}).get("status") == "unloaded"]
+            needs_fetch = [
+                tab
+                for tab in ["videos", "shorts", "streams"]
+                if self._channel_caches.get(tab, {}).get("status") == "unloaded"
+            ]
         else:
-            needs_fetch = [self._channel_tab] if self._channel_caches.get(self._channel_tab, {}).get("status") == "unloaded" else []
+            needs_fetch = (
+                [self._channel_tab]
+                if self._channel_caches.get(self._channel_tab, {}).get("status") == "unloaded"
+                else []
+            )
 
         if not needs_fetch:
             # 全部在缓存中，直接拼装并渲染
@@ -2151,7 +2223,14 @@ class DownloadConfigWindow(FramelessWindow):
                 if cache.get("status") == "loaded" and cache.get("data"):
                     combined_entries.extend(cache["data"].get("entries", []))
 
-            base_info = next((c["data"] for c in self._channel_caches.values() if c.get("status") == "loaded" and c.get("data")), {})
+            base_info = next(
+                (
+                    c["data"]
+                    for c in self._channel_caches.values()
+                    if c.get("status") == "loaded" and c.get("data")
+                ),
+                {},
+            )
             if not base_info:
                 self.on_parse_error({"title": "切换失败", "content": "找不到有效的频道数据。"})
                 return
@@ -2159,16 +2238,22 @@ class DownloadConfigWindow(FramelessWindow):
             info_dict = dict(base_info)
             info_dict["entries"] = combined_entries
             info_dict["_type"] = "playlist"
-            
+
             # 由于没有发起请求，我们手动调用 parse_success
             # 为了防止卡死UI或状态机，通过 QTimer singleShot 调用
             from PySide6.QtCore import QTimer
+
             QTimer.singleShot(0, lambda: self.on_parse_success(info_dict))
             return
 
         # 4. 需要拉取数据
         # 切换到 loading 状态
-        tab_name = {"all": "全部", "videos": "常规视频", "shorts": "Shorts", "streams": "直播回放"}.get(self._channel_tab, self._channel_tab)
+        tab_name = {
+            "all": "全部",
+            "videos": "常规视频",
+            "shorts": "Shorts",
+            "streams": "直播回放",
+        }.get(self._channel_tab, self._channel_tab)
         sort_name = "最旧在前" if self._channel_reverse else "最新在前"
         self._switch_to_state(
             WindowState.LOADING,
@@ -2177,6 +2262,7 @@ class DownloadConfigWindow(FramelessWindow):
         )
 
         from ...download.workers import ChannelExtractWorker
+
         w = ChannelExtractWorker(self.url, needs_fetch, self._current_options)
         w.progress.connect(self._on_channel_progress)
         w.finished_all.connect(self.on_channel_parse_success)
@@ -2248,11 +2334,12 @@ class DownloadConfigWindow(FramelessWindow):
 
         # Intercept setText to append subtitle indicator
         original_set_text = aw.qualityButton.setText
+
         def _set_text_with_indicator(text: str) -> None:
             if self._mode not in ("subtitle", "cover") and data.get("subtitle_override"):
                 text = str(text) + " [Cc]"
             original_set_text(text)
-            
+
         aw.qualityButton.setText = _set_text_with_indicator
 
         # Batch all property writes so only one dataChanged is emitted at the end
@@ -2338,13 +2425,21 @@ class DownloadConfigWindow(FramelessWindow):
                 "1080p_video": "1080p(无声)",
                 "audio_best": "最佳音质",
                 "audio_high": "高品质音频",
-                "audio_std": "标准音频"
+                "audio_std": "标准音频",
             }
             aw.qualityButton.setText(preset_map.get(pid, "全局格式"))
-            
-            c_info = override.container_override.upper() if getattr(override, "container_override", None) else "自动容器"
+
+            c_info = (
+                override.container_override.upper()
+                if getattr(override, "container_override", None)
+                else "自动容器"
+            )
             if getattr(override, "download_type", None) == "audio_only":
-                c_info = override.audio_format_override.upper() if override.audio_format_override else "自动格式"
+                c_info = (
+                    override.audio_format_override.upper()
+                    if override.audio_format_override
+                    else "自动格式"
+                )
             aw.infoLabel.setText(f"全局: {c_info}")
             return
 
@@ -2570,13 +2665,16 @@ class DownloadConfigWindow(FramelessWindow):
         for r in range(len(self._playlist_rows)):
             self._auto_apply_row_preset(r)
         self._update_download_btn_state()
-        
+
     def _on_global_format_clicked(self):
         from ..dialogs.playlist_format_dialog import PlaylistFormatConfigDialog
-        dialog = PlaylistFormatConfigDialog(current_override=self._playlist_format_override, parent=self)
+
+        dialog = PlaylistFormatConfigDialog(
+            current_override=self._playlist_format_override, parent=self
+        )
         if dialog.exec():
             self._playlist_format_override = dialog.get_override()
-            
+
             t = self._playlist_format_override.download_type
             idx = {"video_audio": 0, "video_only": 1, "audio_only": 2}.get(t, 0)
             self.type_combo.blockSignals(True)
@@ -2584,7 +2682,7 @@ class DownloadConfigWindow(FramelessWindow):
             if self.preset_combo is not None:
                 self.preset_combo.setEnabled(idx in (0, 1))
             self.type_combo.blockSignals(False)
-            
+
             for r in range(len(self._playlist_rows)):
                 self._auto_apply_row_preset(r)
             self._update_download_btn_state()
@@ -3075,7 +3173,7 @@ class DownloadConfigWindow(FramelessWindow):
             if sel and sel.get("format"):
                 data["custom_selection_data"] = sel
                 data["custom_summary"] = dialog.get_summary()
-                if hasattr(dialog, 'get_subtitle_override'):
+                if hasattr(dialog, "get_subtitle_override"):
                     data["subtitle_override"] = dialog.get_subtitle_override()
                 data["manual_override"] = True
                 data["override_format_id"] = None
@@ -3085,7 +3183,6 @@ class DownloadConfigWindow(FramelessWindow):
                 data["audio_manual_override"] = False
                 self._auto_apply_row_preset(row)
 
-    
     def _handle_container_conflict(self, ydl_opts: dict) -> bool:
         from qfluentwidgets import BodyLabel, MessageBoxBase, PushButton, SubtitleLabel
 
@@ -3093,16 +3190,17 @@ class DownloadConfigWindow(FramelessWindow):
             check_audio_multistream_container_compat,
             check_subtitle_container_compat,
         )
-        
+
         container = ydl_opts.get("merge_output_format")
         if not container:
             return True
-            
+
         # 1. Check audio track conflict
         audio_count = ydl_opts.get("__audio_track_count", 1)
         audio_conflict = check_audio_multistream_container_compat(container, audio_count)
-        
+
         if audio_conflict:
+
             class AudioConflictDialog(MessageBoxBase):
                 def __init__(self, parent=None):
                     super().__init__(parent)
@@ -3119,7 +3217,7 @@ class DownloadConfigWindow(FramelessWindow):
                 def accept(self):
                     self.result_action = "mkv"
                     super().accept()
-                    
+
                 def reject(self):
                     self.result_action = "keep"
                     super().reject()
@@ -3128,17 +3226,17 @@ class DownloadConfigWindow(FramelessWindow):
             dialog.exec()
             if dialog.result_action == "mkv":
                 ydl_opts["merge_output_format"] = "mkv"
-                container = "mkv" # update for following checks
+                container = "mkv"  # update for following checks
             # if keep, we do nothing and proceed
 
         # 2. Check subtitle conflict
         is_embed = ydl_opts.get("embedsubtitles", False)
         lang_count = len(ydl_opts.get("subtitleslangs", [])) if is_embed else 0
-        
+
         conflict_msg = check_subtitle_container_compat(container, is_embed, lang_count)
         if not conflict_msg:
             return True
-            
+
         from qfluentwidgets import MessageBoxBase
 
         class ConflictDialog(MessageBoxBase):
@@ -3158,11 +3256,11 @@ class DownloadConfigWindow(FramelessWindow):
                 self.cancelButton.clicked.disconnect()
                 self.cancelButton.clicked.connect(self._accept_external)
                 self.result_action = "abort"
-                
+
             def accept(self):
                 self.result_action = "mkv"
                 super().accept()
-                
+
             def _accept_external(self):
                 self.result_action = "external"
                 super().accept()
@@ -3175,7 +3273,7 @@ class DownloadConfigWindow(FramelessWindow):
             elif dialog.result_action == "external":
                 ydl_opts["embedsubtitles"] = False
                 return True
-                
+
         return False
 
     def get_selected_tasks(self) -> list[tuple[str, str, dict[str, Any], str | None]]:
@@ -3295,15 +3393,21 @@ class DownloadConfigWindow(FramelessWindow):
 
                 # Cover
                 is_cover = self.cover_check.isChecked()
-                ydl_opts["writethumbnail"] = is_cover
-                ydl_opts["embedthumbnail"] = is_cover
+                is_embed = getattr(self, "embed_check", self.cover_check).isChecked()
+                if is_cover or is_embed:
+                    ydl_opts["writethumbnail"] = True
+                    ydl_opts["convert_thumbnail"] = "jpg"
+                else:
+                    ydl_opts["writethumbnail"] = False
+                ydl_opts["__fluentytdl_keep_thumbnail"] = is_cover
+                ydl_opts["embedthumbnail"] = is_embed
 
                 # Metadata
                 ydl_opts["addmetadata"] = self.metadata_check.isChecked()
 
             # 字幕集成
             if self.video_info:
-                pick = getattr(self, '_subtitle_pick_result', None)
+                pick = getattr(self, "_subtitle_pick_result", None)
                 if pick and pick.selected_tracks:
                     ydl_opts["writesubtitles"] = pick.has_manual
                     ydl_opts["writeautomaticsub"] = pick.has_auto
@@ -3316,16 +3420,22 @@ class DownloadConfigWindow(FramelessWindow):
                         embed_override = self._subtitle_embed_choice
                     else:
                         try:
-                            embed_override = self._check_subtitle_and_ask(config=sub_config_override)
+                            embed_override = self._check_subtitle_and_ask(
+                                config=sub_config_override
+                            )
                         except ValueError as e:
                             logger.debug("get_selected_tasks: User cancelled - {}", e)
                             return []
                         except Exception as e:
-                            logger.error("get_selected_tasks: Exception in _check_subtitle_and_ask - {}", e)
+                            logger.error(
+                                "get_selected_tasks: Exception in _check_subtitle_and_ask - {}", e
+                            )
                             embed_override = None
 
                     subtitle_opts = subtitle_service.apply(
-                        video_id=(dto.video_id if dto is not None else self.video_info.get("id", "")),
+                        video_id=(
+                            dto.video_id if dto is not None else self.video_info.get("id", "")
+                        ),
                         video_info=self.video_info,
                         user_config=sub_config_override,
                     )
@@ -3349,15 +3459,54 @@ class DownloadConfigWindow(FramelessWindow):
                     ensure_audio_multistream_compatible_container,
                     ensure_subtitle_compatible_container,
                 )
-                override_fmt = getattr(self.selector_widget, 'get_container_override', lambda: None)()
+
+                override_fmt = getattr(
+                    self.selector_widget, "get_container_override", lambda: None
+                )()
                 audio_count = ydl_opts.get("__audio_track_count", 1)
-                
+
                 if override_fmt:
                     if not self._handle_container_conflict(ydl_opts):
                         return []
                 else:
                     ensure_subtitle_compatible_container(ydl_opts)
                     ensure_audio_multistream_compatible_container(ydl_opts, audio_count)
+
+            # === Quality Guard Pre-flight Check (Single Video) ===
+            if self._mode not in ("subtitle", "cover") and not ydl_opts.get("skip_download"):
+                from ...download.quality_guard import resolve_format_with_guard
+
+                original_format = ydl_opts.get("format", "bestvideo+bestaudio/best")
+                intent_max_height = None
+                intent_preset_id = None
+
+                if isinstance(self.selector_widget, VideoFormatSelectorWidget):
+                    sel = getattr(self.selector_widget, "simple_widget", None)
+                    if sel:
+                        curr_sel = sel.get_current_selection()
+                        if curr_sel and curr_sel.get("intent"):
+                            intent_max_height = curr_sel["intent"].get("max_height")
+                            intent_preset_id = curr_sel["intent"].get("id")
+
+                formats_list = info.get("formats")
+
+                final_format, final_opts, intent_obj, verdict = resolve_format_with_guard(
+                    format_str=original_format,
+                    extra_opts=ydl_opts,
+                    formats_list=formats_list,
+                    intent_max_height=intent_max_height,
+                    intent_preset_id=intent_preset_id,
+                    download_type="video_audio",
+                    source_path="simple",
+                )
+
+                ydl_opts = final_opts
+                ydl_opts["format"] = final_format
+
+                if verdict and not verdict.passed:
+                    if not hasattr(self, "_preflight_warnings"):
+                        self._preflight_warnings = []
+                    self._preflight_warnings.append((title, verdict))
 
             self._apply_download_dir_to_opts(ydl_opts)
 
@@ -3375,10 +3524,15 @@ class DownloadConfigWindow(FramelessWindow):
             pl_sub_override.enabled = self.playlist_subtitle_check.isChecked()
 
         pl_cover_enabled = True
+        pl_embed_enabled = True
         if hasattr(self, "playlist_cover_check"):
             pl_cover_enabled = self.playlist_cover_check.isChecked()
+            pl_embed_enabled = getattr(
+                self, "playlist_embed_check", self.playlist_cover_check
+            ).isChecked()
         else:
-            pl_cover_enabled = bool(config_manager.get("embed_thumbnail", True))
+            pl_cover_enabled = bool(config_manager.get("download_thumbnail", False))
+            pl_embed_enabled = bool(config_manager.get("embed_thumbnail", False))
 
         pl_meta_enabled = True
         if hasattr(self, "playlist_metadata_check"):
@@ -3401,6 +3555,11 @@ class DownloadConfigWindow(FramelessWindow):
                     break
 
         for _i, row_data in enumerate(self._playlist_rows):
+            if _i > 0 and _i % 20 == 0:
+                from PySide6.QtWidgets import QApplication
+
+                QApplication.processEvents()
+
             if not row_data.get("selected"):
                 continue
 
@@ -3515,10 +3674,13 @@ class DownloadConfigWindow(FramelessWindow):
             elif getattr(self, "_playlist_format_override", None) is not None:
                 # Playlist Global Format Config
                 from .format_selector import resolve_global_format
-                fmt_str, e_opts = resolve_global_format(row_data.get("detail"), self._playlist_format_override)
+
+                fmt_str, e_opts = resolve_global_format(
+                    row_data.get("detail"), self._playlist_format_override
+                )
                 row_opts["format"] = fmt_str
                 row_opts.update(e_opts)
-                
+
                 pid = getattr(self._playlist_format_override, "preset_id", None)
                 preset_map = {
                     "best_mp4": "最佳画质",
@@ -3533,7 +3695,7 @@ class DownloadConfigWindow(FramelessWindow):
                     "1080p_video": "1080p(无声)",
                     "audio_best": "最佳音质",
                     "audio_high": "高品质音频",
-                    "audio_std": "标准音频"
+                    "audio_std": "标准音频",
                 }
                 preset_name = preset_map.get(pid, pid) if pid else "全局格式"
                 row_opts["__fluentytdl_format_note"] = f"[全局] {preset_name}"
@@ -3600,8 +3762,13 @@ class DownloadConfigWindow(FramelessWindow):
             # === Apply Common Overrides (Sub/Cover/Meta) ===
 
             # 1. Cover & Metadata
-            row_opts["writethumbnail"] = pl_cover_enabled
-            row_opts["embedthumbnail"] = pl_cover_enabled
+            if pl_cover_enabled or pl_embed_enabled:
+                row_opts["writethumbnail"] = True
+                row_opts["convert_thumbnail"] = "jpg"
+            else:
+                row_opts["writethumbnail"] = False
+            row_opts["embedthumbnail"] = pl_embed_enabled
+            row_opts["__fluentytdl_keep_thumbnail"] = pl_cover_enabled
             row_opts["addmetadata"] = pl_meta_enabled
 
             # 2. Subtitles
@@ -3640,7 +3807,7 @@ class DownloadConfigWindow(FramelessWindow):
                         row_opts["writesubtitles"] = True
                         row_opts["writeautomaticsub"] = pl_sub_override.enable_auto_captions
                         row_opts["subtitleslangs"] = pl_sub_override.default_languages
-    
+
                         # Embed
                         if pl_sub_override.embed_type == "soft":
                             row_opts["embedsubtitles"] = pl_sub_override.embed_mode != "never"
@@ -3650,6 +3817,74 @@ class DownloadConfigWindow(FramelessWindow):
                                 row_opts["convertsubtitles"] = pl_sub_override.output_format
 
             self._apply_download_dir_to_opts(row_opts)
+
+            # === Quality Guard Pre-flight Check (Playlist/Channel) ===
+            if self._mode not in ("subtitle", "cover") and not row_opts.get("skip_download"):
+                from ...download.quality_guard import resolve_format_with_guard
+
+                original_format = row_opts.get("format", "bestvideo+bestaudio/best")
+
+                intent_max_height = None
+                intent_preset_id = None
+                download_type = "video_audio"
+                source_path = "playlist_standard"
+
+                mode = (
+                    int(self.type_combo.currentIndex()) if getattr(self, "type_combo", None) else 0
+                )
+                if mode == 1:
+                    download_type = "video_only"
+                elif mode == 2:
+                    download_type = "audio_only"
+
+                if row_data.get("custom_selection_data"):
+                    sel = row_data["custom_selection_data"]
+                    if sel.get("intent"):
+                        intent_max_height = sel["intent"].get("max_height")
+                        intent_preset_id = sel["intent"].get("preset_id") or sel["intent"].get("id")
+                        source_path = "simple"
+                elif getattr(self, "_playlist_format_override", None) is not None:
+                    po = self._playlist_format_override
+                    if getattr(po, "preset_intent", None):
+                        intent_max_height = po.preset_intent.get("max_height")
+                        intent_preset_id = po.preset_intent.get(
+                            "preset_id"
+                        ) or po.preset_intent.get("id")
+                    source_path = "playlist_global"
+                    if getattr(po, "download_type", None) == "audio_only":
+                        download_type = "audio_only"
+                    elif getattr(po, "download_type", None) == "video_only":
+                        download_type = "video_only"
+                else:
+                    h = self._current_playlist_preset_height()
+                    if h:
+                        intent_max_height = h
+                        intent_preset_id = f"{h}p"
+
+                formats_list = None
+                if row_data.get("detail"):
+                    formats_list = row_data["detail"].get("formats")
+
+                if row_data.get("detail") and "__fluentytdl_tab" in row_data["detail"]:
+                    source_path = "channel"
+
+                final_format, final_opts, intent_obj, verdict = resolve_format_with_guard(
+                    format_str=original_format,
+                    extra_opts=row_opts,
+                    formats_list=formats_list,
+                    intent_max_height=intent_max_height,
+                    intent_preset_id=intent_preset_id,
+                    download_type=download_type,
+                    source_path=source_path,
+                )
+
+                row_opts = final_opts
+                row_opts["format"] = final_format
+
+                if verdict and not verdict.passed:
+                    if not hasattr(self, "_preflight_warnings"):
+                        self._preflight_warnings = []
+                    self._preflight_warnings.append((title, verdict))
 
             tasks.append((title, url, row_opts, thumb))
 

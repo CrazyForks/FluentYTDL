@@ -1,5 +1,4 @@
 import json
-import shutil
 import sqlite3
 import threading
 import time
@@ -7,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ..utils.logger import logger
-from ..utils.paths import config_path, old_user_data_dir, user_data_dir, _migrate_file
+from ..utils.paths import _migrate_file, config_path, old_user_data_dir, user_data_dir
 
 
 class TaskDB:
@@ -81,9 +80,39 @@ class TaskDB:
                         updated_at REAL NOT NULL
                     )
                 """)
+                self._conn.execute("""
+                    CREATE TABLE IF NOT EXISTS notifications (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        type TEXT NOT NULL,
+                        severity TEXT NOT NULL DEFAULT 'info',
+                        title TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        timestamp REAL NOT NULL,
+                        is_read INTEGER DEFAULT 0,
+                        related_task_id INTEGER DEFAULT 0,
+                        metadata_json TEXT DEFAULT '{}'
+                    )
+                """)
+                self._migrate_tables()
                 self._conn.commit()
             except sqlite3.Error as e:
                 logger.error(f"Failed to create TaskDB tables: {e}")
+
+    def _migrate_tables(self):
+        """执行数据库迁移"""
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute("PRAGMA table_info(tasks)")
+            columns = [col[1] for col in cursor.fetchall()]
+
+            if "actual_height" not in columns:
+                cursor.execute("ALTER TABLE tasks ADD COLUMN actual_height INTEGER DEFAULT 0")
+            if "target_height" not in columns:
+                cursor.execute("ALTER TABLE tasks ADD COLUMN target_height INTEGER DEFAULT 0")
+            if "quality_deviation" not in columns:
+                cursor.execute("ALTER TABLE tasks ADD COLUMN quality_deviation TEXT DEFAULT ''")
+        except sqlite3.Error as e:
+            logger.error(f"Database migration failed: {e}")
 
     def insert_task(self, url: str, ydl_opts: dict) -> int:
         """
@@ -153,6 +182,20 @@ class TaskDB:
                 (output_path, file_size, now, task_id),
             )
             self._conn.commit()
+
+    def update_task_quality(
+        self, task_id: int, actual_height: int, target_height: int, deviation: str
+    ) -> None:
+        """更新任务质量偏差记录"""
+        try:
+            with self._write_lock:
+                self._conn.execute(
+                    "UPDATE tasks SET actual_height = ?, target_height = ?, quality_deviation = ? WHERE id = ?",
+                    (actual_height, target_height, deviation, task_id),
+                )
+                self._conn.commit()
+        except sqlite3.Error as e:
+            logger.error(f"Failed to update task quality: {e}")
 
     def get_task(self, task_id: int) -> dict[str, Any] | None:
         """获取单个任务详情"""

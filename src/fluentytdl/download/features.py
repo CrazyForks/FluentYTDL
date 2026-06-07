@@ -195,7 +195,8 @@ class SubtitleFeature(DownloadFeature):
 
 class ThumbnailFeature(DownloadFeature):
     def on_post_process(self, context: DownloadContext) -> None:
-        if not config_manager.get("embed_thumbnail", True):
+        if not context.opts.get("embedthumbnail"):
+            self._cleanup_thumbnail_files(context)
             return
         if not context.opts.get("writethumbnail"):
             return
@@ -285,6 +286,8 @@ class ThumbnailFeature(DownloadFeature):
         return files
 
     def _cleanup_thumbnail_files(self, context: DownloadContext) -> None:
+        if context.opts.get("__fluentytdl_keep_thumbnail"):
+            return
         if not context.opts.get("writethumbnail"):
             return
         paths = set()

@@ -3,7 +3,7 @@ from qfluentwidgets import InfoBar, InfoBarPosition
 
 
 def do_relogin(parent_widget: QWidget) -> None:
-    """处理重登录（例如打开 DLE 登录对话框）"""
+    """处理重登录（例如打开 WebView2 登录对话框）"""
     # 尝试寻找主窗口并调用其 switch_to_settings 或类似方法
     main_win = parent_widget.window()
     settings_iface = getattr(main_win, "settings_interface", None)

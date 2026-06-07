@@ -41,11 +41,13 @@ class UrlValidatorThread(QThread):
     def run(self):
         try:
             req = urllib.request.Request(self.url, method="HEAD")
-            req.add_header('User-Agent', 'Mozilla/5.0')
+            req.add_header("User-Agent", "Mozilla/5.0")
             with urllib.request.urlopen(req, timeout=5) as resp:
                 is_valid = resp.status == 200
                 if is_valid and resp.headers.get("Content-Length"):
-                    if int(resp.headers.get("Content-Length")) < 5120:  # < 5KB is usually the default 120x90 image
+                    if (
+                        int(resp.headers.get("Content-Length")) < 5120
+                    ):  # < 5KB is usually the default 120x90 image
                         is_valid = False
             self.resultReady.emit(self.row, is_valid)
         except Exception:
@@ -153,8 +155,11 @@ class CoverSelectorWidget(QFrame):
         self.titleLabel = BodyLabel("🖼️ 封面选择", self)
         self.titleLabel.setStyleSheet("font-weight: 600;")
         layout.addWidget(self.titleLabel)
-        
-        self.tipLabel = CaptionLabel("提示：YouTube 封面的分辨率为画布标称值，并非实际图片像素。⚠️ 标记的版本可能不存在。", self)
+
+        self.tipLabel = CaptionLabel(
+            "提示：YouTube 封面的分辨率为画布标称值，并非实际图片像素。⚠️ 标记的版本可能不存在。",
+            self,
+        )
         self.tipLabel.setStyleSheet("color: #888888;")
         layout.addWidget(self.tipLabel)
 
@@ -185,7 +190,7 @@ class CoverSelectorWidget(QFrame):
             res_str = t["res"]
             if t["width"] and t["height"]:
                 res_str += " (标称)"
-                
+
             res_item = QTableWidgetItem(res_str)
             res_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(i, 0, res_item)
@@ -205,7 +210,7 @@ class CoverSelectorWidget(QFrame):
             self.table.setItem(i, 2, ext_item)
 
             self.table.item(i, 0).setData(Qt.ItemDataRole.UserRole, t["url"])
-            
+
             # Start validation for maxresdefault or any others
             if "maxres" in t["id"]:
                 validator = UrlValidatorThread(i, t["url"], self)
@@ -283,11 +288,11 @@ class CoverSelectorWidget(QFrame):
     def _on_url_validation_result(self, row: int, is_valid: bool):
         if row >= self.table.rowCount():
             return
-            
+
         id_item = self.table.item(row, 1)
         if not id_item:
             return
-            
+
         text = id_item.text().replace(" ⚠️", "")
         if is_valid:
             id_item.setText(text + " (真实可用)")
@@ -295,22 +300,25 @@ class CoverSelectorWidget(QFrame):
         else:
             id_item.setText(text + " ❌ 404")
             id_item.setToolTip("该版本由于 YouTube 服务端未提供导致 404 错误")
-            
+
             # Change text color to red or gray to indicate it's invalid
             from PySide6.QtGui import QColor
+
             font = id_item.font()
             font.setStrikeOut(True)
             id_item.setFont(font)
-            
+
             for col in range(3):
                 item = self.table.item(row, col)
                 if item:
                     item.setForeground(QColor(150, 150, 150))
-                    
+
             # Auto fallback selection if this was selected natively
             if self.table.currentRow() == row:
                 for r in range(self.table.rowCount()):
-                    if r != row and "❌" not in (self.table.item(r, 1).text() if self.table.item(r, 1) else ""):
+                    if r != row and "❌" not in (
+                        self.table.item(r, 1).text() if self.table.item(r, 1) else ""
+                    ):
                         self.table.selectRow(r)
                         break
 

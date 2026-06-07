@@ -30,7 +30,6 @@ from PySide6.QtGui import QFont  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 
-
 def _cleanup_update_residuals() -> None:
     """清理更新残留文件（.old 文件、旧备份目录、临时目录）。
 
@@ -272,7 +271,7 @@ def main() -> None:
         cookie_thread.start()
 
     # 启动控制
-    if config_manager.get("pot_provider_enabled", True):
+    if config_manager.get("pot_provider_enabled", False):
         # 预热期间阻止最后窗口关闭退出程序
         app.setQuitOnLastWindowClosed(False)
 

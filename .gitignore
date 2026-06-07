@@ -163,6 +163,9 @@ rabbish/
 # 本地下载目录
 /download/
 
+# 本地参考用的官方 UI 源代码库 (仅作 AI 参考，不提交)
+PyQt-Fluent-Widgets-Source/
+
 # 测试输出
 tests/output/
 test_*.mp4
@@ -208,3 +211,7 @@ temp_*.py
 # 排除示例和文档中的媒体文件
 !docs/**/*.mp4
 !assets/demo/**/*
+
+scratch/
+
+*.bak

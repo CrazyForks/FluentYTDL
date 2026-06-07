@@ -11,11 +11,10 @@ from .auth_service import (
     AuthService,
     AuthSourceType,
     AuthStatus,
-    DLEAccount,
+    WebView2Account,
     auth_service,
     is_admin,
 )
-from .cookie_manager import CookieManager, cookie_manager
 from .cookie_sentinel import CookieSentinel, cookie_sentinel
 
 __all__ = [
@@ -25,13 +24,10 @@ __all__ = [
     "AuthSourceType",
     "AuthStatus",
     "AuthProfile",
-    "DLEAccount",
+    "WebView2Account",
     "BROWSER_SOURCES",
     "ADMIN_REQUIRED_BROWSERS",
     "is_admin",
-    # Cookie 管理
-    "CookieManager",
-    "cookie_manager",
     # Cookie 哨兵
     "CookieSentinel",
     "cookie_sentinel",

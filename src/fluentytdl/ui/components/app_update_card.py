@@ -23,7 +23,6 @@ from qfluentwidgets import (
 )
 
 from ...core.component_update_manager import component_update_manager
-from ...core.config_manager import config_manager
 from .custom_info_bar import InfoBar
 
 
@@ -136,9 +135,7 @@ class AppUpdateSettingCard(SettingCard):
         prefix = "预发布 " if is_pre else ""
 
         self.setTitle(f"FluentYTDL ({prefix}更新)")
-        self.setContent(
-            f"当前: v{self._current_version}  |  最新: v{latest_ver}"
-        )
+        self.setContent(f"当前: v{self._current_version}  |  最新: v{latest_ver}")
         self.actionButton.setText("立即更新")
         self.changelogButton.setVisible(True)
 
@@ -267,6 +264,6 @@ class AppUpdateSettingCard(SettingCard):
         try:
             from fluentytdl import __version__
 
-            self.setContent(f"当前版本: v{__version__}")
+            self.setContent(f"当前版本: {__version__}")
         except ImportError:
             pass

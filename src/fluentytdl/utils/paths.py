@@ -97,27 +97,27 @@ def frozen_app_dir() -> Path:
 
 def get_clean_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
     """获取一个干净的环境变量字典，剥离 PyInstaller 的 _MEIPASS 污染。
-    
+
     PyInstaller 会在运行前将 _MEIPASS 注入到系统 PATH 的最前方。
     外部二进制工具 (如 ffmpeg, yt-dlp) 启动时如果加载了 _MEIPASS 中的同名 Qt/SSL DLL，
     会导致致命崩溃 (特别是 0 字节文件和静默闪退情况)。
-    
+
     此函数会：
     1. 删除 PATH 中的所有 _MEIPASS / _MEIPASS2 路径片段
     2. 删除 OS 环境里的 _MEIPASS / _MEIPASS2 原始键
     """
     env = dict(base_env) if base_env is not None else os.environ.copy()
-    
+
     if not is_frozen():
         return env
-        
+
     meipass = getattr(sys, "_MEIPASS", "")
     meipass2 = getattr(sys, "_MEIPASS2", "")
-    
+
     # 1. 删除特殊的 key
     env.pop("_MEIPASS", None)
     env.pop("_MEIPASS2", None)
-    
+
     # 2. 清洗 PATH
     if "PATH" in env:
         paths = env["PATH"].split(os.pathsep)
@@ -135,7 +135,7 @@ def get_clean_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
                 pass
             clean_paths.append(p)
         env["PATH"] = os.pathsep.join(clean_paths)
-        
+
     return env
 
 

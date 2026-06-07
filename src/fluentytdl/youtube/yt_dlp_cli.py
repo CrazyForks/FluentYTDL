@@ -19,6 +19,7 @@ from fluentytdl.utils.paths import (
 )
 
 from ..core.config_manager import config_manager
+from ..models.errors import YtDlpExecutionError
 
 
 class YtDlpCancelled(Exception):
@@ -178,8 +179,7 @@ def sync_pot_plugins_to_ytdlp() -> bool:
 
         # 目标: <exe-dir>/yt-dlp-plugins/<pkg>/yt_dlp_plugins/extractor/
         target_dir = (
-            exe.parent / "yt-dlp-plugins" / _PLUGIN_PACKAGE_NAME
-            / "yt_dlp_plugins" / "extractor"
+            exe.parent / "yt-dlp-plugins" / _PLUGIN_PACKAGE_NAME / "yt_dlp_plugins" / "extractor"
         )
 
         # 增量同步：只在需要时创建目录和复制文件
@@ -226,13 +226,12 @@ def sync_pot_plugins_to_ytdlp() -> bool:
                 logger.warning(f"POT Plugin Sync: 复制 {src_file.name} 失败: {e}")
 
         if synced > 0:
-            logger.info(
-                f"POT Plugin Sync: 已同步 {synced} 个插件文件到 {target_dir.parent.parent}"
-            )
+            logger.info(f"POT Plugin Sync: 已同步 {synced} 个插件文件到 {target_dir.parent.parent}")
         return synced > 0
 
     except Exception as e:
         from loguru import logger
+
         logger.debug(f"POT Plugin Sync: 同步异常: {e}")
         return False
 
@@ -247,6 +246,9 @@ def prepare_yt_dlp_env(extra_paths: list[str] | None = None) -> dict[str, str]:
     """
 
     env = get_clean_env()
+
+    # 强制 yt-dlp 使用 utf-8 输出，防止截断或乱码
+    env["PYTHONIOENCODING"] = "utf-8"
 
     # FFmpeg
     ffmpeg_path = str(config_manager.get("ffmpeg_path") or "").strip() or None
@@ -679,6 +681,18 @@ def _terminate_process_best_effort(proc: subprocess.Popen[str]) -> None:
         pass
 
 
+def _extract_error_lines(output: str) -> str:
+    """Extract lines starting with ERROR: or WARNING: to form a concise stderr."""
+    lines = []
+    for line in output.splitlines():
+        if line.startswith("ERROR:") or line.startswith("WARNING:"):
+            lines.append(line)
+    if not lines:
+        # If no explicit error lines, return the last 1500 chars
+        return output[-1500:].strip()
+    return "\n".join(lines)
+
+
 def run_dump_single_json(
     url: str,
     ydl_opts: dict[str, Any],
@@ -704,29 +718,38 @@ def run_dump_single_json(
     env = prepare_yt_dlp_env()
     work_dir = _safe_working_dir()
 
+    def _safe_decode(b: bytes | None) -> str:
+        if not b:
+            return ""
+        try:
+            return b.decode("utf-8")
+        except UnicodeDecodeError:
+            import locale
+
+            fallback = locale.getpreferredencoding()
+            try:
+                return b.decode(fallback)
+            except UnicodeDecodeError:
+                return b.decode("utf-8", errors="replace")
+
     if cancel_event is None:
         proc = subprocess.run(
             cmd,
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             env=env,
             cwd=work_dir,
             **_win_hide_console_kwargs(),
         )
 
-        out = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        out = _safe_decode(proc.stdout) + "\n" + _safe_decode(proc.stderr)
         if proc.returncode != 0:
-            raise RuntimeError(f"yt-dlp.exe 解析失败 (code={proc.returncode})\n{out.strip()}")
+            stderr_snippet = _extract_error_lines(out)
+            raise YtDlpExecutionError(proc.returncode, stderr_snippet)
     else:
         proc2 = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             env=env,
             cwd=work_dir,
             **_win_hide_console_kwargs(),
@@ -734,23 +757,24 @@ def run_dump_single_json(
 
         # IMPORTANT: We must continuously drain stdout/stderr to avoid deadlocks
         # when yt-dlp prints large JSON (common for playlists).
-        stdout = ""
-        stderr = ""
+        stdout_bytes = b""
+        stderr_bytes = b""
         while True:
             if cancel_event.is_set():
                 _terminate_process_best_effort(proc2)
                 raise YtDlpCancelled("yt-dlp cancelled")
             try:
-                stdout, stderr = proc2.communicate(timeout=0.1)
+                stdout_bytes, stderr_bytes = proc2.communicate(timeout=0.1)
                 break
             except subprocess.TimeoutExpired:
                 # keep pumping
                 time.sleep(0.02)
                 continue
 
-        out = (stdout or "") + "\n" + (stderr or "")
+        out = _safe_decode(stdout_bytes) + "\n" + _safe_decode(stderr_bytes)
         if proc2.returncode != 0:
-            raise RuntimeError(f"yt-dlp.exe 解析失败 (code={proc2.returncode})\n{out.strip()}")
+            stderr_snippet = _extract_error_lines(out)
+            raise YtDlpExecutionError(proc2.returncode, stderr_snippet)
 
     # yt-dlp may print other lines; pick the last parsable JSON line.
     for line in reversed(out.splitlines()):
@@ -766,7 +790,8 @@ def run_dump_single_json(
         except Exception:
             continue
 
-    raise RuntimeError(f"yt-dlp 未输出可解析的 JSON:\n{out.strip()}")
+    stderr_snippet = _extract_error_lines(out)
+    raise YtDlpExecutionError(1, f"yt-dlp 未输出可解析的 JSON\n{stderr_snippet}")
 
 
 def run_version() -> str:

@@ -25,12 +25,9 @@ class YtDlpAuthOptions:
     """Authentication inputs.
 
     Priority: cookies_file (直接指定) > AuthService (统一管理).
-
-    Note: cookies_from_browser 已废弃，所有浏览器 Cookie 通过 AuthService 处理。
     """
 
     cookies_file: str | None = None
-    cookies_from_browser: str | None = None  # 废弃，保留兼容性
 
 
 @dataclass(slots=True)
@@ -107,26 +104,26 @@ class YoutubeService:
         return "the page needs to be reloaded" in text
 
     def _try_refresh_cookie_for_reload_error(self) -> bool:
-        """For DLE mode, force-refresh cookie once to recover transient session mismatch."""
+        """For WebView2 mode, force-refresh cookie once to recover transient session mismatch."""
         try:
             from ..auth.auth_service import AuthSourceType, auth_service
             from ..auth.cookie_sentinel import cookie_sentinel
 
-            if auth_service.current_source != AuthSourceType.DLE:
+            if auth_service.current_source != AuthSourceType.WEBVIEW2:
                 return False
 
             self._emit_log(
                 "warning",
-                "检测到 'The page needs to be reloaded'，正在自动刷新 DLE Cookie 并重试一次...",
+                "检测到 'The page needs to be reloaded'，正在自动刷新 WebView2 Cookie 并重试一次...",
             )
             ok, msg = cookie_sentinel.force_refresh_with_uac()
             if ok:
-                self._emit_log("info", "自动刷新 DLE Cookie 成功，准备重试解析")
+                self._emit_log("info", "自动刷新 WebView2 Cookie 成功，准备重试解析")
                 return True
-            self._emit_log("warning", f"自动刷新 DLE Cookie 失败: {msg}")
+            self._emit_log("warning", f"自动刷新 WebView2 Cookie 失败: {msg}")
             return False
         except Exception as e:
-            self._emit_log("warning", f"自动刷新 DLE Cookie 异常: {e}")
+            self._emit_log("warning", f"自动刷新 WebView2 Cookie 异常: {e}")
             return False
 
     def build_ydl_options(self, options: YoutubeServiceOptions | None = None) -> dict[str, Any]:
@@ -142,7 +139,6 @@ class YoutubeService:
             except Exception:
                 pass
 
-        anti = options.anti_blocking
         auth = options.auth
         net = options.network
 
@@ -166,11 +162,12 @@ class YoutubeService:
             "retries": int(net.retries),
             "fragment_retries": int(net.fragment_retries),
             # Download output
-            "outtmpl": str(Path(download_dir) / "%(title)s.%(ext)s")
-            if download_dir
-            else "%(title)s.%(ext)s",
+            "outtmpl": "%(title)s.%(ext)s",
             "overwrites": True,  # 强制覆盖同名文件，防止因文件存在导致任务直接跳过并显示为完成
         }
+
+        if download_dir:
+            ydl_opts["paths"] = {"home": str(download_dir)}
 
         # 音频偏好语言注入 (Multi-Language Audio Track support)
         # 此 format_sort 仅对旧路径（格式字符串，如播放列表批量下载）生效；
@@ -322,9 +319,7 @@ class YoutubeService:
         if not has_valid_cookie:
             # 不指定 player_client，让 yt-dlp 使用默认策略
             # (内部会尝试 tv → web_safari → android_vr，自动选择可用的)
-            self._emit_log(
-                "warning", "未检测到有效 Cookies，将使用无 Cookie 默认模式"
-            )
+            self._emit_log("warning", "未检测到有效 Cookies，将使用无 Cookie 默认模式")
         else:
             # 不强制指定 player_client，让 yt-dlp 自行决定最优组合
             # yt-dlp 社区每天跟踪 YouTube 变化，default 是集体智慧的结晶
@@ -334,7 +329,7 @@ class YoutubeService:
         # POT (Proof of Origin Token) Provider 提供动态 PO Token 生成服务
         # 类似 Cookie Sentinel 的策略：检测服务状态，自动注入 extractor_args
         pot_injected = False
-        if config_manager.get("pot_provider_enabled", True):
+        if config_manager.get("pot_provider_enabled", False):
             try:
                 from .pot_manager import pot_manager
 
@@ -398,7 +393,9 @@ class YoutubeService:
         # --- 诊断日志：打印最终 extractor_args 概要 ---
         final_ea = ydl_opts.get("extractor_args", {})
         if final_ea:
-            ea_summary = {k: list(v.keys()) if isinstance(v, dict) else v for k, v in final_ea.items()}
+            ea_summary = {
+                k: list(v.keys()) if isinstance(v, dict) else v for k, v in final_ea.items()
+            }
             self._emit_log("debug", f"[Final] extractor_args: {ea_summary}")
 
         # --- Optional: 手动 YouTube PO Token (备用方案) ---
@@ -466,17 +463,20 @@ class YoutubeService:
             ydl_opts["ratelimit"] = rate_limit
 
         # === 后处理：封面嵌入 & 元数据嵌入 ===
-        embed_thumbnail = config_manager.get("embed_thumbnail", True)
+        download_thumbnail = config_manager.get("download_thumbnail", False)
+        embed_thumbnail = config_manager.get("embed_thumbnail", False)
         embed_metadata = config_manager.get("embed_metadata", True)
 
-        if embed_thumbnail or embed_metadata:
+        if download_thumbnail or embed_thumbnail or embed_metadata:
             postprocessors = ydl_opts.setdefault("postprocessors", [])
 
-            # 封面嵌入：只下载缩略图，不让 yt-dlp 嵌入（由我们的后处理器处理）
-            if embed_thumbnail:
+            # 封面嵌入或下载
+            if download_thumbnail or embed_thumbnail:
                 ydl_opts["writethumbnail"] = True
                 # 转换缩略图格式为 jpg（兼容性最佳）
                 ydl_opts["convert_thumbnail"] = "jpg"
+                ydl_opts["__fluentytdl_keep_thumbnail"] = download_thumbnail
+                ydl_opts["embedthumbnail"] = embed_thumbnail
                 # 注意：不再添加 EmbedThumbnail 后处理器，由外部 thumbnail_embedder 处理
 
             # 元数据嵌入
@@ -1203,8 +1203,7 @@ class YoutubeService:
 
             if self._is_auth_blocked_error(msg):
                 self._emit_log(
-                    "warning",
-                    "🔄 检测到认证封锁，丢弃 Cookie 使用无登录态客户端重试..."
+                    "warning", "🔄 检测到认证封锁，丢弃 Cookie 使用无登录态客户端重试..."
                 )
                 fallback_opts = dict(tuned)
                 fallback_opts.pop("cookiefile", None)
@@ -1215,7 +1214,8 @@ class YoutubeService:
 
                 try:
                     info = run_dump_single_json(
-                        url, fallback_opts,
+                        url,
+                        fallback_opts,
                         extra_args=["--flat-playlist", "--lazy-playlist"],
                         cancel_event=cancel_event,
                     )
@@ -1457,13 +1457,16 @@ class YoutubeService:
     def _is_auth_blocked_error(message: str) -> bool:
         """判断是否为认证/风控类错误"""
         lower = message.lower()
-        return any(kw in lower for kw in (
-            "sign in to confirm",
-            "not a bot",
-            "login required",
-            "http error 403",
-            "forbidden",
-        ))
+        return any(
+            kw in lower
+            for kw in (
+                "sign in to confirm",
+                "not a bot",
+                "login required",
+                "http error 403",
+                "forbidden",
+            )
+        )
 
     @staticmethod
     def _with_youtubetab_skip_authcheck(ydl_opts: dict[str, Any]) -> dict[str, Any]:
@@ -1511,11 +1514,11 @@ class YoutubeService:
     def extract_channel_flat(
         self,
         url: str,
-        options: "YoutubeServiceOptions | None" = None,
+        options: YoutubeServiceOptions | None = None,
         *,
         tab: str = "videos",
         reverse: bool = False,
-        cancel_event: "threading.Event | None" = None,
+        cancel_event: threading.Event | None = None,
     ) -> dict[str, Any]:
         """频道专用 flat 提取，支持标签页和排序。
 
@@ -1551,9 +1554,7 @@ class YoutubeService:
 
         try:
             try:
-                _ = locate_runtime_tool(
-                    "yt-dlp.exe", "yt-dlp/yt-dlp.exe", "yt_dlp/yt-dlp.exe"
-                )
+                _ = locate_runtime_tool("yt-dlp.exe", "yt-dlp/yt-dlp.exe", "yt_dlp/yt-dlp.exe")
             except FileNotFoundError as e:
                 raise FileNotFoundError(
                     "未找到 yt-dlp.exe。请在设置页指定路径，或将 yt-dlp.exe 放入 _internal/yt-dlp/，或加入 PATH。"
@@ -1613,10 +1614,10 @@ class YoutubeService:
                 break
         # 拼接目标标签页
         if tab == "all":
-            return url # 返回基础URL给ChannelExtractWorker处理
+            return url  # 返回基础URL给ChannelExtractWorker处理
         if tab in ("videos", "shorts", "streams"):
             return f"{url}/{tab}"
-        return f"{url}/videos" # 默认回退
+        return f"{url}/videos"  # 默认回退
 
     def _handle_channel_tab_fallback(
         self,
@@ -1630,7 +1631,7 @@ class YoutubeService:
         msg_lower = exc_msg.lower()
         if "does not have a" not in msg_lower or "tab" not in msg_lower:
             return None
-            
+
         tabs_to_try = []
         if url.endswith("/videos"):
             tabs_to_try = ["/shorts", "/streams", "/playlists", "/releases", "/podcasts"]
@@ -1643,11 +1644,11 @@ class YoutubeService:
             base_url = url[:-8]
         else:
             return None
-            
+
         for fallback_tab in tabs_to_try:
             if cancel_event and cancel_event.is_set():
                 break
-                
+
             new_url = base_url + fallback_tab
             self._emit_log("warning", f"频道当前标签页不存在，自动尝试回退解析: {fallback_tab} ...")
             try:
@@ -1664,7 +1665,8 @@ class YoutubeService:
                 if "does not have a" in new_msg and "tab" in new_msg:
                     continue  # 尝试下一个
                 raise  # 其他错误直接抛出
-                
+
         return None
+
 
 youtube_service = YoutubeService()
