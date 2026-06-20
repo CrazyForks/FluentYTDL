@@ -101,6 +101,7 @@ class ConfigManager(QObject):
         "sponsorblock_action": "remove",
         # 字幕配置
         "subtitle_enabled": False,  # 是否启用字幕下载（全局开关）
+        "subtitle_type_preference": "manual_and_asr", # 字幕类型偏好
         "subtitle_default_languages": ["zh-Hans", "en"],  # 默认字幕语言优先级
         "subtitle_enable_auto_captions": True,  # 是否启用自动生成字幕
         "subtitle_embed_type": "soft",  # 嵌入类型: soft/external
@@ -252,8 +253,10 @@ class ConfigManager(QObject):
 
     def get_subtitle_config(self) -> SubtitleConfig:
         """获取字幕配置对象"""
+        from ..models.subtitle_config import SubtitleTypePreference
         return SubtitleConfig(
             enabled=self.config.get("subtitle_enabled", False),
+            type_preference=SubtitleTypePreference(self.config.get("subtitle_type_preference", "manual_and_asr")),
             default_languages=self.config.get("subtitle_default_languages", ["zh-Hans", "en"]),
             enable_auto_captions=self.config.get("subtitle_enable_auto_captions", True),
             embed_type=self.config.get("subtitle_embed_type", "soft"),
@@ -268,6 +271,7 @@ class ConfigManager(QObject):
     def set_subtitle_config(self, config: SubtitleConfig) -> None:
         """设置字幕配置并保存"""
         self.config["subtitle_enabled"] = config.enabled
+        self.config["subtitle_type_preference"] = config.type_preference.value
         self.config["subtitle_default_languages"] = config.default_languages
         self.config["subtitle_enable_auto_captions"] = config.enable_auto_captions
         self.config["subtitle_embed_type"] = config.embed_type

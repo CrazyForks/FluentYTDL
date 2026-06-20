@@ -11,11 +11,49 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..core.config_manager import config_manager
-from ..models.subtitle_config import SubtitleConfig
+from ..models.subtitle_config import SubtitleConfig, SubtitleTypePreference
 from .subtitle_manager import (
+    SubtitleSourceType,
+    SubtitleTrack,
     extract_subtitle_tracks,
     get_subtitle_languages,
 )
+
+def filter_tracks_by_type_preference(
+    tracks: list[SubtitleTrack],
+    preference: SubtitleTypePreference,
+) -> list[SubtitleTrack]:
+    """根据用户类型偏好过滤字幕轨道"""
+    if preference == SubtitleTypePreference.MANUAL_ONLY:
+        return [t for t in tracks if t.source_type == SubtitleSourceType.MANUAL]
+    elif preference == SubtitleTypePreference.MANUAL_AND_ASR:
+        return [t for t in tracks if t.source_type != SubtitleSourceType.AUTO_TRANSLATED]
+    else:  # ALL
+        return tracks
+
+def deduplicate_by_quality(tracks: list[SubtitleTrack]) -> list[SubtitleTrack]:
+    """同一语言只保留质量最高的一条"""
+    best: dict[str, SubtitleTrack] = {}
+    for t in tracks:
+        # 简单归一化语言代码进行比较
+        normalized = t.lang_code.split('-')[0].lower() if not t.lang_code.startswith("zh") else t.lang_code.lower()
+        if normalized not in best or t.quality_rank < best[normalized].quality_rank:
+            best[normalized] = t
+    return list(best.values())
+
+def build_subtitle_opts_from_tracks(selected_tracks: list[SubtitleTrack]) -> dict[str, Any]:
+    """根据选中的轨道精确构建 yt-dlp 选项"""
+    has_manual = any(t.source_type == SubtitleSourceType.MANUAL for t in selected_tracks)
+    has_auto = any(t.source_type != SubtitleSourceType.MANUAL for t in selected_tracks)
+    
+    # 收集语言代码（保持顺序并去重）
+    langs = list(dict.fromkeys(t.lang_code for t in selected_tracks))
+    
+    return {
+        "writesubtitles": has_manual,
+        "writeautomaticsub": has_auto,
+        "subtitleslangs": langs,
+    }
 
 
 def should_embed_subtitles(config: SubtitleConfig) -> bool:
@@ -160,19 +198,25 @@ class SingleLanguageStrategy(SubtitleStrategy):
 
     def apply(self, request: SubtitleRequest) -> dict[str, Any]:
         tracks = extract_subtitle_tracks(request.video_info)
-
+        config = request.user_config or config_manager.get_subtitle_config()
+        
+        # 按类型偏好过滤
+        tracks = filter_tracks_by_type_preference(tracks, config.type_preference)
+        
         # 检查字幕是否可用
         available = [t for t in tracks if t.lang_code == self.language]
         if not available:
             return {}
 
-        config = request.user_config or config_manager.get_subtitle_config()
+        best_track = deduplicate_by_quality(available)[0]
+
         embed_opts = build_embed_opts(config)
 
-        opts = {
-            "writeautomaticsub": self.enable_auto,
-            "subtitleslangs": [self.language],
-        }
+        opts = build_subtitle_opts_from_tracks([best_track])
+        # 如果策略强制禁用自动，则覆盖
+        if not self.enable_auto:
+            opts["writeautomaticsub"] = False
+            
         opts.update(embed_opts)
         return opts
 
@@ -193,26 +237,32 @@ class MultiLanguageStrategy(SubtitleStrategy):
 
     def apply(self, request: SubtitleRequest) -> dict[str, Any]:
         tracks = extract_subtitle_tracks(request.video_info)
-        available_codes = {t.lang_code for t in tracks}
+        config = request.user_config or config_manager.get_subtitle_config()
+        
+        tracks = filter_tracks_by_type_preference(tracks, config.type_preference)
+        
+        # 分组
+        available_dict: dict[str, list[SubtitleTrack]] = {}
+        for t in tracks:
+            available_dict.setdefault(t.lang_code, []).append(t)
 
         # 按优先级筛选可用语言
-        selected = []
+        selected_tracks = []
+        selected_langs = set()
         for lang in self.languages:
-            if lang in available_codes:
-                selected.append(lang)
-                if len(selected) >= self.max_languages:
+            if lang in available_dict and lang not in selected_langs:
+                best_t = deduplicate_by_quality(available_dict[lang])[0]
+                selected_tracks.append(best_t)
+                selected_langs.add(lang)
+                if len(selected_tracks) >= self.max_languages:
                     break
 
-        if not selected:
+        if not selected_tracks:
             return {}
 
-        config = request.user_config or config_manager.get_subtitle_config()
         embed_opts = build_embed_opts(config)
 
-        opts = {
-            "writeautomaticsub": config.enable_auto_captions,
-            "subtitleslangs": selected,
-        }
+        opts = build_subtitle_opts_from_tracks(selected_tracks)
         opts.update(embed_opts)
         return opts
 
@@ -235,42 +285,45 @@ class SmartStrategy(SubtitleStrategy):
 
     def apply(self, request: SubtitleRequest) -> dict[str, Any]:
         tracks = extract_subtitle_tracks(request.video_info)
+        config = request.user_config or config_manager.get_subtitle_config()
+        
+        tracks = filter_tracks_by_type_preference(tracks, config.type_preference)
         if not tracks:
             return {}
 
-        available_codes = {t.lang_code for t in tracks}
+        # 去重保留各语言最高质量
+        best_tracks = deduplicate_by_quality(tracks)
+        available_codes = {t.lang_code for t in best_tracks}
+        track_map = {t.lang_code: t for t in best_tracks}
 
         # 智能选择逻辑
-        selected = []
+        selected_langs = []
 
         # 1. 中文优先
         for zh_variant in ["zh-Hans", "zh-Hant", "zh", "zh-CN", "zh-TW"]:
             if zh_variant in available_codes:
-                selected.append(zh_variant)
+                selected_langs.append(zh_variant)
                 break
 
         # 2. 英语作为第二语言
-        if "en" in available_codes and len(selected) < 2:
-            selected.append("en")
+        if "en" in available_codes and len(selected_langs) < 2:
+            selected_langs.append("en")
 
         # 3. 日语作为第三选择
-        if not selected and "ja" in available_codes:
-            selected.append("ja")
+        if not selected_langs and "ja" in available_codes:
+            selected_langs.append("ja")
 
         # 4. 如果还是空，使用第一个可用字幕
-        if not selected and tracks:
-            selected.append(tracks[0].lang_code)
+        if not selected_langs and best_tracks:
+            selected_langs.append(best_tracks[0].lang_code)
 
-        if not selected:
+        if not selected_langs:
             return {}
 
-        config = request.user_config or config_manager.get_subtitle_config()
+        selected_tracks = [track_map[l] for l in selected_langs]
         embed_opts = build_embed_opts(config)
 
-        opts = {
-            "writeautomaticsub": config.enable_auto_captions,
-            "subtitleslangs": selected,
-        }
+        opts = build_subtitle_opts_from_tracks(selected_tracks)
         opts.update(embed_opts)
         return opts
 

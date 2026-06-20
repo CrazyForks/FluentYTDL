@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
+    QSizePolicy,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -14,10 +15,12 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import (
     CaptionLabel,
     CheckBox,
+    ComboBox,
     TableWidget,
 )
 
 from ...processing.subtitle_manager import (
+    SubtitleSourceType,
     SubtitleTrack,
     extract_subtitle_tracks,
 )
@@ -47,6 +50,7 @@ class SubtitleSelectorWidget(QFrame):
         self.setObjectName("subtitleSelector")
         # 背景透明，边框由 TableWidget 处理
         self.setStyleSheet("#subtitleSelector { background-color: transparent; border: none; }")
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -90,6 +94,24 @@ class SubtitleSelectorWidget(QFrame):
 
         optRow.addStretch()
 
+        # 添加格式选择
+        self.formatLabel = CaptionLabel("字幕格式:", self)
+        self.formatCombo = ComboBox(self)
+        self.formatCombo.addItems(["srt", "ass", "vtt", "lrc", "json3"])
+        
+        from ...core.config_manager import config_manager
+        out_fmt = config_manager.get("subtitle_output_format", "srt")
+        idx = self.formatCombo.findText(out_fmt)
+        if idx >= 0:
+            self.formatCombo.setCurrentIndex(idx)
+            
+        self.formatCombo.currentIndexChanged.connect(
+            lambda: config_manager.set("subtitle_output_format", self.formatCombo.currentText())
+        )
+
+        optRow.addWidget(self.formatLabel)
+        optRow.addWidget(self.formatCombo)
+
         # 嵌入选项 (默认隐藏，由外部控制显示)
         self.embedCheck = CheckBox("嵌入到视频", self)
         self.embedCheck.setChecked(True)
@@ -115,7 +137,7 @@ class SubtitleSelectorWidget(QFrame):
         priority = ["zh-Hans", "zh-Hant", "zh", "en", "ja", "ko"]
 
         def sort_key(t):
-            type_score = 1 if t.is_auto else 0
+            type_score = t.quality_rank
             try:
                 lang_score = priority.index(t.lang_code)
             except ValueError:
@@ -135,7 +157,7 @@ class SubtitleSelectorWidget(QFrame):
             cb = CheckBox()
 
             # 默认选中第一个中文手动字幕，稍后可被 set_initial_state 覆盖
-            if row == 0 and track.lang_code.startswith("zh") and not track.is_auto:
+            if row == 0 and track.lang_code.startswith("zh") and track.source_type == SubtitleSourceType.MANUAL:
                 cb.setChecked(True)
 
             cb.stateChanged.connect(self.selectionChanged)
@@ -149,12 +171,21 @@ class SubtitleSelectorWidget(QFrame):
             self.table.setItem(row, 1, item_lang)
 
             # 3. Type
-            type_text = "自动生成" if track.is_auto else "人工"
+            if track.source_type == SubtitleSourceType.MANUAL:
+                type_text = "人工"
+                color = None
+            elif track.source_type == SubtitleSourceType.AUTO_GENERATED:
+                type_text = "自动生成"
+                color = Qt.GlobalColor.gray
+            else:
+                type_text = "自动翻译"
+                color = Qt.GlobalColor.darkRed
+
             item_type = QTableWidgetItem(type_text)
             item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             item_type.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            if track.is_auto:
-                item_type.setForeground(Qt.GlobalColor.gray)
+            if color:
+                item_type.setForeground(color)
             self.table.setItem(row, 2, item_type)
 
             # 4. Format
@@ -191,8 +222,8 @@ class SubtitleSelectorWidget(QFrame):
         """
         tracks = self.get_selected_tracks()
         languages = list(dict.fromkeys(t.lang_code for t in tracks))  # 有序去重
-        has_manual = any(not t.is_auto for t in tracks)
-        has_auto = any(t.is_auto for t in tracks)
+        has_manual = any(t.source_type == SubtitleSourceType.MANUAL for t in tracks)
+        has_auto = any(t.source_type != SubtitleSourceType.MANUAL for t in tracks)
         return languages, has_manual, has_auto
 
     def set_initial_state(self, selected_langs: list[str]):
@@ -220,7 +251,7 @@ class SubtitleSelectorWidget(QFrame):
 
         for t in selected_tracks:
             languages.add(t.lang_code)
-            if t.is_auto:
+            if t.source_type != SubtitleSourceType.MANUAL:
                 has_auto = True
             else:
                 has_manual = True
@@ -240,9 +271,7 @@ class SubtitleSelectorWidget(QFrame):
         if self.embedCheck.isChecked() and self.embedCheck.isVisible():
             opts["embedsubtitles"] = True
 
-        from ...core.config_manager import config_manager
-
-        out_fmt = config_manager.get("subtitle_output_format", "srt")
+        out_fmt = self.formatCombo.currentText()
         if out_fmt:
             opts["convertsubtitles"] = out_fmt
 

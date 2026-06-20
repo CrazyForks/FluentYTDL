@@ -15,8 +15,7 @@
   <a href="#-技术栈地图">技术栈</a> •
   <a href="#-快速开始">快速开始</a> •
   <a href="#-目录结构">目录结构</a> •
-  <a href="docs/FAQ.md">FAQ</a> •
-  <a href="#-致谢">致谢</a>
+  <a href="docs/REFERENCE.md">Reference</a> •
 </p>
 
 <p align="center">

@@ -136,6 +136,7 @@ class YtMediaDTO:
 
     # 字幕信息
     subtitles: dict[str, list[YtSubtitleDTO]] = field(default_factory=dict)
+    automatic_captions: dict[str, list[YtSubtitleDTO]] = field(default_factory=dict)
 
     # VR 支持
     vr_mode: bool = field(default=False)
@@ -185,6 +186,18 @@ class YtMediaDTO:
                         if isinstance(sub, dict)  # 只取字典项
                     ]
 
+        # 解析 automatic_captions
+        raw_auto_caps = data.get("automatic_captions") or {}
+        automatic_captions: dict[str, list[YtSubtitleDTO]] = {}
+        if isinstance(raw_auto_caps, dict):
+            for lang, subs_list in raw_auto_caps.items():
+                if isinstance(subs_list, list):
+                    automatic_captions[lang] = [
+                        YtSubtitleDTO.from_dict(sub)
+                        for sub in subs_list
+                        if isinstance(sub, dict)
+                    ]
+
         duration = data.get("duration")
         duration_sec = int(duration) if duration is not None else 0
 
@@ -206,6 +219,7 @@ class YtMediaDTO:
             upload_date=str(data.get("upload_date") or ""),
             webpage_url=webpage_url,
             subtitles=subtitles,
+            automatic_captions=automatic_captions,
             formats=formats,
             entries=entries,
             extractor=str(data.get("extractor") or ""),

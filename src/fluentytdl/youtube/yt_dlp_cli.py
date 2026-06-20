@@ -755,21 +755,32 @@ def run_dump_single_json(
             **_win_hide_console_kwargs(),
         )
 
-        # IMPORTANT: We must continuously drain stdout/stderr to avoid deadlocks
-        # when yt-dlp prints large JSON (common for playlists).
-        stdout_bytes = b""
-        stderr_bytes = b""
-        while True:
+        # 使用独立的取消监控线程，communicate() 只调用一次
+        import threading as _threading
+
+        def _cancel_watcher():
+            """后台监控 cancel_event，触发时终止子进程"""
+            while proc2.poll() is None:
+                if cancel_event.is_set():
+                    _terminate_process_best_effort(proc2)
+                    return
+                cancel_event.wait(timeout=0.2)
+
+        watcher = _threading.Thread(target=_cancel_watcher, daemon=True)
+        watcher.start()
+
+        try:
+            stdout_bytes, stderr_bytes = proc2.communicate()
+        except Exception:
+            _terminate_process_best_effort(proc2)
             if cancel_event.is_set():
-                _terminate_process_best_effort(proc2)
                 raise YtDlpCancelled("yt-dlp cancelled")
-            try:
-                stdout_bytes, stderr_bytes = proc2.communicate(timeout=0.1)
-                break
-            except subprocess.TimeoutExpired:
-                # keep pumping
-                time.sleep(0.02)
-                continue
+            raise
+        finally:
+            watcher.join(timeout=1.0)
+
+        if cancel_event.is_set():
+            raise YtDlpCancelled("yt-dlp cancelled")
 
         out = _safe_decode(stdout_bytes) + "\n" + _safe_decode(stderr_bytes)
         if proc2.returncode != 0:

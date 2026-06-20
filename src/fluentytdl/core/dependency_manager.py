@@ -36,6 +36,8 @@ class ComponentInfo:
         self.current_version: str | None = None
         self.latest_version: str | None = None
         self.download_url: str | None = None
+        self.expected_sha256: str | None = None
+
 
 
 class DependencyManager(QObject):
@@ -134,6 +136,7 @@ class DependencyManager(QObject):
             self.components[key].current_version = result.get("current")
             self.components[key].latest_version = result.get("latest")
             self.components[key].download_url = result.get("url")
+            self.components[key].expected_sha256 = result.get("expected_sha256")
 
         self.check_finished.emit(key, result)
         # Clean up worker ref
@@ -159,6 +162,7 @@ class DependencyManager(QObject):
         target_exe = self.get_exe_path(component_key)
 
         expected_version = self.components[component_key].latest_version or "unknown"
+        expected_sha256 = self.components[component_key].expected_sha256 or ""
         expected_channel = (
             str(config_manager.get("ytdlp_channel", "stable")).strip()
             if component_key == "yt-dlp"
@@ -171,6 +175,7 @@ class DependencyManager(QObject):
             target_exe,
             expected_version=expected_version,
             expected_channel=expected_channel,
+            expected_sha256=expected_sha256,
             parent=self,
         )
         worker.progress_signal.connect(self.download_progress)
@@ -247,6 +252,30 @@ class DependencyManager(QObject):
                     return json.loads(fb_response.read().decode("utf-8"))
             raise
 
+    def _fetch_text(self, url: str) -> str:
+        """Fetches raw text payload from the given URL using the configured opener."""
+        opener = self._build_opener()
+        req = urllib.request.Request(url, headers={"User-Agent": "FluentYTDL/DependencyManager"})
+
+        try:
+            with opener.open(req, timeout=10) as response:
+                return response.read().decode("utf-8", errors="ignore")
+        except urllib.error.URLError as e:
+            if isinstance(e.reason, ssl.SSLCertVerificationError):
+                handlers = []
+                proxy_url = config_manager.get("proxy_url")
+                if config_manager.get("proxy_mode") in ("http", "socks5") and proxy_url:
+                    handlers.append(
+                        urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
+                    )
+                unverified_ctx = ssl._create_unverified_context()
+                handlers.append(urllib.request.HTTPSHandler(context=unverified_ctx))
+                fallback_opener = urllib.request.build_opener(*handlers)
+                with fallback_opener.open(req, timeout=10) as fb_response:
+                    return fb_response.read().decode("utf-8", errors="ignore")
+            raise
+
+
 
 class UpdateCheckerWorker(QThread):
     finished_signal = Signal(str, dict)
@@ -271,7 +300,7 @@ class UpdateCheckerWorker(QThread):
             exe_path = self.manager.get_exe_path(self.key)
             current_ver = self._get_local_version(self.key, exe_path)
 
-            latest_ver, url = self._get_remote_version(self.key)
+            latest_ver, url, expected_sha256 = self._get_remote_version(self.key)
 
             update_available = False
             if current_ver == "channel_switched":
@@ -296,16 +325,27 @@ class UpdateCheckerWorker(QThread):
                     elif c_padded == l_padded and current_ver != latest_ver:
                         update_available = True
                 else:
-                    # 无法解析则 fallback 到字符串比较
-                    c_norm = current_ver.lstrip("vn")
-                    l_norm = latest_ver.lstrip("vn")
-                    update_available = c_norm != l_norm
+                    # 特殊处理 FFmpeg 从 yt-dlp/FFmpeg-Builds 拉取时的日期比较
+                    # local: "N-125100-g10e9f273ee-20260618"
+                    # remote: "latest (20260618)"
+                    if self.key == "ffmpeg" and "latest" in latest_ver:
+                        m_c = re.search(r"-(\d{8})", current_ver)
+                        m_l = re.search(r"latest \((\d{8})\)", latest_ver)
+                        if m_c and m_l:
+                            update_available = int(m_l.group(1)) > int(m_c.group(1))
+                        else:
+                            update_available = current_ver != latest_ver
+                    else:
+                        c_norm = current_ver.lstrip("vn")
+                        l_norm = latest_ver.lstrip("vn")
+                        update_available = c_norm != l_norm
 
             result = {
                 "current": current_ver,
                 "latest": latest_ver,
                 "update_available": update_available,
                 "url": url,
+                "expected_sha256": expected_sha256,
             }
             self.finished_signal.emit(self.key, result)
 
@@ -405,8 +445,8 @@ class UpdateCheckerWorker(QThread):
         except Exception:
             return "unknown"
 
-    def _get_remote_version(self, key: str) -> tuple[str, str]:
-        # Return (version_tag, download_url)
+    def _get_remote_version(self, key: str) -> tuple[str, str, str]:
+        # Return (version_tag, download_url, expected_sha256)
         # 优先从缓存清单读取，回退到各工具 GitHub API
 
         # 尝试从 ComponentUpdateManager 的缓存清单读取
@@ -417,8 +457,9 @@ class UpdateCheckerWorker(QThread):
             if manifest_comp:
                 version = manifest_comp.get("version", "")
                 url = manifest_comp.get("url", "")
+                sha256 = manifest_comp.get("sha256", "")
                 if version:
-                    return version, url
+                    return version, url, sha256
         except Exception:
             pass
 
@@ -437,7 +478,7 @@ class UpdateCheckerWorker(QThread):
         elif key == "deno":
             url = "https://api.github.com/repos/denoland/deno/releases/latest"
         elif key == "ffmpeg":
-            url = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest"
+            url = "https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/latest"
         elif key == "pot-provider":
             url = (
                 "https://api.github.com/repos/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest"
@@ -445,68 +486,102 @@ class UpdateCheckerWorker(QThread):
         elif key == "atomicparsley":
             url = "https://api.github.com/repos/wez/atomicparsley/releases/latest"
         else:
-            return "unknown", ""
+            return "unknown", "", ""
 
         try:
             data = self.manager._fetch_json(url)
         except Exception as e:
             logger.error(f"Failed to fetch release info for {key}: {e}")
-            return "unknown", ""
+            return "unknown", "", ""
 
         if key == "yt-dlp":
             tag = data.get("tag_name", "unknown")
 
-            # Find exe asset
+            # Find exe asset and checksums
             dl_url = ""
+            checksum_url = ""
             for asset in data.get("assets", []):
                 if asset["name"] == "yt-dlp.exe":
                     dl_url = asset["browser_download_url"]
-                    break
-            return f"{tag} ({channel_label})", dl_url
+                elif asset["name"] == "SHA2-256SUMS":
+                    checksum_url = asset["browser_download_url"]
+
+            expected_sha256 = ""
+            if checksum_url:
+                try:
+                    sums = self.manager._fetch_text(checksum_url)
+                    for line in sums.splitlines():
+                        if "yt-dlp.exe" in line:
+                            expected_sha256 = line.split()[0].strip()
+                            break
+                except Exception as e:
+                    logger.warning(f"Failed to fetch checksums for yt-dlp: {e}")
+
+            return f"{tag} ({channel_label})", dl_url, expected_sha256
 
         elif key == "deno":
             tag = data.get("tag_name", "vunknown").lstrip("v")
 
-            # Find windows zip
+            # Find windows zip and checksum
             dl_url = ""
+            checksum_url = ""
             for asset in data.get("assets", []):
-                if "x86_64-pc-windows-msvc.zip" in asset["name"]:
+                name = asset["name"]
+                if name == "deno-x86_64-pc-windows-msvc.zip":
                     dl_url = asset["browser_download_url"]
-                    break
-            return tag, dl_url
+                elif name == "deno-x86_64-pc-windows-msvc.zip.sha256sum":
+                    checksum_url = asset["browser_download_url"]
+
+            expected_sha256 = ""
+            if checksum_url:
+                try:
+                    sums = self.manager._fetch_text(checksum_url)
+                    for line in sums.splitlines():
+                        if line.strip().lower().startswith("hash"):
+                            parts = line.split(":")
+                            if len(parts) >= 2:
+                                expected_sha256 = parts[1].strip()
+                            break
+                    if not expected_sha256:
+                        # Fallback in case format changes back to standard
+                        expected_sha256 = sums.split()[0].strip()
+                except Exception as e:
+                    logger.warning(f"Failed to fetch checksums for deno: {e}")
+
+            return tag, dl_url, expected_sha256
 
         elif key == "ffmpeg":
-            # BtbN/FFmpeg-Builds: "latest" release 包含多个版本 (n7.1, n8.0, master)
+            tag = data.get("tag_name", "unknown")
+            release_name = data.get("name", "")
+            
+            # 尝试从 "Latest Auto-Build (2026-06-18 17:15)" 中提取日期以对齐本地的 N-125100...-20260618
+            m = re.search(r"(\d{4})-(\d{2})-(\d{2})", release_name)
+            if m:
+                tag = f"latest ({m.group(1)}{m.group(2)}{m.group(3)})"
 
-            # 收集所有版本化的 win64-gpl static 构建，选取最高版本
-            candidates: list[tuple[tuple[int, ...], str, str, str]] = []
+            dl_url = ""
+            checksum_url = ""
+            zip_filename = ""
             for asset in data.get("assets", []):
                 name = asset["name"]
                 if "win64-gpl" in name and ".zip" in name and "shared" not in name:
-                    m = re.search(r"ffmpeg-n(\d+(?:\.\d+)*)", name)
-                    if m:
-                        ver_str = m.group(1)
-                        ver_tuple = tuple(int(x) for x in ver_str.split("."))
-                        candidates.append((ver_tuple, ver_str, asset["browser_download_url"], name))
+                    dl_url = asset["browser_download_url"]
+                    zip_filename = name
+                elif name == "checksums.sha256":
+                    checksum_url = asset["browser_download_url"]
 
-            if candidates:
-                # 按版本号降序排列，取最高版本
-                candidates.sort(reverse=True, key=lambda x: x[0])
-                _, tag, dl_url, asset_name = candidates[0]
-            else:
-                # Fallback: master 构建
-                dl_url, tag = "", "unknown"
-                for asset in data.get("assets", []):
-                    if (
-                        "win64-gpl" in asset["name"]
-                        and ".zip" in asset["name"]
-                        and "shared" not in asset["name"]
-                    ):
-                        dl_url = asset["browser_download_url"]
-                        tag = "master"
-                        break
+            expected_sha256 = ""
+            if checksum_url and zip_filename:
+                try:
+                    sums = self.manager._fetch_text(checksum_url)
+                    for line in sums.splitlines():
+                        if zip_filename in line:
+                            expected_sha256 = line.split()[0].strip()
+                            break
+                except Exception as e:
+                    logger.warning(f"Failed to fetch checksums for ffmpeg: {e}")
 
-            return tag, dl_url
+            return tag, dl_url, expected_sha256
 
         elif key == "pot-provider":
             # bgutil-ytdlp-pot-provider-rs from jim60105
@@ -520,7 +595,7 @@ class UpdateCheckerWorker(QThread):
                 if "windows" in name and name.endswith(".exe"):
                     dl_url = asset["browser_download_url"]
                     break
-            return tag, dl_url
+            return tag, dl_url, ""
 
         elif key == "atomicparsley":
             # wez/atomicparsley from GitHub
@@ -542,9 +617,9 @@ class UpdateCheckerWorker(QThread):
                 if "windows" in name and name.endswith(".zip"):
                     dl_url = asset["browser_download_url"]
                     break
-            return tag, dl_url
+            return tag, dl_url, ""
 
-        return "unknown", ""
+        return "unknown", "", ""
 
 
 class DownloaderWorker(QObject):
@@ -559,6 +634,7 @@ class DownloaderWorker(QObject):
         target_exe: Path,
         expected_version: str = "",
         expected_channel: str = "",
+        expected_sha256: str = "",
         parent=None,
     ):
         super().__init__()
@@ -569,6 +645,7 @@ class DownloaderWorker(QObject):
         self.target_exe = target_exe
         self.expected_version = expected_version
         self.expected_channel = expected_channel
+        self.expected_sha256 = expected_sha256
         self.extra_exes: list[str] = []
 
         if dependency_manager.components.get(key):
@@ -597,6 +674,7 @@ class DownloaderWorker(QObject):
             "target_exe": str(self.target_exe),
             "expected_version": self.expected_version,
             "expected_channel": self.expected_channel,
+            "expected_sha256": self.expected_sha256,
             "extra_exes": self.extra_exes,
             "proxy_url": proxy_url,
             "proxy_mode": proxy_mode,

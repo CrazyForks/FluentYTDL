@@ -5,6 +5,11 @@ import http.cookiejar
 import os
 import shutil
 import threading
+import json
+import requests
+import re
+import urllib.request
+from urllib.parse import parse_qs, urlparse
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1435,11 +1440,234 @@ class YoutubeService:
 
             if not isinstance(info, dict):
                 raise RuntimeError("播放列表解析失败：返回结果为空")
-            return cast(dict[str, Any], info)
+            
+            info = cast(dict[str, Any], info)
+            self._extend_playlist_entries_from_youtube_continuations(url, info)
+            return info
         except Exception as exc:
             msg = str(exc)
             self._emit_log("error", f"播放列表解析失败: {msg}")
             raise
+
+    def _extend_playlist_entries_from_youtube_continuations(
+        self, url: str, info: dict[str, Any]
+    ) -> None:
+        entries = info.get("entries")
+        if not isinstance(entries, list):
+            return
+        try:
+            playlist_count = int(info.get("playlist_count") or 0)
+        except Exception:
+            playlist_count = 0
+        if playlist_count <= len(entries):
+            return
+
+        existing_ids = {
+            str(entry.get("id") or "") for entry in entries if isinstance(entry, dict)
+        }
+        try:
+            extra = self._fetch_youtube_playlist_continuation_entries(
+                url, existing_ids=existing_ids
+            )
+        except Exception as exc:
+            self._emit_log("warning", f"[PlaylistFlat] continuation fallback failed: {exc}")
+            return
+
+        appended = 0
+        seen = set(existing_ids)
+        for entry in extra:
+            vid = str(entry.get("id") or "")
+            if not vid or vid in seen:
+                continue
+            entries.append(entry)
+            seen.add(vid)
+            appended += 1
+
+        if appended:
+            self._emit_log(
+                "info",
+                f"[PlaylistFlat] continuation fallback appended {appended} entries "
+                f"({len(entries)}/{playlist_count})",
+            )
+
+    def _fetch_youtube_playlist_continuation_entries(
+        self, url: str, *, existing_ids: set[str]
+    ) -> list[dict[str, Any]]:
+        playlist_id = self._extract_playlist_id(url)
+        if not playlist_id:
+            return []
+
+        playlist_url = f"https://www.youtube.com/playlist?list={playlist_id}"
+        session = requests.Session()
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"
+            )
+        }
+        response = session.get(playlist_url, headers=headers, timeout=20)
+        response.raise_for_status()
+        html = response.text
+
+        key_match = re.search(r'"INNERTUBE_API_KEY":"([^"]+)"', html)
+        version_match = re.search(r'"INNERTUBE_CLIENT_VERSION":"([^"]+)"', html)
+        data_match = re.search(r"var ytInitialData = (\{.*?\});</script>", html)
+        if not (key_match and version_match and data_match):
+            return []
+
+        data = json.loads(data_match.group(1))
+        tokens = self._find_youtube_continuation_tokens(data)
+        api_key = key_match.group(1)
+        client_version = version_match.group(1)
+
+        entries: list[dict[str, Any]] = []
+        seen = set(existing_ids)
+        queue = list(tokens)
+        visited: set[str] = set()
+
+        while queue:
+            token = queue.pop(0)
+            if not token or token in visited:
+                continue
+            visited.add(token)
+            body = {
+                "context": {
+                    "client": {"clientName": "WEB", "clientVersion": client_version}
+                },
+                "continuation": token,
+            }
+            page = session.post(
+                f"https://www.youtube.com/youtubei/v1/browse?key={api_key}",
+                headers={
+                    **headers,
+                    "Content-Type": "application/json",
+                    "Origin": "https://www.youtube.com",
+                    "Referer": playlist_url,
+                },
+                json=body,
+                timeout=20,
+            )
+            page.raise_for_status()
+            payload = page.json()
+
+            for lockup in self._find_lockup_view_models(payload):
+                entry = self._entry_from_lockup_view_model(lockup, playlist_id)
+                vid = str(entry.get("id") or "")
+                if vid and vid not in seen:
+                    entries.append(entry)
+                    seen.add(vid)
+
+            for next_token in self._find_youtube_continuation_tokens(payload):
+                if next_token not in visited and next_token not in queue:
+                    queue.append(next_token)
+
+        return entries
+
+    @staticmethod
+    def _extract_playlist_id(url: str) -> str:
+        parsed = urlparse(url)
+        list_values = parse_qs(parsed.query).get("list")
+        if list_values and list_values[0]:
+            return list_values[0]
+        if url.startswith("PL"):
+            return url.split("&", 1)[0]
+        return ""
+
+    @staticmethod
+    def _find_youtube_continuation_tokens(data: Any) -> list[str]:
+        tokens: list[str] = []
+
+        def walk(node: Any) -> None:
+            if isinstance(node, dict):
+                command = node.get("continuationCommand")
+                if isinstance(command, dict):
+                    token = str(command.get("token") or "")
+                    if token and token not in tokens:
+                        tokens.append(token)
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    walk(value)
+
+        walk(data)
+        return tokens
+
+    @staticmethod
+    def _find_lockup_view_models(data: Any) -> list[dict[str, Any]]:
+        lockups: list[dict[str, Any]] = []
+
+        def walk(node: Any) -> None:
+            if isinstance(node, dict):
+                lockup = node.get("lockupViewModel")
+                if isinstance(lockup, dict):
+                    lockups.append(lockup)
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    walk(value)
+
+        walk(data)
+        return lockups
+
+    @staticmethod
+    def _entry_from_lockup_view_model(lockup: dict[str, Any], playlist_id: str) -> dict[str, Any]:
+        metadata = lockup.get("metadata", {}).get("lockupMetadataViewModel", {})
+        title = str(metadata.get("title", {}).get("content") or "")
+        video_id = ""
+        duration = None
+        thumbnail = ""
+
+        def walk(node: Any) -> None:
+            nonlocal video_id, duration, thumbnail
+            if isinstance(node, dict):
+                watch = node.get("watchEndpoint")
+                if isinstance(watch, dict) and not video_id:
+                    video_id = str(watch.get("videoId") or "")
+                url_endpoint = node.get("urlEndpoint")
+                if isinstance(url_endpoint, dict) and not video_id:
+                    parsed = urlparse(str(url_endpoint.get("url") or ""))
+                    video_id = (parse_qs(parsed.query).get("v") or [""])[0]
+                badge = node.get("thumbnailBadgeViewModel")
+                if isinstance(badge, dict) and duration is None:
+                    duration = YoutubeService._parse_duration_text(str(badge.get("text") or ""))
+                sources = node.get("sources")
+                if isinstance(sources, list) and sources:
+                    best = max(
+                        [source for source in sources if isinstance(source, dict)],
+                        key=lambda source: int(source.get("width") or 0),
+                        default={},
+                    )
+                    if best.get("url"):
+                        thumbnail = str(best.get("url"))
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    walk(value)
+
+        walk(lockup)
+        return {
+            "_type": "url",
+            "id": video_id,
+            "url": f"https://www.youtube.com/watch?v={video_id}&list={playlist_id}",
+            "webpage_url": f"https://www.youtube.com/watch?v={video_id}&list={playlist_id}",
+            "title": title or video_id,
+            "duration": duration,
+            "thumbnail": thumbnail,
+            "thumbnails": [{"url": thumbnail}] if thumbnail else [],
+        }
+
+    @staticmethod
+    def _parse_duration_text(value: str) -> int | None:
+        parts = [part for part in value.strip().split(":") if part.isdigit()]
+        if not parts:
+            return None
+        total = 0
+        for part in parts:
+            total = total * 60 + int(part)
+        return total
 
     @staticmethod
     def _should_retry_with_youtubetab_skip_authcheck(error_text: str) -> bool:

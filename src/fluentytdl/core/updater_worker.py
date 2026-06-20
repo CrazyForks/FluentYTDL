@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import shutil
@@ -171,6 +172,7 @@ def run_worker():
     target_exe_str = config.get("target_exe")
     expected_version = config.get("expected_version", "")
     expected_channel = config.get("expected_channel", "")
+    expected_sha256 = config.get("expected_sha256", "")
     extra_exes = config.get("extra_exes", [])
     proxy_url = config.get("proxy_url")
     proxy_mode = config.get("proxy_mode")
@@ -197,6 +199,8 @@ def run_worker():
 
             last_emit_time = 0
             last_emit_percent = -1
+            
+            sha256_hash = hashlib.sha256()
 
             with open(tmp_path, "wb") as f:
                 downloaded = 0
@@ -205,6 +209,7 @@ def run_worker():
                     if not chunk:
                         break
                     f.write(chunk)
+                    sha256_hash.update(chunk)
                     downloaded += len(chunk)
                     if total_length > 0:
                         percent = int(downloaded * 100 / total_length)
@@ -218,6 +223,11 @@ def run_worker():
                                 print_message("progress", percent=percent)
                                 last_emit_percent = percent
                                 last_emit_time = current_time
+
+            if expected_sha256:
+                actual_sha256 = sha256_hash.hexdigest()
+                if actual_sha256.upper() != expected_sha256.upper():
+                    raise ValueError(f"Hash mismatch: expected {expected_sha256}, got {actual_sha256}")
 
         dest_dir = target_exe.parent
         dest_dir.mkdir(parents=True, exist_ok=True)

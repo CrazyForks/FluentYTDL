@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from PySide6.QtCore import QMutex, QMutexLocker, QObject, QRunnable, QThreadPool, Signal, Slot
 
-from ..models.yt_dto import YtMediaDTO
 from ..utils.logger import logger
 from ..youtube.youtube_service import YoutubeServiceOptions
 from .workers import EntryDetailWorker
@@ -37,8 +36,8 @@ class MetadataFetchRunnable(QRunnable):
         self.worker.finished.connect(self._on_finished)
         self.worker.error.connect(self._on_error)
 
-    def _on_finished(self, _, dto: YtMediaDTO) -> None:
-        self.signals.task_finished.emit(self.task_id, dto)
+    def _on_finished(self, _, info: dict) -> None:
+        self.signals.task_finished.emit(self.task_id, info)
 
     def _on_error(self, _, err_msg: str) -> None:
         self.signals.task_error.emit(self.task_id, err_msg)
@@ -54,7 +53,7 @@ class MetadataFetchRunnable(QRunnable):
 
 class AsyncExtractorSignals(QObject):
     task_started = Signal(str)  # task_id
-    task_finished = Signal(str, YtMediaDTO)  # task_id, dto
+    task_finished = Signal(str, dict)  # task_id, dict
     task_error = Signal(str, str)  # task_id, error_msg
 
 

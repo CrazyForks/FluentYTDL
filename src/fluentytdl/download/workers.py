@@ -32,7 +32,7 @@ class DownloadCancelled(Exception):
 class InfoExtractWorker(QThread):
     """解析工人：后台获取视频元数据 (JSON)，不下载"""
 
-    finished = Signal(YtMediaDTO)
+    finished = Signal(dict)
     error = Signal(dict)
 
     def __init__(
@@ -62,8 +62,7 @@ class InfoExtractWorker(QThread):
                 )
             if self._cancel_event.is_set():
                 return
-            dto = YtMediaDTO.from_dict(info)
-            self.finished.emit(dto)
+            self.finished.emit(info)
         except YtDlpCancelled:
             # Dialog closed; treat as silent cancellation.
             return
@@ -159,7 +158,7 @@ class ChannelExtractWorker(QThread):
 class VRInfoExtractWorker(QThread):
     """VR 解析工人：智能处理 VR 视频和播放列表"""
 
-    finished = Signal(YtMediaDTO)
+    finished = Signal(dict)
     error = Signal(dict)
 
     def __init__(self, url: str):
@@ -206,8 +205,7 @@ class VRInfoExtractWorker(QThread):
             if self._cancel_event.is_set():
                 return
 
-            dto = YtMediaDTO.from_dict(info)
-            self.finished.emit(dto)
+            self.finished.emit(info)
 
         except YtDlpCancelled:
             return
@@ -219,7 +217,7 @@ class VRInfoExtractWorker(QThread):
 class EntryDetailWorker(QThread):
     """播放列表条目深解析：获取 formats / 最高质量等信息"""
 
-    finished = Signal(int, YtMediaDTO)
+    finished = Signal(int, dict)
     error = Signal(int, str)
 
     def __init__(
@@ -256,8 +254,7 @@ class EntryDetailWorker(QThread):
             if self._cancel_event.is_set():
                 return
 
-            dto = YtMediaDTO.from_dict(info)
-            self.finished.emit(self.row, dto)
+            self.finished.emit(self.row, info)
         except YtDlpCancelled:
             return
         except Exception as exc:

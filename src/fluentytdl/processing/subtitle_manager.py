@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -69,24 +70,85 @@ COMMON_SUBTITLE_LANGUAGES = [
 SUBTITLE_FORMATS = ["srt", "ass", "vtt", "lrc"]
 
 
+class SubtitleSourceType(str, Enum):
+    MANUAL = "manual"
+    AUTO_GENERATED = "auto_generated"
+    AUTO_TRANSLATED = "auto_translated"
+
 @dataclass
 class SubtitleTrack:
     """字幕轨道信息"""
 
     lang_code: str  # 语言代码 (如 "en", "zh-Hans")
     lang_name: str  # 语言名称 (如 "English", "中文")
-    is_auto: bool  # 是否自动生成
+    source_type: SubtitleSourceType  # 字幕来源类型
     ext: str  # 格式 (srt, vtt, ass)
     url: str | None = None  # 下载 URL
     name: str | None = None  # 显示名称
+    is_original_lang: bool = False  # 是否是原语种
+
+    @property
+    def is_auto(self) -> bool:
+        """向后兼容属性"""
+        return self.source_type != SubtitleSourceType.MANUAL
+
+    @property
+    def quality_rank(self) -> int:
+        """质量排序权重（越低越好）"""
+        return {
+            SubtitleSourceType.MANUAL: 0,
+            SubtitleSourceType.AUTO_GENERATED: 1,
+            SubtitleSourceType.AUTO_TRANSLATED: 2,
+        }[self.source_type]
 
     @property
     def display_name(self) -> str:
         """获取显示名称"""
         name = LANGUAGE_NAMES.get(self.lang_code, self.lang_name or self.lang_code)
-        if self.is_auto:
-            name += " [自动]"
+        if self.source_type == SubtitleSourceType.AUTO_GENERATED:
+            name += " [自动生成]"
+        elif self.source_type == SubtitleSourceType.AUTO_TRANSLATED:
+            name += " [自动翻译]"
         return name
+
+def _lang_matches(lang1: str, lang2: str) -> bool:
+    """简易语种匹配，忽略区域"""
+    return lang1.split("-")[0].lower() == lang2.split("-")[0].lower()
+
+def _detect_original_language(info: dict[str, Any]) -> str | None:
+    """检测视频原始语种"""
+    auto_caps = info.get("automatic_captions") or {}
+    for lang_code in auto_caps:
+        if lang_code.endswith("-orig"):
+            return lang_code.replace("-orig", "")
+    
+    for lang_code, sub_list in auto_caps.items():
+        if isinstance(sub_list, list) and sub_list:
+            first = sub_list[0] if isinstance(sub_list[0], dict) else {}
+            name = str(first.get("name", "")).lower()
+            if "asr" in name or "auto-generated" in name:
+                return lang_code
+    
+    lang = info.get("language")
+    if isinstance(lang, str) and lang:
+        return lang
+    return None
+
+def _is_asr_track(lang_code: str, sub_list: Any, original_lang: str | None) -> bool:
+    """判断是否为 ASR 自动生成轨道"""
+    if lang_code.endswith("-orig"):
+        return True
+    
+    if original_lang and _lang_matches(lang_code, original_lang):
+        return True
+    
+    if isinstance(sub_list, list) and sub_list:
+        first = sub_list[0] if isinstance(sub_list[0], dict) else {}
+        name = str(first.get("name", "")).lower()
+        if "asr" in name or "auto-generated" in name:
+            return True
+            
+    return False
 
 
 def extract_subtitle_tracks(info: dict[str, Any]) -> list[SubtitleTrack]:
@@ -101,6 +163,9 @@ def extract_subtitle_tracks(info: dict[str, Any]) -> list[SubtitleTrack]:
     """
     tracks = []
 
+    # 检测原始语种
+    original_lang = _detect_original_language(info)
+
     # 手动字幕
     subtitles = info.get("subtitles") or {}
     for lang_code, sub_list in subtitles.items():
@@ -112,25 +177,30 @@ def extract_subtitle_tracks(info: dict[str, Any]) -> list[SubtitleTrack]:
             SubtitleTrack(
                 lang_code=lang_code,
                 lang_name=sub.get("name", ""),
-                is_auto=False,
+                source_type=SubtitleSourceType.MANUAL,
                 ext=sub.get("ext", "vtt"),
                 url=sub.get("url"),
+                name=sub.get("name"),
             )
         )
 
-    # 自动生成字幕
+    # 自动生成/翻译字幕
     auto_subs = info.get("automatic_captions") or {}
     for lang_code, sub_list in auto_subs.items():
         if not sub_list:
             continue
         sub = sub_list[0] if isinstance(sub_list, list) else sub_list
+        is_asr = _is_asr_track(lang_code, sub_list, original_lang)
+        source_type = SubtitleSourceType.AUTO_GENERATED if is_asr else SubtitleSourceType.AUTO_TRANSLATED
         tracks.append(
             SubtitleTrack(
                 lang_code=lang_code,
                 lang_name=sub.get("name", ""),
-                is_auto=True,
+                source_type=source_type,
                 ext=sub.get("ext", "vtt"),
                 url=sub.get("url"),
+                name=sub.get("name"),
+                is_original_lang=(lang_code == original_lang),
             )
         )
 

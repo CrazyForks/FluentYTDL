@@ -7,8 +7,14 @@ FluentYTDL 字幕配置数据模型
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Literal
 
+
+class SubtitleTypePreference(str, Enum):
+    MANUAL_ONLY = "manual_only"
+    MANUAL_AND_ASR = "manual_and_asr"
+    ALL = "all"
 
 @dataclass
 class SubtitleConfig:
@@ -22,6 +28,9 @@ class SubtitleConfig:
 
     enabled: bool = False
     """是否启用字幕下载（全局开关）"""
+
+    type_preference: SubtitleTypePreference = SubtitleTypePreference.MANUAL_AND_ASR
+    """字幕类型偏好：控制自动选择时的字幕类型范围"""
 
     default_languages: list[str] = field(default_factory=lambda: ["zh-Hans", "en"])
     """默认字幕语言优先级列表（按优先级排序）"""
@@ -80,6 +89,7 @@ class SubtitleConfig:
         """转换为字典格式（用于保存到 JSON）"""
         return {
             "enabled": self.enabled,
+            "type_preference": self.type_preference.value,
             "default_languages": self.default_languages,
             "enable_auto_captions": self.enable_auto_captions,
             "embed_type": self.embed_type,
@@ -96,6 +106,7 @@ class SubtitleConfig:
         """从字典创建配置对象"""
         return cls(
             enabled=data.get("enabled", False),
+            type_preference=SubtitleTypePreference(data.get("type_preference", "manual_and_asr")),
             default_languages=data.get("default_languages", ["zh-Hans", "en"]),
             enable_auto_captions=data.get("enable_auto_captions", True),
             embed_type=data.get("embed_type", "soft"),

@@ -849,6 +849,53 @@ class DownloadConfigWindow(FramelessWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(18)
 
+        if self._mode == "subtitle":
+            title = CaptionLabel("字幕下载选项", container)
+            layout.addWidget(title)
+
+            layout.addWidget(CaptionLabel("全局下载语言:", container))
+            from qfluentwidgets import ComboBox
+            from ...processing.subtitle_manager import COMMON_SUBTITLE_LANGUAGES
+
+            self.playlist_subtitle_lang_combo = ComboBox(container)
+            self.playlist_subtitle_lang_combo.addItem("智能选择 (默认)", userData="__smart__")
+            for code, name in COMMON_SUBTITLE_LANGUAGES:
+                self.playlist_subtitle_lang_combo.addItem(name, userData=code)
+
+            sub_cfg = config_manager.get_subtitle_config()
+            if len(sub_cfg.default_languages) >= 1:
+                idx = self.playlist_subtitle_lang_combo.findData(sub_cfg.default_languages[0])
+                if idx >= 0:
+                    self.playlist_subtitle_lang_combo.setCurrentIndex(idx)
+            
+            self.playlist_subtitle_lang_combo.currentIndexChanged.connect(
+                lambda: config_manager.set(
+                    "subtitle_default_languages", 
+                    [self.playlist_subtitle_lang_combo.itemData(self.playlist_subtitle_lang_combo.currentIndex())]
+                    if self.playlist_subtitle_lang_combo.itemData(self.playlist_subtitle_lang_combo.currentIndex()) != "__smart__" 
+                    else ["zh-Hans", "en"]
+                )
+            )
+
+            layout.addWidget(self.playlist_subtitle_lang_combo)
+
+            layout.addWidget(CaptionLabel("全局字幕格式:", container))
+
+            self.playlist_subtitle_format_combo = ComboBox(container)
+            self.playlist_subtitle_format_combo.addItems(["srt", "ass", "vtt", "lrc", "json3"])
+
+            last_fmt = config_manager.get("subtitle_output_format", "srt")
+            if last_fmt in ["srt", "ass", "vtt", "lrc", "json3"]:
+                self.playlist_subtitle_format_combo.setCurrentText(last_fmt)
+            
+            self.playlist_subtitle_format_combo.currentTextChanged.connect(
+                lambda text: config_manager.set("subtitle_output_format", text)
+            )
+
+            layout.addWidget(self.playlist_subtitle_format_combo)
+            layout.addStretch(1)
+            return container
+
         title = CaptionLabel("下载选项", container)
         layout.addWidget(title)
 
@@ -3409,9 +3456,10 @@ class DownloadConfigWindow(FramelessWindow):
             if self.video_info:
                 pick = getattr(self, "_subtitle_pick_result", None)
                 if pick and pick.selected_tracks:
-                    ydl_opts["writesubtitles"] = pick.has_manual
-                    ydl_opts["writeautomaticsub"] = pick.has_auto
-                    ydl_opts["subtitleslangs"] = pick.override_languages
+                    from ...processing.subtitle_service import build_subtitle_opts_from_tracks
+                    sub_opts = build_subtitle_opts_from_tracks(pick.selected_tracks)
+                    ydl_opts.update(sub_opts)
+                    
                     ydl_opts["embedsubtitles"] = pick.embed_subtitles
                     if pick.output_format:
                         ydl_opts["convertsubtitles"] = pick.output_format
@@ -3520,7 +3568,17 @@ class DownloadConfigWindow(FramelessWindow):
 
         # Prepare Overrides
         pl_sub_override = copy.deepcopy(config_manager.get_subtitle_config())
-        if hasattr(self, "playlist_subtitle_check"):
+        if self._mode == "subtitle" and hasattr(self, "playlist_subtitle_format_combo"):
+            pl_sub_override.enabled = True
+            pl_sub_override.output_format = self.playlist_subtitle_format_combo.currentText()
+            
+            if hasattr(self, "playlist_subtitle_lang_combo"):
+                lang_code = self.playlist_subtitle_lang_combo.itemData(self.playlist_subtitle_lang_combo.currentIndex())
+                if lang_code and lang_code != "__smart__":
+                    pl_sub_override.default_languages = [lang_code]
+                else:
+                    pl_sub_override.default_languages = []
+        elif hasattr(self, "playlist_subtitle_check"):
             pl_sub_override.enabled = self.playlist_subtitle_check.isChecked()
 
         pl_cover_enabled = True
@@ -3577,7 +3635,6 @@ class DownloadConfigWindow(FramelessWindow):
                 row_opts["embedsubtitles"] = False
                 row_opts["sponsorblock_remove"] = None
                 row_opts["sponsorblock_mark"] = None
-                row_opts["postprocessors"] = []
 
                 custom_sel = row_data.get("custom_selection_data") or {}
 

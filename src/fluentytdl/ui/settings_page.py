@@ -864,6 +864,8 @@ class SettingsPage(QWidget):
 
         # === Download Tab ===
         self._init_download_group(self.downloadScroll.widget(), self.downloadLayout)
+        self._init_audio_track_group(self.downloadScroll.widget(), self.downloadLayout)
+        self._init_subtitle_group(self.downloadScroll.widget(), self.downloadLayout)
         self._init_format_memory_group(self.downloadScroll.widget(), self.downloadLayout)
         self._init_quality_guard_group(self.downloadScroll.widget(), self.downloadLayout)
         self._init_quick_mode_group(self.downloadScroll.widget(), self.downloadLayout)
@@ -874,7 +876,6 @@ class SettingsPage(QWidget):
         # === Features Tab ===
         self._init_automation_group(self.featuresScroll.widget(), self.featuresLayout)
         self._init_postprocess_group(self.featuresScroll.widget(), self.featuresLayout)
-        self._init_subtitle_group(self.featuresScroll.widget(), self.featuresLayout)
         self._init_vr_group(self.featuresScroll.widget(), self.featuresLayout)
 
         # === Components Tab ===
@@ -997,6 +998,42 @@ class SettingsPage(QWidget):
         self.downloadGroup.addSettingCard(self.maxConcurrentCard)
         self.downloadGroup.addSettingCard(self.failedTaskRetentionCard)
         layout.addWidget(self.downloadGroup)
+
+    def _init_audio_track_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
+        self.audioTrackGroup = SettingCardGroup("音轨下载", parent_widget)
+
+        # 音频首选语言 (支持多选排序)
+        config = config_manager.get("preferred_audio_languages", ["zh-Hans", "en", "orig"])
+        if not isinstance(config, list):
+            config = ["zh-Hans", "en", "orig"]
+
+        langs = [
+            ("orig", "原音 (视频原生语言配音)"),
+            ("zh-Hans", "中文 (简体)"),
+            ("zh-Hant", "中文 (繁体)"),
+            ("en", "英语"),
+            ("ja", "日语"),
+            ("ko", "韩语"),
+            ("ru", "俄语"),
+            ("fr", "法语"),
+            ("de", "德语"),
+            ("es", "西班牙语"),
+        ]
+
+        self.preferredAudioLanguageCard = AudioLanguageMultiSelectCard(
+            FluentIcon.MUSIC,
+            "首选音轨语言 (多音轨视频)",
+            "当视频包含多个语言配音时，优先下载哪种语言的轨段 (可多选并排序)",
+            languages=langs,
+            selected_default=config,
+            parent=self.audioTrackGroup,
+        )
+        self.preferredAudioLanguageCard.selectionChanged.connect(
+            self._on_preferred_audio_language_changed
+        )
+
+        self.audioTrackGroup.addSettingCard(self.preferredAudioLanguageCard)
+        layout.addWidget(self.audioTrackGroup)
 
         # Trigger warning check initially
         self._on_max_concurrent_changed(self.maxConcurrentCard.comboBox.currentIndex())
@@ -1713,35 +1750,6 @@ class SettingsPage(QWidget):
     def _init_behavior_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
         self.behaviorGroup = SettingCardGroup("行为策略", parent_widget)
 
-        # 音频首选语言 (支持多选排序)
-        config = config_manager.get("preferred_audio_languages", ["zh-Hans", "en", "orig"])
-        if not isinstance(config, list):
-            config = ["zh-Hans", "en", "orig"]
-
-        langs = [
-            ("orig", "原音 (视频原生语言配音)"),
-            ("zh-Hans", "中文 (简体)"),
-            ("zh-Hant", "中文 (繁体)"),
-            ("en", "英语"),
-            ("ja", "日语"),
-            ("ko", "韩语"),
-            ("ru", "俄语"),
-            ("fr", "法语"),
-            ("de", "德语"),
-            ("es", "西班牙语"),
-        ]
-
-        self.preferredAudioLanguageCard = AudioLanguageMultiSelectCard(
-            FluentIcon.MUSIC,
-            "首选音轨语言 (多音轨视频)",
-            "当视频包含多个语言配音时，优先下载哪种语言的轨段 (可多选并排序)",
-            languages=langs,
-            selected_default=config,
-            parent=self.behaviorGroup,
-        )
-        self.preferredAudioLanguageCard.selectionChanged.connect(
-            self._on_preferred_audio_language_changed
-        )
 
         self.deletionPolicyCard = InlineComboBoxCard(
             FluentIcon.DELETE,
@@ -1764,7 +1772,6 @@ class SettingsPage(QWidget):
             self._on_playlist_skip_authcheck_changed
         )
 
-        self.behaviorGroup.addSettingCard(self.preferredAudioLanguageCard)
         self.behaviorGroup.addSettingCard(self.deletionPolicyCard)
         self.behaviorGroup.addSettingCard(self.playlistSkipAuthcheckCard)
 
@@ -1867,6 +1874,16 @@ class SettingsPage(QWidget):
         )
         self.subtitleLanguagesCard.selectionChanged.connect(self._on_subtitle_languages_changed)
 
+        # 字幕类型偏好 (NEW)
+        self.subtitleTypePrefCard = InlineComboBoxCard(
+            FluentIcon.FILTER,
+            "字幕类型偏好",
+            "自动选择字幕时的策略",
+            ["仅手动上传的字幕", "手动字幕优先，自动生成字幕垫底", "所有类型（含自动翻译）"],
+            parent=self.subtitleGroup,
+        )
+        self.subtitleTypePrefCard.comboBox.currentIndexChanged.connect(self._on_subtitle_type_pref_changed)
+
         # 嵌入类型下拉框卡片 (NEW)
         self.subtitleEmbedTypeCard = EmbedTypeComboCard(
             FluentIcon.VIDEO,
@@ -1901,14 +1918,15 @@ class SettingsPage(QWidget):
             self._on_subtitle_format_changed
         )
 
-        # 添加卡片到组
         self.subtitleGroup.addSettingCard(self.subtitleEnabledCard)
+        self.subtitleGroup.addSettingCard(self.subtitleTypePrefCard)
         self.subtitleGroup.addSettingCard(self.subtitleLanguagesCard)
         self.subtitleGroup.addSettingCard(self.subtitleEmbedTypeCard)
         self.subtitleGroup.addSettingCard(self.subtitleEmbedModeCard)
         self.subtitleGroup.addSettingCard(self.subtitleFormatCard)
 
         # 缩进依赖项
+        self._indent_setting_card(self.subtitleTypePrefCard)
         self._indent_setting_card(self.subtitleLanguagesCard)
         self._indent_setting_card(self.subtitleEmbedTypeCard)
         self._indent_setting_card(self.subtitleEmbedModeCard)
@@ -2226,6 +2244,13 @@ class SettingsPage(QWidget):
         # 不需要阻塞信号，因为 set_selected_languages 不会触发信号
         self.subtitleLanguagesCard.set_selected_languages(subtitle_languages)
 
+        # Subtitle: type preference
+        type_pref = subtitle_config.type_preference.value
+        pref_idx_map = {"manual_only": 0, "manual_and_asr": 1, "all": 2}
+        self.subtitleTypePrefCard.comboBox.blockSignals(True)
+        self.subtitleTypePrefCard.comboBox.setCurrentIndex(pref_idx_map.get(type_pref, 1))
+        self.subtitleTypePrefCard.comboBox.blockSignals(False)
+
         # Subtitle: embed type (NEW)
         self.subtitleEmbedTypeCard.comboBox.blockSignals(True)
         self.subtitleEmbedTypeCard.set_value(subtitle_config.embed_type)
@@ -2401,6 +2426,15 @@ class SettingsPage(QWidget):
         config_manager.set("embed_thumbnail", bool(checked))
         if checked and hasattr(self, "downloadThumbnailCard"):
             self.downloadThumbnailCard.switchButton.setChecked(False)
+
+    def _on_subtitle_type_pref_changed(self, index: int) -> None:
+        from ..models.subtitle_config import SubtitleTypePreference
+        modes = [SubtitleTypePreference.MANUAL_ONLY, SubtitleTypePreference.MANUAL_AND_ASR, SubtitleTypePreference.ALL]
+        if 0 <= index < len(modes):
+            config = config_manager.get_subtitle_config()
+            config.type_preference = modes[index]
+            config_manager.set_subtitle_config(config)
+            InfoBar.success("设置已更新", "字幕类型偏好已保存", duration=3000, parent=self)
 
         InfoBar.success(
             "设置已更新",
