@@ -8,7 +8,6 @@ from PySide6.QtCore import QThread, Signal
 
 from ..core.config_manager import config_manager
 from ..models.errors import YtDlpExecutionError
-from ..models.yt_dto import YtMediaDTO
 from ..utils.error_parser import diagnose_error
 from ..utils.logger import logger
 from ..utils.translator import translate_error

@@ -855,6 +855,7 @@ class DownloadConfigWindow(FramelessWindow):
 
             layout.addWidget(CaptionLabel("全局下载语言:", container))
             from qfluentwidgets import ComboBox
+
             from ...processing.subtitle_manager import COMMON_SUBTITLE_LANGUAGES
 
             self.playlist_subtitle_lang_combo = ComboBox(container)

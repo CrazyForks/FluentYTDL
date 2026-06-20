@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import http.cookiejar
+import json
 import os
+import re
 import shutil
 import threading
-import json
-import requests
-import re
-import urllib.request
-from urllib.parse import parse_qs, urlparse
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import parse_qs, urlparse
+
+import requests
 
 from fluentytdl.utils.logger import get_logger
 from fluentytdl.utils.paths import find_bundled_executable, is_frozen, locate_runtime_tool

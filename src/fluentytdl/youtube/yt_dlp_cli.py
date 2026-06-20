@@ -4,7 +4,6 @@ import json
 import os
 import shutil
 import subprocess
-import time
 from pathlib import Path
 from threading import Event
 from typing import Any
@@ -771,10 +770,10 @@ def run_dump_single_json(
 
         try:
             stdout_bytes, stderr_bytes = proc2.communicate()
-        except Exception:
+        except Exception as e:
             _terminate_process_best_effort(proc2)
             if cancel_event.is_set():
-                raise YtDlpCancelled("yt-dlp cancelled")
+                raise YtDlpCancelled("yt-dlp cancelled") from e
             raise
         finally:
             watcher.join(timeout=1.0)

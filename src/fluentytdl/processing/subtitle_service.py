@@ -19,6 +19,7 @@ from .subtitle_manager import (
     get_subtitle_languages,
 )
 
+
 def filter_tracks_by_type_preference(
     tracks: list[SubtitleTrack],
     preference: SubtitleTypePreference,
@@ -320,7 +321,7 @@ class SmartStrategy(SubtitleStrategy):
         if not selected_langs:
             return {}
 
-        selected_tracks = [track_map[l] for l in selected_langs]
+        selected_tracks = [track_map[lang] for lang in selected_langs]
         embed_opts = build_embed_opts(config)
 
         opts = build_subtitle_opts_from_tracks(selected_tracks)

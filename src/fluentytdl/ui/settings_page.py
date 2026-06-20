@@ -2427,15 +2427,6 @@ class SettingsPage(QWidget):
         if checked and hasattr(self, "downloadThumbnailCard"):
             self.downloadThumbnailCard.switchButton.setChecked(False)
 
-    def _on_subtitle_type_pref_changed(self, index: int) -> None:
-        from ..models.subtitle_config import SubtitleTypePreference
-        modes = [SubtitleTypePreference.MANUAL_ONLY, SubtitleTypePreference.MANUAL_AND_ASR, SubtitleTypePreference.ALL]
-        if 0 <= index < len(modes):
-            config = config_manager.get_subtitle_config()
-            config.type_preference = modes[index]
-            config_manager.set_subtitle_config(config)
-            InfoBar.success("设置已更新", "字幕类型偏好已保存", duration=3000, parent=self)
-
         InfoBar.success(
             "设置已更新",
             "已开启封面嵌入（支持 MP4/MKV/MP3/M4A/FLAC/OGG/OPUS 等格式）"
@@ -2444,6 +2435,15 @@ class SettingsPage(QWidget):
             duration=5000,
             parent=self,
         )
+
+    def _on_subtitle_type_pref_changed(self, index: int) -> None:
+        from ..models.subtitle_config import SubtitleTypePreference
+        modes = [SubtitleTypePreference.MANUAL_ONLY, SubtitleTypePreference.MANUAL_AND_ASR, SubtitleTypePreference.ALL]
+        if 0 <= index < len(modes):
+            config = config_manager.get_subtitle_config()
+            config.type_preference = modes[index]
+            config_manager.set_subtitle_config(config)
+            InfoBar.success("设置已更新", "字幕类型偏好已保存", duration=3000, parent=self)
 
     def _on_embed_metadata_changed(self, checked: bool) -> None:
         """处理元数据嵌入开关变更"""
