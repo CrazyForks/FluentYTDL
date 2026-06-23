@@ -461,6 +461,7 @@ class DownloadConfigWindow(FramelessWindow):
 
         # 深浅模式适配
         from qfluentwidgets import qconfig
+
         qconfig.themeChanged.connect(self._update_style)
         self._update_style()
         self.contentWidget.hide()
@@ -873,13 +874,20 @@ class DownloadConfigWindow(FramelessWindow):
                 idx = self.playlist_subtitle_lang_combo.findData(sub_cfg.default_languages[0])
                 if idx >= 0:
                     self.playlist_subtitle_lang_combo.setCurrentIndex(idx)
-            
+
             self.playlist_subtitle_lang_combo.currentIndexChanged.connect(
                 lambda: config_manager.set(
-                    "subtitle_default_languages", 
-                    [self.playlist_subtitle_lang_combo.itemData(self.playlist_subtitle_lang_combo.currentIndex())]
-                    if self.playlist_subtitle_lang_combo.itemData(self.playlist_subtitle_lang_combo.currentIndex()) != "__smart__" 
-                    else ["zh-Hans", "en"]
+                    "subtitle_default_languages",
+                    [
+                        self.playlist_subtitle_lang_combo.itemData(
+                            self.playlist_subtitle_lang_combo.currentIndex()
+                        )
+                    ]
+                    if self.playlist_subtitle_lang_combo.itemData(
+                        self.playlist_subtitle_lang_combo.currentIndex()
+                    )
+                    != "__smart__"
+                    else ["zh-Hans", "en"],
                 )
             )
 
@@ -893,7 +901,7 @@ class DownloadConfigWindow(FramelessWindow):
             last_fmt = config_manager.get("subtitle_output_format", "srt")
             if last_fmt in ["srt", "ass", "vtt", "lrc", "json3"]:
                 self.playlist_subtitle_format_combo.setCurrentText(last_fmt)
-            
+
             self.playlist_subtitle_format_combo.currentTextChanged.connect(
                 lambda text: config_manager.set("subtitle_output_format", text)
             )
@@ -3463,9 +3471,10 @@ class DownloadConfigWindow(FramelessWindow):
                 pick = getattr(self, "_subtitle_pick_result", None)
                 if pick and pick.selected_tracks:
                     from ...processing.subtitle_service import build_subtitle_opts_from_tracks
+
                     sub_opts = build_subtitle_opts_from_tracks(pick.selected_tracks)
                     ydl_opts.update(sub_opts)
-                    
+
                     ydl_opts["embedsubtitles"] = pick.embed_subtitles
                     if pick.output_format:
                         ydl_opts["convertsubtitles"] = pick.output_format
@@ -3577,9 +3586,11 @@ class DownloadConfigWindow(FramelessWindow):
         if self._mode == "subtitle" and hasattr(self, "playlist_subtitle_format_combo"):
             pl_sub_override.enabled = True
             pl_sub_override.output_format = self.playlist_subtitle_format_combo.currentText()
-            
+
             if hasattr(self, "playlist_subtitle_lang_combo"):
-                lang_code = self.playlist_subtitle_lang_combo.itemData(self.playlist_subtitle_lang_combo.currentIndex())
+                lang_code = self.playlist_subtitle_lang_combo.itemData(
+                    self.playlist_subtitle_lang_combo.currentIndex()
+                )
                 if lang_code and lang_code != "__smart__":
                     pl_sub_override.default_languages = [lang_code]
                 else:
@@ -4010,8 +4021,9 @@ class DownloadConfigWindow(FramelessWindow):
         return None
 
     def _update_style(self):
-        from qfluentwidgets import isDarkTheme
         from PySide6.QtGui import QColor
+        from qfluentwidgets import isDarkTheme
+
         color = QColor(32, 32, 32) if isDarkTheme() else QColor(243, 243, 243)
         self.setStyleSheet(f"DownloadConfigWindow {{ background-color: {color.name()}; }}")
         if hasattr(self.titleBar, "updateStyle"):

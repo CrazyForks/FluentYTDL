@@ -1,31 +1,31 @@
 import re
 
-file_path = r'e:\YouTube\FluentYTDL\src\fluentytdl\ui\components\selection_dialog.py'
-with open(file_path, 'r', encoding='utf-8') as f:
+file_path = r"e:\YouTube\FluentYTDL\src\fluentytdl\ui\components\selection_dialog.py"
+with open(file_path, encoding="utf-8") as f:
     content = f.read()
 
 # 1. Imports
 content = content.replace(
-    'from ..delegates.playlist_delegate import PlaylistItemDelegate\nfrom ..models.playlist_model import PlaylistListModel, PlaylistModelRoles',
-    'from .playlist_item_card import PlaylistItemCard'
+    "from ..delegates.playlist_delegate import PlaylistItemDelegate\nfrom ..models.playlist_model import PlaylistListModel, PlaylistModelRoles",
+    "from .playlist_item_card import PlaylistItemCard",
 )
 
 # 2. _PlaylistModelRowProxy
 content = re.sub(
-    r'class _PlaylistModelRowProxy:.*?def set_loading.*?self\._model\.dataChanged\.emit\(idx, idx, \[PlaylistModelRoles\.TaskObjectRole\]\)\n\n',
-    '',
+    r"class _PlaylistModelRowProxy:.*?def set_loading.*?self\._model\.dataChanged\.emit\(idx, idx, \[PlaylistModelRoles\.TaskObjectRole\]\)\n\n",
+    "",
     content,
-    flags=re.DOTALL
+    flags=re.DOTALL,
 )
 
 # 3. __init__ vars
 content = content.replace(
-    'self._list_view: QListView | None = None\n        self._playlist_model: PlaylistListModel | None = None\n        self._playlist_delegate: PlaylistItemDelegate | None = None',
-    'self._scroll_area: SmoothScrollArea | None = None\n        self._scroll_widget: QWidget | None = None\n        self._scroll_layout: QVBoxLayout | None = None\n        self._cards: list[PlaylistItemCard] = []'
+    "self._list_view: QListView | None = None\n        self._playlist_model: PlaylistListModel | None = None\n        self._playlist_delegate: PlaylistItemDelegate | None = None",
+    "self._scroll_area: SmoothScrollArea | None = None\n        self._scroll_widget: QWidget | None = None\n        self._scroll_layout: QVBoxLayout | None = None\n        self._cards: list[PlaylistItemCard] = []",
 )
 
 # 4. setup_playlist_ui List View init
-old_list_view_init = '''        # ── ListView (virtual rendering, no widget-per-row) ──────────────────
+old_list_view_init = """        # ── ListView (virtual rendering, no widget-per-row) ──────────────────
         list_view = ListView(self.contentWidget)
         list_view.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         list_view.setMouseTracking(True)
@@ -55,9 +55,9 @@ old_list_view_init = '''        # ── ListView (virtual rendering, no widget-
         # AsyncExtractManager: 3 concurrent workers, FIFO queue
         self._extract_manager = AsyncExtractManager(max_concurrent=3, parent=self)
 
-        self.contentLayout.addWidget(list_view)'''
+        self.contentLayout.addWidget(list_view)"""
 
-new_scroll_area_init = '''        # ── SmoothScrollArea (Widget-based virtual scrolling) ──────────────────
+new_scroll_area_init = """        # ── SmoothScrollArea (Widget-based virtual scrolling) ──────────────────
         self._scroll_area = SmoothScrollArea(self.contentWidget)
         self._scroll_area.setWidgetResizable(True)
         self._scroll_area.setFrameShape(QFrame.Shape.NoFrame)
@@ -81,57 +81,57 @@ new_scroll_area_init = '''        # ── SmoothScrollArea (Widget-based virtua
 
         self._extract_manager = AsyncExtractManager(max_concurrent=3, parent=self)
 
-        self.contentLayout.addWidget(self._scroll_area)'''
+        self.contentLayout.addWidget(self._scroll_area)"""
 
 content = content.replace(old_list_view_init, new_scroll_area_init)
 
 # 5. _build_playlist_rows clearing
 content = content.replace(
-    '''        model = self._playlist_model
+    """        model = self._playlist_model
         if model is None:
             return
 
-        model.clear()''',
-    '''        # 彻底清空旧的 cards
+        model.clear()""",
+    """        # 彻底清空旧的 cards
         while self._scroll_layout.count() > 0:
             item = self._scroll_layout.takeAt(0)
             if item.widget():
                 item.widget().setParent(None)
                 item.widget().deleteLater()
-        self._cards.clear()'''
+        self._cards.clear()""",
 )
 
 # 6. _process_next_build_chunk model check
 content = content.replace(
-    '''        model = self._playlist_model
+    """        model = self._playlist_model
         if model is None:
             return
 
-        from ...models.video_task import VideoTask''',
-    '''        from ...models.video_task import VideoTask'''
+        from ...models.video_task import VideoTask""",
+    """        from ...models.video_task import VideoTask""",
 )
 
 # 7. Add PlaylistItemCard inside loop
-old_proxy = '''            # Proxy acts as the PlaylistActionWidget so _auto_apply_row_preset
+old_proxy = """            # Proxy acts as the PlaylistActionWidget so _auto_apply_row_preset
             # writes straight into the model without any code changes.
             proxy = _PlaylistModelRowProxy(row, model)
             self._action_widget_by_row[row] = proxy
 
         # Batch insert this chunk
-        model.addTasks(tasks)'''
+        model.addTasks(tasks)"""
 
-new_proxy = '''            card = PlaylistItemCard(task, row, self._scroll_widget)
+new_proxy = """            card = PlaylistItemCard(task, row, self._scroll_widget)
             card.clicked.connect(self._on_list_item_clicked)
             self._cards.append(card)
             
             # 插入到弹簧前面
             self._scroll_layout.insertWidget(self._scroll_layout.count() - 1, card)
-            self._action_widget_by_row[row] = card'''
+            self._action_widget_by_row[row] = card"""
 
 content = content.replace(old_proxy, new_proxy)
 
 # 8. _on_list_item_clicked signature and body
-old_click = '''    def _on_list_item_clicked(self, index: QModelIndex) -> None:
+old_click = """    def _on_list_item_clicked(self, index: QModelIndex) -> None:
         if self._playlist_model is None:
             return
         row = index.row()
@@ -142,9 +142,9 @@ old_click = '''    def _on_list_item_clicked(self, index: QModelIndex) -> None:
 
         task.selected = not task.selected
         self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])
-        self._update_download_btn_state()'''
+        self._update_download_btn_state()"""
 
-new_click = '''    def _on_list_item_clicked(self, row: int) -> None:
+new_click = """    def _on_list_item_clicked(self, row: int) -> None:
         if row < 0 or row >= len(self._cards):
             return
         card = self._cards[row]
@@ -152,11 +152,11 @@ new_click = '''    def _on_list_item_clicked(self, row: int) -> None:
         
         task.selected = not task.selected
         card.update()
-        self._update_download_btn_state()'''
+        self._update_download_btn_state()"""
 content = content.replace(old_click, new_click)
 
 # 9. _on_scroll_throttled
-old_scroll = '''    def _on_scroll_throttled(self) -> None:
+old_scroll = """    def _on_scroll_throttled(self) -> None:
         if self._is_closing:
             return
         if self._playlist_delegate is None or self._list_view is None:
@@ -173,9 +173,9 @@ old_scroll = '''    def _on_scroll_throttled(self) -> None:
         if not visible_rows:
             return
 
-        self._load_thumbnails_for_rows(visible_rows)'''
+        self._load_thumbnails_for_rows(visible_rows)"""
 
-new_scroll = '''    def _on_scroll_throttled(self) -> None:
+new_scroll = """    def _on_scroll_throttled(self) -> None:
         if self._is_closing or not self._cards:
             return
 
@@ -192,14 +192,14 @@ new_scroll = '''    def _on_scroll_throttled(self) -> None:
         if not visible_rows:
             return
 
-        self._load_thumbnails_for_rows(visible_rows)'''
+        self._load_thumbnails_for_rows(visible_rows)"""
 content = content.replace(old_scroll, new_scroll)
 
 # 10. _load_thumbnails_for_rows
 # Wait, no changes needed for the loop itself, just the pixmap applying
 
 # 11. _handle_extract_success
-old_success = '''        if self._playlist_model is not None:
+old_success = """        if self._playlist_model is not None:
             idx = self._playlist_model.index(row, 0)
             task = self._playlist_model.get_task(idx)
             if task is not None:
@@ -208,63 +208,63 @@ old_success = '''        if self._playlist_model is not None:
                 task.upload_date = _format_upload_date(info.get("upload_date"))
                 task.custom_options.format = format_id
 
-                self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])'''
+                self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])"""
 
-new_success = '''        if row < len(self._cards):
+new_success = """        if row < len(self._cards):
             card = self._cards[row]
             task = card.task
             task.is_parsing = False
             task.duration_str = _format_duration(info.get("duration"))
             task.upload_date = _format_upload_date(info.get("upload_date"))
             task.custom_options.format = format_id
-            card.update()'''
+            card.update()"""
 content = content.replace(old_success, new_success)
 
 # 12. _handle_extract_error
-old_error = '''        if self._playlist_model is not None:
+old_error = """        if self._playlist_model is not None:
             idx = self._playlist_model.index(row, 0)
             task = self._playlist_model.get_task(idx)
             if task is not None:
                 task.is_parsing = False
                 task.has_error = True
                 task.error_msg = error_msg
-                self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])'''
+                self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])"""
 
-new_error = '''        if row < len(self._cards):
+new_error = """        if row < len(self._cards):
             card = self._cards[row]
             task = card.task
             task.is_parsing = False
             task.has_error = True
             task.error_msg = error_msg
-            card.update()'''
+            card.update()"""
 content = content.replace(old_error, new_error)
 
 # 13. set_pixmap
 content = content.replace(
-    '''        if self._playlist_delegate is not None and self._playlist_model is not None:
+    """        if self._playlist_delegate is not None and self._playlist_model is not None:
             self._playlist_delegate.set_pixmap(url, pix)
             idx = self._playlist_model.index(row, 0)
-            self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])''',
-    '''        if row < len(self._cards):
-            self._cards[row].set_pixmap(pix)'''
+            self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])""",
+    """        if row < len(self._cards):
+            self._cards[row].set_pixmap(pix)""",
 )
 
 content = content.replace(
-    '''        if self._playlist_delegate is not None:
+    """        if self._playlist_delegate is not None:
             self._playlist_delegate.set_pixmap(u, pixmap)
 
         if self._playlist_model is not None:
             for row in rows:
                 idx = self._playlist_model.index(row, 0)
-                self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])''',
-    '''        for row in rows:
+                self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])""",
+    """        for row in rows:
             if row < len(self._cards):
-                self._cards[row].set_pixmap(pixmap)'''
+                self._cards[row].set_pixmap(pixmap)""",
 )
 
 # 14. select_all etc
 content = content.replace(
-    '''        model = self._playlist_model
+    """        model = self._playlist_model
         if model is None:
             return
         for i in range(model.rowCount()):
@@ -276,14 +276,14 @@ content = content.replace(
             model.index(0, 0),
             model.index(model.rowCount() - 1, 0),
             [PlaylistModelRoles.TaskObjectRole],
-        )''',
-    '''        for card in self._cards:
+        )""",
+    """        for card in self._cards:
             card.task.selected = True
-            card.update()'''
+            card.update()""",
 )
 
 content = content.replace(
-    '''        model = self._playlist_model
+    """        model = self._playlist_model
         if model is None:
             return
         for i in range(model.rowCount()):
@@ -295,14 +295,14 @@ content = content.replace(
             model.index(0, 0),
             model.index(model.rowCount() - 1, 0),
             [PlaylistModelRoles.TaskObjectRole],
-        )''',
-    '''        for card in self._cards:
+        )""",
+    """        for card in self._cards:
             card.task.selected = False
-            card.update()'''
+            card.update()""",
 )
 
 content = content.replace(
-    '''    def _invert_select(self) -> None:
+    """    def _invert_select(self) -> None:
         if self._playlist_model is None:
             return
         for row in range(self._playlist_model.rowCount()):
@@ -314,16 +314,16 @@ content = content.replace(
             self._playlist_model.index(0, 0),
             self._playlist_model.index(self._playlist_model.rowCount() - 1, 0),
             [PlaylistModelRoles.TaskObjectRole],
-        )''',
-    '''    def _invert_select(self) -> None:
+        )""",
+    """    def _invert_select(self) -> None:
         for card in self._cards:
             card.task.selected = not card.task.selected
-            card.update()'''
+            card.update()""",
 )
 
 # 15. get_selected_rows
 content = content.replace(
-    '''    def _get_selected_rows(self) -> list[int]:
+    """    def _get_selected_rows(self) -> list[int]:
         if self._playlist_model is None:
             return []
         rows = []
@@ -332,45 +332,45 @@ content = content.replace(
             task = self._playlist_model.get_task(idx)
             if task and task.selected:
                 rows.append(i)
-        return rows''',
-    '''    def _get_selected_rows(self) -> list[int]:
+        return rows""",
+    """    def _get_selected_rows(self) -> list[int]:
         rows = []
         for i, card in enumerate(self._cards):
             if card.task.selected:
                 rows.append(i)
-        return rows'''
+        return rows""",
 )
 
 # 16. dataChanged in apply_preset_to_selected
 content = content.replace(
-    '''            if modified:
+    """            if modified:
                 if self._playlist_model is not None:
                     idx = self._playlist_model.index(row, 0)
                     task = self._playlist_model.get_task(idx)
                     if task is not None:
                         task.custom_options.format = row_data["override_text"]
-                        self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])''',
-    '''            if modified and row < len(self._cards):
+                        self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])""",
+    """            if modified and row < len(self._cards):
                 card = self._cards[row]
                 card.task.custom_options.format = row_data["override_text"]
-                card.update()'''
+                card.update()""",
 )
 
 # 17. dataChanged in _auto_apply_row_preset
 content = content.replace(
-    '''        if self._playlist_model is not None:
+    """        if self._playlist_model is not None:
             idx = self._playlist_model.index(row, 0)
             task = self._playlist_model.get_task(idx)
             if task is not None:
                 task.custom_options.format = final_text
-                self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])''',
-    '''        if row < len(self._cards):
+                self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])""",
+    """        if row < len(self._cards):
             card = self._cards[row]
             card.task.custom_options.format = final_text
-            card.update()'''
+            card.update()""",
 )
 
 
-with open(file_path, 'w', encoding='utf-8') as f:
+with open(file_path, "w", encoding="utf-8") as f:
     f.write(content)
-print('Done!')
+print("Done!")

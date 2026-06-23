@@ -6,18 +6,14 @@ from typing import Any
 from PySide6.QtCore import QCoreApplication, QEventLoop, QModelIndex, QPoint, Qt, QTimer
 from PySide6.QtGui import QColor, QCursor
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QButtonGroup,
     QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QListView,
     QSizePolicy,
-    QStackedWidget,
     QStyleOptionViewItem,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -28,14 +24,12 @@ from qfluentwidgets import (
     ImageLabel,
     IndeterminateProgressRing,
     LineEdit,
-    ListView,
     MessageBox,
     MessageBoxBase,
     PrimaryPushButton,
     PushButton,
     RadioButton,
     SmoothScrollArea,
-    StrongBodyLabel,
     SubtitleLabel,
     TableWidget,
     ToolTipFilter,
@@ -56,13 +50,12 @@ from ...utils.filesystem import sanitize_filename
 from ...utils.image_loader import ImageLoader
 from ...utils.logger import logger
 from ...youtube.youtube_service import YoutubeServiceOptions, YtDlpAuthOptions
-from .playlist_item_card import PlaylistItemCard
+from ..models.playlist_model import PlaylistModelRoles
 from .cover_selector import CoverSelectorWidget
 from .format_selector import VideoFormatSelectorWidget
+from .playlist_item_card import PlaylistItemCard
 from .subtitle_selector import SubtitleSelectorWidget
 from .vr_format_selector import VR_PRESETS, VRFormatSelectorWidget
-from qfluentwidgets import isDarkTheme
-from PySide6.QtGui import QPainter
 
 # ---- 字幕容器兼容性辅助函数 ----
 # MP4 和 MKV 都支持字幕嵌入（FFmpeg 自动将 SRT 转为 mov_text），只有 WebM 不支持 SRT/ASS
@@ -307,6 +300,7 @@ class SimplePresetWidget(QWidget):
 
         for i, (pid, title, desc, fmt, args) in enumerate(self.presets):
             from qfluentwidgets import CardWidget
+
             container = CardWidget(self)
             h_layout = QHBoxLayout(container)
 
@@ -493,7 +487,6 @@ class PlaylistActionWidget(QWidget):
             self.qualityButton.setText(str(btn_text))
         if info_text is not None:
             self.infoLabel.setText(str(info_text))
-
 
 
 def _infer_entry_url(entry: Any) -> str:
@@ -905,11 +898,11 @@ class SelectionDialog(MessageBoxBase):
         self.contentWidget = QWidget()
         self.contentWidget.setObjectName("contentWidget")
         self.contentWidget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
-        
-        from qfluentwidgets import isDarkTheme, qconfig, Theme
-        is_dark = isDarkTheme() or qconfig.theme == Theme.DARK
+
         bg_color = "#2b2b2b"
-        self.contentWidget.setStyleSheet(f"QWidget#contentWidget {{ background-color: {bg_color}; border: none; }}")
+        self.contentWidget.setStyleSheet(
+            f"QWidget#contentWidget {{ background-color: {bg_color}; border: none; }}"
+        )
         self.contentLayout = QVBoxLayout(self.contentWidget)
         self.contentLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.setSpacing(12)
@@ -919,9 +912,7 @@ class SelectionDialog(MessageBoxBase):
         # 失败重试区（默认隐藏）：用于"需要 Cookies / 不是机器人验证"场景
         self.retryWidget = QWidget(self)
         self.retryWidget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
-        
-        from qfluentwidgets import isDarkTheme, qconfig, Theme
-        is_dark = isDarkTheme() or qconfig.theme == Theme.DARK
+
         bg_color = "#2b2b2b"
         self.retryWidget.setStyleSheet(f"background-color: {bg_color}; border: none;")
         self.retryLayout = QVBoxLayout(self.retryWidget)
@@ -1584,20 +1575,22 @@ class SelectionDialog(MessageBoxBase):
         self._scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        from qfluentwidgets import isDarkTheme, qconfig, Theme
         # Force evaluation by checking both the function and the exact config enum
-        is_dark = isDarkTheme() or qconfig.theme == Theme.DARK
         bg_color = "#2b2b2b"
-        
+
         self._scroll_area.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
-        self._scroll_area.setStyleSheet(f"QScrollArea {{ background-color: {bg_color}; border: none; }}")
+        self._scroll_area.setStyleSheet(
+            f"QScrollArea {{ background-color: {bg_color}; border: none; }}"
+        )
         self._scroll_area.viewport().setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self._scroll_area.viewport().setStyleSheet(f"background-color: {bg_color}; border: none;")
 
         self._scroll_widget = QWidget(self._scroll_area)
         self._scroll_widget.setObjectName("scrollWidget")
         self._scroll_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
-        self._scroll_widget.setStyleSheet(f"QWidget#scrollWidget {{ background-color: {bg_color}; border: none; }}")
+        self._scroll_widget.setStyleSheet(
+            f"QWidget#scrollWidget {{ background-color: {bg_color}; border: none; }}"
+        )
         self._scroll_layout = QVBoxLayout(self._scroll_widget)
         self._scroll_layout.setContentsMargins(0, 0, 16, 0)
         self._scroll_layout.setSpacing(0)
@@ -1739,7 +1732,7 @@ class SelectionDialog(MessageBoxBase):
             card = PlaylistItemCard(task, row, self._scroll_widget)
             card.clicked.connect(self._on_list_item_clicked)
             self._cards.append(card)
-            
+
             # 插入到弹簧前面
             self._scroll_layout.insertWidget(self._scroll_layout.count() - 1, card)
             self._action_widget_by_row[row] = card

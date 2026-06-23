@@ -193,9 +193,7 @@ class YtMediaDTO:
             for lang, subs_list in raw_auto_caps.items():
                 if isinstance(subs_list, list):
                     automatic_captions[lang] = [
-                        YtSubtitleDTO.from_dict(sub)
-                        for sub in subs_list
-                        if isinstance(sub, dict)
+                        YtSubtitleDTO.from_dict(sub) for sub in subs_list if isinstance(sub, dict)
                     ]
 
         duration = data.get("duration")

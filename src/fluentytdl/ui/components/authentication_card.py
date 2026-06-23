@@ -388,6 +388,7 @@ class AuthenticationCard(CardWidget):
         """更新状态图标"""
         if valid:
             from qfluentwidgets import themeColor
+
             self.statusIcon.setIcon(FluentIcon.ACCEPT)
             self.statusIcon.setStyleSheet(f"color: {themeColor().name()};")
         else:

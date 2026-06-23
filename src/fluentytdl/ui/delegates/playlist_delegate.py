@@ -149,7 +149,8 @@ class PlaylistItemDelegate(QStyledItemDelegate):
         # 填完底色后再在上面叠加渲染圆角卡片、文字、缩略图，既消除脏像素残留，
         # 又不会像 super().paint() 那样画出不透明的 Qt 默认面板而遮挡自定义内容。
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        from qfluentwidgets import isDarkTheme, qconfig, Theme
+        from qfluentwidgets import Theme, qconfig
+
         is_dark = isDarkTheme() or qconfig.theme == Theme.DARK
         bg_color = QColor(32, 32, 32) if is_dark else QColor(249, 249, 249)
         painter.fillRect(rect, bg_color)

@@ -16,6 +16,7 @@ class SubtitleTypePreference(str, Enum):
     MANUAL_AND_ASR = "manual_and_asr"
     ALL = "all"
 
+
 @dataclass
 class SubtitleConfig:
     """

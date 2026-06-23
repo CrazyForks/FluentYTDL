@@ -233,7 +233,7 @@ class Builder:
         """
         for pfx in ("v-", "pre-", "beta-"):
             if full_version.startswith(pfx):
-                return pfx, full_version[len(pfx):]
+                return pfx, full_version[len(pfx) :]
         return "v-", full_version
 
     def _sync_version_to_all(self) -> None:
@@ -273,14 +273,12 @@ class Builder:
             if 'dynamic = ["version"]' in content:
                 content = content.replace('dynamic = ["version"]', "")
                 content = re.sub(
-                    r'\[project\]',
+                    r"\[project\]",
                     f'[project]\nversion = "{numeric}"',
                     content,
                     count=1,
                 )
-                content = re.sub(
-                    r'\[tool\.setuptools\.dynamic\]\n[^\[]*', '', content
-                )
+                content = re.sub(r"\[tool\.setuptools\.dynamic\]\n[^\[]*", "", content)
             pyproject.write_text(content, encoding="utf-8")
 
         # 4. FluentYTDL.iss — 纯数字版本（Inno Setup 要求）
@@ -383,8 +381,8 @@ class Builder:
             "QtWebEngine*.pyd",
             "QtWebChannel.pyd",
             "v8_context_snapshot*.bin",
-            "icudtl.dat",              # ICU 数据（WebEngine 专用）
-            "vk_swiftshader*.dll",     # Vulkan 软件渲染
+            "icudtl.dat",  # ICU 数据（WebEngine 专用）
+            "vk_swiftshader*.dll",  # Vulkan 软件渲染
             "libGLESv2.dll",
             "libEGL.dll",
         ]
@@ -427,7 +425,13 @@ class Builder:
             sw_gl.unlink()
 
         # ── 5. Qt 内置 FFmpeg（已有外部 ffmpeg，约 16 MB） ──
-        for pattern in ["avcodec-*.dll", "avformat-*.dll", "avutil-*.dll", "swresample-*.dll", "swscale-*.dll"]:
+        for pattern in [
+            "avcodec-*.dll",
+            "avformat-*.dll",
+            "avutil-*.dll",
+            "swresample-*.dll",
+            "swscale-*.dll",
+        ]:
             for f in pyside_dir.glob(pattern):
                 sz = f.stat().st_size
                 f.unlink(missing_ok=True)
@@ -482,9 +486,14 @@ class Builder:
         plugins_dir = pyside_dir / "plugins"
         if plugins_dir.exists():
             unwanted_plugins = [
-                "multimedia", "qmltooling", "qmllint",
-                "position", "sensors", "sqldrivers",
-                "designer", "webview",
+                "multimedia",
+                "qmltooling",
+                "qmllint",
+                "position",
+                "sensors",
+                "sqldrivers",
+                "designer",
+                "webview",
             ]
             for name in unwanted_plugins:
                 plugin_subdir = plugins_dir / name
@@ -495,7 +504,6 @@ class Builder:
 
         saved_mb = saved / (1024 * 1024)
         print(f"🧹 Qt 瘦身完成：清理了 {saved_mb:.1f} MB 的无用文件")
-
 
     def bundle_tools(self, target_dir: Path) -> None:
         excluded_tool_dirs = {"dle_user", "dle_profile", "profile", "profiles", "cookies"}
@@ -725,8 +733,10 @@ class Builder:
         cmd = [
             sys.executable,
             str(manifest_script),
-            "--version", self._full_version,
-            "--release-dir", str(RELEASE_DIR),
+            "--version",
+            self._full_version,
+            "--release-dir",
+            str(RELEASE_DIR),
         ]
         subprocess.run(cmd, check=True, cwd=ROOT)
 
@@ -744,7 +754,8 @@ class Builder:
 def main():
     parser = argparse.ArgumentParser(description="FluentYTDL 构建中枢系统")
     parser.add_argument(
-        "--target", "-t",
+        "--target",
+        "-t",
         choices=["all", "7z", "setup", "full"],
         default="all",
         help="构建目标 (默认: all, full=7z)",

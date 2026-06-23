@@ -51,7 +51,7 @@ def parse_version_prefix(full_version: str) -> tuple[str, str]:
     """
     for pfx in ("v-", "pre-", "beta-"):
         if full_version.startswith(pfx):
-            return pfx, full_version[len(pfx):]
+            return pfx, full_version[len(pfx) :]
     return "v-", full_version
 
 
@@ -111,6 +111,7 @@ def detect_component_versions(release_dir: Path) -> dict[str, dict]:
                 first_line = output.split("\n")[0].strip()
                 # 尝试匹配 x.y.z 或日期格式 (YYYY.MM.DD)
                 import re
+
                 match = re.search(r"(\d{4}\.\d{2}\.\d{2}|\d+\.\d+\.\d+)", first_line)
                 if match:
                     version = match.group(1)
@@ -181,7 +182,8 @@ def generate_manifest(
 def main():
     parser = argparse.ArgumentParser(description="FluentYTDL 更新清单生成器")
     parser.add_argument(
-        "--version", "-v",
+        "--version",
+        "-v",
         required=True,
         help="完整版本号 (如 v-3.0.18, pre-3.0.18)",
     )

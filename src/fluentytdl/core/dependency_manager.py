@@ -39,7 +39,6 @@ class ComponentInfo:
         self.expected_sha256: str | None = None
 
 
-
 class DependencyManager(QObject):
     """
     Manages checking updates and downloading/installing external dependencies.
@@ -274,7 +273,6 @@ class DependencyManager(QObject):
                 with fallback_opener.open(req, timeout=10) as fb_response:
                     return fb_response.read().decode("utf-8", errors="ignore")
             raise
-
 
 
 class UpdateCheckerWorker(QThread):
@@ -553,7 +551,7 @@ class UpdateCheckerWorker(QThread):
         elif key == "ffmpeg":
             tag = data.get("tag_name", "unknown")
             release_name = data.get("name", "")
-            
+
             # 尝试从 "Latest Auto-Build (2026-06-18 17:15)" 中提取日期以对齐本地的 N-125100...-20260618
             m = re.search(r"(\d{4})-(\d{2})-(\d{2})", release_name)
             if m:

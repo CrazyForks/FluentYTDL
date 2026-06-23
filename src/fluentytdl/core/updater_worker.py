@@ -199,7 +199,7 @@ def run_worker():
 
             last_emit_time = 0
             last_emit_percent = -1
-            
+
             sha256_hash = hashlib.sha256()
 
             with open(tmp_path, "wb") as f:
@@ -227,7 +227,9 @@ def run_worker():
             if expected_sha256:
                 actual_sha256 = sha256_hash.hexdigest()
                 if actual_sha256.upper() != expected_sha256.upper():
-                    raise ValueError(f"Hash mismatch: expected {expected_sha256}, got {actual_sha256}")
+                    raise ValueError(
+                        f"Hash mismatch: expected {expected_sha256}, got {actual_sha256}"
+                    )
 
         dest_dir = target_exe.parent
         dest_dir.mkdir(parents=True, exist_ok=True)

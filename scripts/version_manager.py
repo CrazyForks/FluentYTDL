@@ -51,7 +51,7 @@ def _parse_prefix(version_str: str) -> tuple[str, str]:
     """
     for pfx in ("v-", "pre-", "beta-"):
         if version_str.startswith(pfx):
-            return pfx, version_str[len(pfx):]
+            return pfx, version_str[len(pfx) :]
     return "v-", version_str
 
 
@@ -220,9 +220,7 @@ class VersionManager:
                 print(f"  ❌ {vf.description:20s}: 失败 - {e}")
 
         print(f"\n✅ 已更新 {success_count}/{len(self.VERSION_FILES)} 个文件")
-        return success_count == len(
-            [vf for vf in self.VERSION_FILES if vf.path.exists()]
-        )
+        return success_count == len([vf for vf in self.VERSION_FILES if vf.path.exists()])
 
     def bump_version(self, bump_type: Literal["major", "minor", "patch"]) -> bool:
         """自动递增版本号（保留当前前缀）"""
@@ -276,9 +274,7 @@ class VersionManager:
             return
 
         prefix, numeric = _parse_prefix(current)
-        prefix_name = {"v-": "正式版", "pre-": "预发布", "beta-": "测试版"}.get(
-            prefix, "未知"
-        )
+        prefix_name = {"v-": "正式版", "pre-": "预发布", "beta-": "测试版"}.get(prefix, "未知")
 
         print("=" * 60)
         print("FluentYTDL 版本信息")
@@ -291,9 +287,7 @@ class VersionManager:
         for vf in self.VERSION_FILES:
             status = "✓" if vf.path.exists() else "✗"
             kind = "完整" if vf.writes_full else "纯数字"
-            print(
-                f"  [{status}] {vf.description:20s}: {kind:4s} ({vf.path.relative_to(ROOT)})"
-            )
+            print(f"  [{status}] {vf.description:20s}: {kind:4s} ({vf.path.relative_to(ROOT)})")
         print()
         print("版本前缀规范:")
         print("  v-    正式发布 → GitHub Release (Latest)")
@@ -378,6 +372,7 @@ def main():
 
 if __name__ == "__main__":
     import io
+
     if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")

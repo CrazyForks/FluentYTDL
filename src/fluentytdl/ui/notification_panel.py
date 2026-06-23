@@ -110,7 +110,10 @@ class NotificationFlyoutView(FlyoutViewBase):
         # 头部
         self.headerLayout = QHBoxLayout()
         self.titleLabel = BodyLabel("消息中心", self)
-        self.titleLabel.setStyleSheet("font-size: 16px; font-weight: bold;")
+        font = self.titleLabel.font()
+        font.setPixelSize(16)
+        font.setBold(True)
+        self.titleLabel.setFont(font)
 
         self.clearAllBtn = PushButton("全部已读", self)
         self.clearAllBtn.setFixedSize(80, 28)

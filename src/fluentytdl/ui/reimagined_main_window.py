@@ -1352,13 +1352,14 @@ class MainWindow(FluentWindow):
                 if is_startup and not cookie_sentinel.exists:
                     # 第一次运行不主动弹强打扰对话框，给个横幅引导即可
                     from qfluentwidgets import InfoBar, InfoBarPosition
+
                     action = "登录" if current_source == AuthSourceType.WEBVIEW2 else "导入"
                     InfoBar.warning(
-                        "Cookie 未准备就绪", 
+                        "Cookie 未准备就绪",
                         f"为了保证下载稳定，建议您先前往设置页进行{action}以获取 Cookie",
-                        duration=10000, 
-                        position=InfoBarPosition.TOP_RIGHT, 
-                        parent=self
+                        duration=10000,
+                        position=InfoBarPosition.TOP_RIGHT,
+                        parent=self,
                     )
                     return
 

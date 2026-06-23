@@ -1750,7 +1750,6 @@ class SettingsPage(QWidget):
     def _init_behavior_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
         self.behaviorGroup = SettingCardGroup("行为策略", parent_widget)
 
-
         self.deletionPolicyCard = InlineComboBoxCard(
             FluentIcon.DELETE,
             "移除任务时的默认行为",
@@ -1882,7 +1881,9 @@ class SettingsPage(QWidget):
             ["仅手动上传的字幕", "手动字幕优先，自动生成字幕垫底", "所有类型（含自动翻译）"],
             parent=self.subtitleGroup,
         )
-        self.subtitleTypePrefCard.comboBox.currentIndexChanged.connect(self._on_subtitle_type_pref_changed)
+        self.subtitleTypePrefCard.comboBox.currentIndexChanged.connect(
+            self._on_subtitle_type_pref_changed
+        )
 
         # 嵌入类型下拉框卡片 (NEW)
         self.subtitleEmbedTypeCard = EmbedTypeComboCard(
@@ -2438,7 +2439,12 @@ class SettingsPage(QWidget):
 
     def _on_subtitle_type_pref_changed(self, index: int) -> None:
         from ..models.subtitle_config import SubtitleTypePreference
-        modes = [SubtitleTypePreference.MANUAL_ONLY, SubtitleTypePreference.MANUAL_AND_ASR, SubtitleTypePreference.ALL]
+
+        modes = [
+            SubtitleTypePreference.MANUAL_ONLY,
+            SubtitleTypePreference.MANUAL_AND_ASR,
+            SubtitleTypePreference.ALL,
+        ]
         if 0 <= index < len(modes):
             config = config_manager.get_subtitle_config()
             config.type_preference = modes[index]

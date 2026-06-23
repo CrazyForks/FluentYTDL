@@ -7,6 +7,7 @@ from qfluentwidgets import BodyLabel, MessageBoxBase, SubtitleLabel, TableWidget
 if TYPE_CHECKING:
     from ...download.quality_guard import QualityVerdict
 
+
 class QualityReportDialog(MessageBoxBase):
     def __init__(self, warnings: list[tuple[str, "QualityVerdict"]], parent=None):
         super().__init__(parent)

@@ -19,16 +19,16 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import (
     CaptionLabel,
+    CardWidget,
     ComboBox,
     FluentIcon,
     IconWidget,
     PushButton,
     RadioButton,
-    ScrollArea,
-    SmoothScrollArea,
-    TableWidget,
     SegmentedWidget,
+    SmoothScrollArea,
     StrongBodyLabel,
+    TableWidget,
     TransparentToolButton,
 )
 
@@ -330,7 +330,6 @@ class SimplePresetWidget(QWidget):
 
         presets = self._all_presets.get(current_type, [])
         for i, (pid, title, desc, intent) in enumerate(presets):
-            from qfluentwidgets import CardWidget
             container = CardWidget(self.content_widget)
             h_layout = QHBoxLayout(container)
 
@@ -507,7 +506,6 @@ class _ContainerFormatBar(QFrame):
         return self.audio_combo.currentText().lower()
 
 
-from qfluentwidgets import CardWidget
 class FormatExpandCard(CardWidget):
     def __init__(self, icon: FluentIcon, title: str, parent=None):
         super().__init__(parent)
@@ -601,8 +599,9 @@ class VideoFormatSelectorWidget(QWidget):
         self._init_ui()
         self._build_rows(info)
         self._refresh_table()
-        
+
         from qfluentwidgets import qconfig
+
         qconfig.themeChanged.connect(self._update_style)
 
     def _update_style(self):
@@ -1055,10 +1054,11 @@ class VideoFormatSelectorWidget(QWidget):
 
     def _highlight_table_rows(self, table: QTableWidget, selected_ids: set[str]):
         from qfluentwidgets import isDarkTheme
+
         is_dark = isDarkTheme()
         sel_bg = QColor(255, 255, 255, 20) if is_dark else QColor("#E8E8E8")
         sel_fg = QColor(255, 255, 255) if is_dark else QColor(0, 0, 0)
-        
+
         rows = table.property("_rows") or []
         for i in range(table.rowCount()):
             # Reset style

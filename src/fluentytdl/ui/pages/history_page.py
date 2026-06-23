@@ -22,11 +22,11 @@ from qfluentwidgets import (
     InfoBarPosition,
     MessageBox,
     SearchLineEdit,
+    SmoothScrollArea,
     SubtitleLabel,
     ToolTipFilter,
     ToolTipPosition,
     TransparentToolButton,
-    SmoothScrollArea,
 )
 
 from ...storage.history_service import HistoryRecord, history_service

@@ -98,13 +98,14 @@ class SubtitleSelectorWidget(QFrame):
         self.formatLabel = CaptionLabel("字幕格式:", self)
         self.formatCombo = ComboBox(self)
         self.formatCombo.addItems(["srt", "ass", "vtt", "lrc", "json3"])
-        
+
         from ...core.config_manager import config_manager
+
         out_fmt = config_manager.get("subtitle_output_format", "srt")
         idx = self.formatCombo.findText(out_fmt)
         if idx >= 0:
             self.formatCombo.setCurrentIndex(idx)
-            
+
         self.formatCombo.currentIndexChanged.connect(
             lambda: config_manager.set("subtitle_output_format", self.formatCombo.currentText())
         )
@@ -157,7 +158,11 @@ class SubtitleSelectorWidget(QFrame):
             cb = CheckBox()
 
             # 默认选中第一个中文手动字幕，稍后可被 set_initial_state 覆盖
-            if row == 0 and track.lang_code.startswith("zh") and track.source_type == SubtitleSourceType.MANUAL:
+            if (
+                row == 0
+                and track.lang_code.startswith("zh")
+                and track.source_type == SubtitleSourceType.MANUAL
+            ):
                 cb.setChecked(True)
 
             cb.stateChanged.connect(self.selectionChanged)

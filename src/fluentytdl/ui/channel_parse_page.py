@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
@@ -133,6 +134,7 @@ class ChannelParsePage(QWidget):
         )
         self.tipsLabel.setWordWrap(True)
         self.tipsLabel.setMaximumWidth(760)
+        self.tipsLabel.setTextColor(QColor(100, 100, 100), QColor(160, 160, 160))
         self.centerLayout.addWidget(self.tipsLabel)
 
         # Connect to theme changes

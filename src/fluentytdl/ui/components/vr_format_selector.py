@@ -8,11 +8,9 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
     QCheckBox,
-    QFrame,
     QHBoxLayout,
     QHeaderView,
     QStackedWidget,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -23,10 +21,10 @@ from qfluentwidgets import (
     FluentIcon,
     IconWidget,
     RadioButton,
-    SmoothScrollArea,
-    TableWidget,
     SegmentedWidget,
+    SmoothScrollArea,
     StrongBodyLabel,
+    TableWidget,
 )
 
 from ...utils.container_compat import choose_lossless_merge_container
@@ -234,6 +232,7 @@ class VRPresetWidget(QWidget):
 
         for i, (pid, title, desc, fmt, args) in enumerate(VR_PRESETS):
             from qfluentwidgets import CardWidget
+
             container = CardWidget(self)
             h_layout = QHBoxLayout(container)
 
@@ -343,6 +342,7 @@ class VRFormatTableWidget(QWidget):
 
         # Video Section
         from qfluentwidgets import CardWidget
+
         self.video_container = CardWidget(self.split_container)
         v_layout = QVBoxLayout(self.video_container)
         v_layout.setContentsMargins(8, 8, 8, 8)
@@ -407,11 +407,21 @@ class VRFormatTableWidget(QWidget):
         self.video_table.setWordWrap(False)
         try:
             self.video_table.verticalHeader().setDefaultSectionSize(42)
-            self.video_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-            self.video_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-            self.video_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-            self.video_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-            self.video_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+            self.video_table.horizontalHeader().setSectionResizeMode(
+                0, QHeaderView.ResizeMode.Fixed
+            )
+            self.video_table.horizontalHeader().setSectionResizeMode(
+                1, QHeaderView.ResizeMode.Fixed
+            )
+            self.video_table.horizontalHeader().setSectionResizeMode(
+                2, QHeaderView.ResizeMode.Fixed
+            )
+            self.video_table.horizontalHeader().setSectionResizeMode(
+                3, QHeaderView.ResizeMode.Fixed
+            )
+            self.video_table.horizontalHeader().setSectionResizeMode(
+                4, QHeaderView.ResizeMode.Stretch
+            )
             self.video_table.setColumnWidth(0, 60)
             self.video_table.setColumnWidth(1, 130)
             self.video_table.setColumnWidth(2, 100)
@@ -435,9 +445,15 @@ class VRFormatTableWidget(QWidget):
         self.audio_table.setWordWrap(False)
         try:
             self.audio_table.verticalHeader().setDefaultSectionSize(42)
-            self.audio_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-            self.audio_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-            self.audio_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+            self.audio_table.horizontalHeader().setSectionResizeMode(
+                0, QHeaderView.ResizeMode.Fixed
+            )
+            self.audio_table.horizontalHeader().setSectionResizeMode(
+                1, QHeaderView.ResizeMode.Fixed
+            )
+            self.audio_table.horizontalHeader().setSectionResizeMode(
+                2, QHeaderView.ResizeMode.Stretch
+            )
             self.audio_table.setColumnWidth(0, 60)
             self.audio_table.setColumnWidth(1, 130)
         except Exception:
@@ -456,24 +472,6 @@ class VRFormatTableWidget(QWidget):
         self.single_table.setAlternatingRowColors(True)
         self.single_table.setWordWrap(False)
         self.single_table.itemSelectionChanged.connect(self._on_single_selected)
-
-        # 选择摘要
-        self.summary_label = CaptionLabel("", self)
-        layout.addWidget(self.summary_label)
-
-        # 内部状态
-        self._video_rows: list[dict[str, Any]] = []
-        self._audio_rows: list[dict[str, Any]] = []
-        self._muxed_rows: list[dict[str, Any]] = []
-        self._selected_video_id: str | None = None
-        self._selected_audio_id: str | None = None
-        self._selected_muxed_id: str | None = None
-        self._single_rows: list[dict[str, Any]] = []
-
-        # 保存原始格式列表引用（过滤器刷新时用）
-        self._all_video_fmts: list[dict[str, Any]] = []
-
-        self._populate(info)
 
     # ── VR 过滤器 ──
 

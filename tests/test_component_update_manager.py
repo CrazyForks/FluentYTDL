@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 # ── Pure function tests (no Qt required) ──────────────────────────────────
 
+
 class TestParseVersion:
     """Test _parse_version version comparison logic."""
 
@@ -19,6 +20,7 @@ class TestParseVersion:
     def _parse(ver: str) -> tuple[int, ...]:
         """Reproduce the _parse_version logic for testing."""
         import re
+
         clean = re.sub(r"^(v-?|pre-|beta-)", "", str(ver).strip())
         clean = clean.split("-")[0]
         parts = []
@@ -61,7 +63,7 @@ class TestParseVersionPrefix:
     def _parse(full: str) -> tuple[str, str]:
         for pfx in ("v-", "pre-", "beta-"):
             if full.startswith(pfx):
-                return pfx, full[len(pfx):]
+                return pfx, full[len(pfx) :]
         return "v-", full
 
     def test_v_prefix(self):
@@ -152,6 +154,7 @@ def qapp():
 def manager(qapp):
     """Create a fresh ComponentUpdateManager for each test."""
     from fluentytdl.core.component_update_manager import ComponentUpdateManager
+
     return ComponentUpdateManager()
 
 
@@ -188,12 +191,18 @@ class TestCompareAppVersion:
         signals_received = []
         manager.app_no_update.connect(lambda: signals_received.append(True))
 
-        with patch(
-            "fluentytdl.core.component_update_manager._get_update_channel",
-            return_value="stable",
-        ), patch(
-            "fluentytdl.core.component_update_manager._parse_version",
-            side_effect=lambda v: tuple(int(x) for x in v.replace("v-", "").replace("pre-", "").replace("beta-", "").split(".")),
+        with (
+            patch(
+                "fluentytdl.core.component_update_manager._get_update_channel",
+                return_value="stable",
+            ),
+            patch(
+                "fluentytdl.core.component_update_manager._parse_version",
+                side_effect=lambda v: tuple(
+                    int(x)
+                    for x in v.replace("v-", "").replace("pre-", "").replace("beta-", "").split(".")
+                ),
+            ),
         ):
             manager._compare_app_version()
 
@@ -211,15 +220,22 @@ class TestCompareAppVersion:
         signals_received = []
         manager.app_no_update.connect(lambda: signals_received.append(True))
 
-        with patch(
-            "fluentytdl.core.component_update_manager._get_update_channel",
-            return_value="stable",
-        ), patch(
-            "fluentytdl.core.component_update_manager._parse_version",
-            side_effect=lambda v: tuple(int(x) for x in v.replace("v-", "").replace("pre-", "").replace("beta-", "").split(".")),
-        ), patch(
-            "fluentytdl.core.component_update_manager.config_manager",
-            get=lambda k, d=None: "3.0.18" if k == "skipped_stable_version" else d,
+        with (
+            patch(
+                "fluentytdl.core.component_update_manager._get_update_channel",
+                return_value="stable",
+            ),
+            patch(
+                "fluentytdl.core.component_update_manager._parse_version",
+                side_effect=lambda v: tuple(
+                    int(x)
+                    for x in v.replace("v-", "").replace("pre-", "").replace("beta-", "").split(".")
+                ),
+            ),
+            patch(
+                "fluentytdl.core.component_update_manager.config_manager",
+                get=lambda k, d=None: "3.0.18" if k == "skipped_stable_version" else d,
+            ),
         ):
             manager._compare_app_version()
 

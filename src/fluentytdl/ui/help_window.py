@@ -22,12 +22,17 @@ from qfluentwidgets import (
     SubtitleLabel,
 )
 
+
 # CSS for Markdown styling - Card-Based UI (Fluent Settings Style)
 # Optimized for readability with color hierarchy and DataGrid-style tables
-def get_markdown_css() -> str:
-    from qfluentwidgets import isDarkTheme
-    is_dark = isDarkTheme()
-    
+def get_markdown_css(theme=None) -> str:
+    from qfluentwidgets import Theme, isDarkTheme
+
+    if theme is not None:
+        is_dark = theme == Theme.DARK
+    else:
+        is_dark = isDarkTheme()
+
     # Define colors based on theme
     text_color = "#D4D4D4" if is_dark else "#5e5e5e"
     h1_color = "#FFFFFF" if is_dark else "#202020"
@@ -153,13 +158,15 @@ class _AutoHeightTextBrowser(QTextBrowser):
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setStyleSheet("background: transparent; border: none;")
         self.document().documentLayout().documentSizeChanged.connect(self._adjustHeight)
-        
+
         self._is_expand_card = is_expand_card
         self._is_wizard = is_wizard
         self._raw_html = ""
-        
+
         from qfluentwidgets import qconfig
+
         qconfig.themeChanged.connect(self._update_theme)
 
     def _adjustHeight(self):
@@ -190,9 +197,20 @@ class ExpandHelpCard(ExpandSettingCard):
         super().__init__(icon, title, content, parent)
         self._browser = _AutoHeightTextBrowser(self.view, is_expand_card=True)
         self._browser.setOpenExternalLinks(True)
+        self._html_body = html_body
         self._browser.document().setDefaultStyleSheet(get_markdown_css() + _EXPAND_CSS_OVERRIDE)
         self._browser.setHtml(html_body)
         self.viewLayout.addWidget(self._browser)
+
+        from qfluentwidgets import qconfig
+
+        qconfig.themeChanged.connect(self.onThemeChanged)
+
+    def onThemeChanged(self, theme):
+        self._browser.document().setDefaultStyleSheet(
+            get_markdown_css(theme) + _EXPAND_CSS_OVERRIDE
+        )
+        self._browser.setHtml(self._html_body)
 
 
 # Wizard step HTML content
@@ -289,6 +307,12 @@ class WelcomeGuideWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        from qfluentwidgets import qconfig
+
+        qconfig.themeChanged.connect(self.onThemeChanged)
+        self.onThemeChanged(qconfig.theme)
+
         self.v_layout = QVBoxLayout(self)
         self.v_layout.setContentsMargins(40, 20, 40, 20)
 
@@ -307,6 +331,7 @@ class WelcomeGuideWidget(QWidget):
             from fluentytdl import __version__ as _ver
         except Exception:
             _ver = "?"
+        self._ver = _ver
         _step1_html = _WIZARD_STEP1_HTML.replace("__version__", _ver)
 
         # Create step browsers
@@ -325,7 +350,7 @@ class WelcomeGuideWidget(QWidget):
             self.stack.addWidget(browser)
 
         self.v_layout.addWidget(self.stack, 1)
-        
+
         self.v_layout.addSpacing(8)
 
         # Navigation Buttons
@@ -372,6 +397,40 @@ class WelcomeGuideWidget(QWidget):
             self.next_btn.setText("开始使用")
         else:
             self.next_btn.setText("下一步")
+
+    def onThemeChanged(self, theme):
+        from qfluentwidgets import Theme
+
+        bg_color = "#202020" if theme == Theme.DARK else "#F9F9F9"
+        self.setStyleSheet(f"WelcomeGuideWidget {{ background-color: {bg_color}; border: none; }}")
+
+        if hasattr(self, "step1_browser"):
+            self.step1_browser.document().setDefaultStyleSheet(
+                get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
+            )
+            self.step1_browser.setHtml(
+                _WIZARD_STEP1_HTML.replace("__version__", getattr(self, "_ver", "?"))
+            )
+        if hasattr(self, "step2_browser"):
+            self.step2_browser.document().setDefaultStyleSheet(
+                get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
+            )
+            self.step2_browser.setHtml(_WIZARD_STEP2_HTML)
+        if hasattr(self, "step3_browser"):
+            self.step3_browser.document().setDefaultStyleSheet(
+                get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
+            )
+            self.step3_browser.setHtml(_WIZARD_STEP3_HTML)
+        if hasattr(self, "step4_browser"):
+            self.step4_browser.document().setDefaultStyleSheet(
+                get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
+            )
+            self.step4_browser.setHtml(_WIZARD_STEP4_HTML)
+        if hasattr(self, "step5_browser"):
+            self.step5_browser.document().setDefaultStyleSheet(
+                get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
+            )
+            self.step5_browser.setHtml(_WIZARD_STEP5_HTML)
 
 
 # ============================================================================
@@ -732,6 +791,7 @@ class ManualReaderWidget(ScrollArea):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.view = QWidget(self)
+        self.view.setObjectName("view")
         self.vBoxLayout = QVBoxLayout(self.view)
         self.vBoxLayout.setContentsMargins(36, 20, 36, 36)
         self.vBoxLayout.setSpacing(24)
@@ -740,7 +800,20 @@ class ManualReaderWidget(ScrollArea):
         self.setWidgetResizable(True)
         self.setObjectName("manualScrollArea")
 
+        from qfluentwidgets import qconfig
+
+        qconfig.themeChanged.connect(self.onThemeChanged)
+        self.onThemeChanged(qconfig.theme)
+
         self._initUI()
+
+    def onThemeChanged(self, theme):
+        from qfluentwidgets import Theme
+
+        bg_color = "#202020" if theme == Theme.DARK else "#F9F9F9"
+        self.setStyleSheet(
+            f"QWidget#view, #manualScrollArea {{ background-color: {bg_color}; border: none; }}"
+        )
 
     def _initUI(self):
         # ========== Hero Section ==========

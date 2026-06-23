@@ -32,24 +32,30 @@ def filter_tracks_by_type_preference(
     else:  # ALL
         return tracks
 
+
 def deduplicate_by_quality(tracks: list[SubtitleTrack]) -> list[SubtitleTrack]:
     """同一语言只保留质量最高的一条"""
     best: dict[str, SubtitleTrack] = {}
     for t in tracks:
         # 简单归一化语言代码进行比较
-        normalized = t.lang_code.split('-')[0].lower() if not t.lang_code.startswith("zh") else t.lang_code.lower()
+        normalized = (
+            t.lang_code.split("-")[0].lower()
+            if not t.lang_code.startswith("zh")
+            else t.lang_code.lower()
+        )
         if normalized not in best or t.quality_rank < best[normalized].quality_rank:
             best[normalized] = t
     return list(best.values())
+
 
 def build_subtitle_opts_from_tracks(selected_tracks: list[SubtitleTrack]) -> dict[str, Any]:
     """根据选中的轨道精确构建 yt-dlp 选项"""
     has_manual = any(t.source_type == SubtitleSourceType.MANUAL for t in selected_tracks)
     has_auto = any(t.source_type != SubtitleSourceType.MANUAL for t in selected_tracks)
-    
+
     # 收集语言代码（保持顺序并去重）
     langs = list(dict.fromkeys(t.lang_code for t in selected_tracks))
-    
+
     return {
         "writesubtitles": has_manual,
         "writeautomaticsub": has_auto,
@@ -200,10 +206,10 @@ class SingleLanguageStrategy(SubtitleStrategy):
     def apply(self, request: SubtitleRequest) -> dict[str, Any]:
         tracks = extract_subtitle_tracks(request.video_info)
         config = request.user_config or config_manager.get_subtitle_config()
-        
+
         # 按类型偏好过滤
         tracks = filter_tracks_by_type_preference(tracks, config.type_preference)
-        
+
         # 检查字幕是否可用
         available = [t for t in tracks if t.lang_code == self.language]
         if not available:
@@ -217,7 +223,7 @@ class SingleLanguageStrategy(SubtitleStrategy):
         # 如果策略强制禁用自动，则覆盖
         if not self.enable_auto:
             opts["writeautomaticsub"] = False
-            
+
         opts.update(embed_opts)
         return opts
 
@@ -239,9 +245,9 @@ class MultiLanguageStrategy(SubtitleStrategy):
     def apply(self, request: SubtitleRequest) -> dict[str, Any]:
         tracks = extract_subtitle_tracks(request.video_info)
         config = request.user_config or config_manager.get_subtitle_config()
-        
+
         tracks = filter_tracks_by_type_preference(tracks, config.type_preference)
-        
+
         # 分组
         available_dict: dict[str, list[SubtitleTrack]] = {}
         for t in tracks:
@@ -287,7 +293,7 @@ class SmartStrategy(SubtitleStrategy):
     def apply(self, request: SubtitleRequest) -> dict[str, Any]:
         tracks = extract_subtitle_tracks(request.video_info)
         config = request.user_config or config_manager.get_subtitle_config()
-        
+
         tracks = filter_tracks_by_type_preference(tracks, config.type_preference)
         if not tracks:
             return {}

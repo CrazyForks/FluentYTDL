@@ -1440,7 +1440,7 @@ class YoutubeService:
 
             if not isinstance(info, dict):
                 raise RuntimeError("播放列表解析失败：返回结果为空")
-            
+
             info = cast(dict[str, Any], info)
             self._extend_playlist_entries_from_youtube_continuations(url, info)
             return info
@@ -1462,9 +1462,7 @@ class YoutubeService:
         if playlist_count <= len(entries):
             return
 
-        existing_ids = {
-            str(entry.get("id") or "") for entry in entries if isinstance(entry, dict)
-        }
+        existing_ids = {str(entry.get("id") or "") for entry in entries if isinstance(entry, dict)}
         try:
             extra = self._fetch_youtube_playlist_continuation_entries(
                 url, existing_ids=existing_ids
@@ -1531,9 +1529,7 @@ class YoutubeService:
                 continue
             visited.add(token)
             body = {
-                "context": {
-                    "client": {"clientName": "WEB", "clientVersion": client_version}
-                },
+                "context": {"client": {"clientName": "WEB", "clientVersion": client_version}},
                 "continuation": token,
             }
             page = session.post(
