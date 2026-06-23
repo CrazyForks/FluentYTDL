@@ -200,7 +200,7 @@ class ComponentSettingCard(SettingCard):
 
             shutil.copy2(src, target_path)
 
-            InfoBar.success("导入成功", f"已手动导入 {exe_name}", parent=self.window())
+            InfoBar.info("导入成功", f"已手动导入 {exe_name}", parent=self.window())
             # Refresh version info
             dependency_manager.check_update(self.component_key)
 
@@ -249,7 +249,7 @@ class ComponentSettingCard(SettingCard):
                 self.actionButton.setText("立即安装")
             else:
                 self.actionButton.setText("检查更新")
-                InfoBar.success(
+                InfoBar.info(
                     "已是最新",
                     f"{title_text} 当前版本 {curr} 已是最新。",
                     duration=5000,
@@ -284,7 +284,7 @@ class ComponentSettingCard(SettingCard):
         dependency_manager.check_update(self.component_key)
 
         title_text = self.titleLabel.text()
-        InfoBar.success(
+        InfoBar.info(
             "安装完成", f"{title_text} 已成功安装/更新。", duration=5000, parent=self.window()
         )
 
@@ -2027,7 +2027,7 @@ class SettingsPage(QWidget):
                             from ...utils.logger import logger
 
                             logger.exception("Swallowed exception in settings")
-                    InfoBar.success("清理完成", "已删除所有日志文件", parent=self.window())
+                    InfoBar.info("清理完成", "已删除所有日志文件", parent=self.window())
                 else:
                     InfoBar.info("无需清理", "日志目录不存在", parent=self.window())
             except Exception as e:
@@ -2341,7 +2341,7 @@ class SettingsPage(QWidget):
     def _on_update_source_changed(self, index: int) -> None:
         source = "ghproxy" if index == 1 else "github"
         config_manager.set("update_source", source)
-        InfoBar.success("设置已更新", f"下载源已切换为: {source}", duration=5000, parent=self)
+        InfoBar.info("设置已更新", f"下载源已切换为: {source}", duration=5000, parent=self)
 
     def _on_theme_mode_changed(self, index: int) -> None:
         modes = ["Auto", "Light", "Dark"]
@@ -2357,11 +2357,11 @@ class SettingsPage(QWidget):
             else:
                 qfluentwidgets.setTheme(qfluentwidgets.Theme.AUTO)
             # Immediate UI refresh triggered automatically by setTheme in qfluentwidgets.
-            InfoBar.success("设置已更新", f"主题已切换为: {mode}", duration=3000, parent=self)
+            InfoBar.info("设置已更新", f"主题已切换为: {mode}", duration=3000, parent=self)
 
     def _on_check_updates_startup_changed(self, checked: bool) -> None:
         config_manager.set("check_updates_on_startup", bool(checked))
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             "已开启启动时自动检查更新" if checked else "已关闭启动时自动检查更新",
             duration=5000,
@@ -2371,7 +2371,7 @@ class SettingsPage(QWidget):
     def _on_clipboard_detect_changed(self, checked: bool) -> None:
         config_manager.set("clipboard_auto_detect", bool(checked))
         self.clipboardAutoDetectChanged.emit(bool(checked))
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             "剪贴板自动识别已开启" if checked else "剪贴板自动识别已关闭",
             duration=5000,
@@ -2380,7 +2380,7 @@ class SettingsPage(QWidget):
 
     def _on_clipboard_window_to_front_changed(self, checked: bool) -> None:
         config_manager.set("clipboard_window_to_front", bool(checked))
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             "已开启解析后窗口置顶" if checked else "已关闭解析后窗口置顶",
             duration=5000,
@@ -2392,7 +2392,7 @@ class SettingsPage(QWidget):
         if 0 <= index < len(modes):
             mode = modes[index]
             config_manager.set("clipboard_action_mode", mode)
-            InfoBar.success(
+            InfoBar.info(
                 "设置已更新", f"剪贴板识别行为已更改为: {mode}", duration=5000, parent=self
             )
 
@@ -2402,11 +2402,11 @@ class SettingsPage(QWidget):
         if 0 <= index < len(policies):
             policy = policies[index]
             config_manager.set("deletion_policy", policy)
-            InfoBar.success("设置已更新", f"删除策略已更改为: {policy}", duration=5000, parent=self)
+            InfoBar.info("设置已更新", f"删除策略已更改为: {policy}", duration=5000, parent=self)
 
     def _on_playlist_skip_authcheck_changed(self, checked: bool) -> None:
         config_manager.set("playlist_skip_authcheck", bool(checked))
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             "已开启：加速播放列表解析（实验性）"
             if checked
@@ -2427,7 +2427,7 @@ class SettingsPage(QWidget):
         if checked and hasattr(self, "downloadThumbnailCard"):
             self.downloadThumbnailCard.switchButton.setChecked(False)
 
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             "已开启封面嵌入（支持 MP4/MKV/MP3/M4A/FLAC/OGG/OPUS 等格式）"
             if checked
@@ -2443,12 +2443,12 @@ class SettingsPage(QWidget):
             config = config_manager.get_subtitle_config()
             config.type_preference = modes[index]
             config_manager.set_subtitle_config(config)
-            InfoBar.success("设置已更新", "字幕类型偏好已保存", duration=3000, parent=self)
+            InfoBar.info("设置已更新", "字幕类型偏好已保存", duration=3000, parent=self)
 
     def _on_embed_metadata_changed(self, checked: bool) -> None:
         """处理元数据嵌入开关变更"""
         config_manager.set("embed_metadata", bool(checked))
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             "已开启元数据嵌入（标题、作者、描述等）" if checked else "已关闭元数据嵌入",
             duration=5000,
@@ -2477,7 +2477,7 @@ class SettingsPage(QWidget):
                 cat_display = ", ".join(cat_names.get(c, c) for c in categories[:3])
                 if len(categories) > 3:
                     cat_display += f" 等 {len(categories)} 项"
-                InfoBar.success(
+                InfoBar.info(
                     "SponsorBlock 已启用",
                     f"将跳过: {cat_display}",
                     duration=5000,
@@ -2544,7 +2544,7 @@ class SettingsPage(QWidget):
             self.sponsorBlockCategoriesCard.setContent(self._get_sponsorblock_categories_text())
 
             if selected:
-                InfoBar.success(
+                InfoBar.info(
                     "类别已更新",
                     f"已选择 {len(selected)} 个类别",
                     duration=3000,
@@ -2565,7 +2565,7 @@ class SettingsPage(QWidget):
             config_manager.set("proxy_mode", mode)
             # Backward-compat shadow key
             config_manager.set("proxy_enabled", mode in {"http", "socks5"})
-            InfoBar.success(
+            InfoBar.info(
                 "设置已更新",
                 f"代理模式已切换为: {self.proxyModeCard.comboBox.currentText()}",
                 duration=5000,
@@ -2581,7 +2581,7 @@ class SettingsPage(QWidget):
         new_proxy = (self.proxyEditCard.lineEdit.text() or "").strip()
         config_manager.set("proxy_url", new_proxy)
         if new_proxy:
-            InfoBar.success("保存成功", f"代理已更新为 {new_proxy}", duration=5000, parent=self)
+            InfoBar.info("保存成功", f"代理已更新为 {new_proxy}", duration=5000, parent=self)
         else:
             InfoBar.info("已清空", "代理地址已清空。", duration=5000, parent=self)
 
@@ -2620,7 +2620,7 @@ class SettingsPage(QWidget):
             self.refreshCookieCard.setVisible(True)
             self.cookieFileCard.setVisible(False)
 
-            InfoBar.success(
+            InfoBar.info(
                 "已切换到自动提取",
                 f"将从 {auth_service.current_source_display} 自动提取 Cookie",
                 duration=3000,
@@ -2641,7 +2641,7 @@ class SettingsPage(QWidget):
             self.refreshCookieCard.setVisible(False)
             self.cookieFileCard.setVisible(False)
 
-            InfoBar.success(
+            InfoBar.info(
                 "已切换到登录获取模式",
                 "请点击「登录 YouTube」按钮进行账号认证",
                 duration=3000,
@@ -2737,7 +2737,7 @@ class SettingsPage(QWidget):
             # 连接信号（自动在主线程执行）
             def on_finished(success: bool, message: str, need_admin: bool = False):
                 if success:
-                    InfoBar.success(
+                    InfoBar.info(
                         "切换成功", f"已从 {name} 提取 Cookies", duration=8000, parent=self
                     )
                 else:
@@ -2805,12 +2805,12 @@ class SettingsPage(QWidget):
                 self.webview2LoginCard.button.setEnabled(True)
 
                 if success:
-                    self.webview2LoginCard.setContent("✅ 登录成功，Cookie 已提取")
+                    self.webview2LoginCard.setContent("✔ 登录成功，Cookie 已提取")
                     from ..auth.cookie_sentinel import cookie_sentinel
 
                     current_acc = auth_service.current_webview2_account
                     acc_cookie = current_acc.cached_cookie_path if current_acc else "未知"
-                    InfoBar.success(
+                    InfoBar.info(
                         "登录成功",
                         f"YouTube Cookie 已成功提取并保存（{account_name}）\n"
                         f"账号文件: {acc_cookie}\n"
@@ -2873,7 +2873,7 @@ class SettingsPage(QWidget):
         if auth_service.set_current_webview2_account(account_id):
             account = auth_service.current_webview2_account
             name = account.display_name if account else "未知账号"
-            InfoBar.success(
+            InfoBar.info(
                 "已切换 WebView2 账号",
                 f"当前账号: {name}",
                 duration=2500,
@@ -2902,7 +2902,7 @@ class SettingsPage(QWidget):
         auth_service.set_current_webview2_account(account.account_id)
         self._reload_webview2_account_combo(select_current=True)
 
-        InfoBar.success(
+        InfoBar.info(
             "账号已创建",
             f"已创建并切换到: {account.display_name}",
             duration=3000,
@@ -2938,7 +2938,7 @@ class SettingsPage(QWidget):
             return
 
         self._reload_webview2_account_combo(select_current=True)
-        InfoBar.success("删除成功", f"已删除: {account.display_name}", duration=3000, parent=self)
+        InfoBar.info("删除成功", f"已删除: {account.display_name}", duration=3000, parent=self)
         self._update_cookie_status()
 
     def _on_refresh_cookie_clicked(self):
@@ -3002,7 +3002,7 @@ class SettingsPage(QWidget):
 
             # 2. 显示结果消息
             if success:
-                InfoBar.success("刷新成功", message, duration=8000, parent=self)
+                InfoBar.info("刷新成功", message, duration=8000, parent=self)
             else:
                 # 显示多行错误消息
                 lines = message.split("\n")
@@ -3053,7 +3053,7 @@ class SettingsPage(QWidget):
                 )
 
                 self.cookieFileCard.setContent(f"已导入: {status.cookie_count} 个 Cookie")
-                InfoBar.success(
+                InfoBar.info(
                     "导入成功",
                     f"已导入 {status.cookie_count} 个 Cookie 到 bin/cookies.txt",
                     duration=3000,
@@ -3136,7 +3136,7 @@ class SettingsPage(QWidget):
                 emoji = "⚠️"
                 source_text = actual_display
             else:
-                emoji = "✅"
+                emoji = "✔"
                 source_text = actual_display
 
             status_text = f"{emoji} {source_text} | 更新于 {age_str} | {cookie_count} 个 Cookie"
@@ -3175,7 +3175,7 @@ class SettingsPage(QWidget):
         source_map = {0: "github", 1: "ghproxy"}
         mode = source_map.get(index, "github")
         config_manager.set("update_source", mode)
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             f"组件更新源已切换为: {self.updateSourceCard.comboBox.currentText()}",
             duration=3000,
@@ -3186,7 +3186,7 @@ class SettingsPage(QWidget):
         channel_map = {0: "stable", 1: "nightly", 2: "master"}
         mode = channel_map.get(index, "stable")
         config_manager.set("ytdlp_channel", mode)
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             f"yt-dlp 更新频道已切换为: {self.ytDlpChannelCard.comboBox.currentText()} (下次更新时生效)",
             duration=5000,
@@ -3197,7 +3197,7 @@ class SettingsPage(QWidget):
         mapping = {0: "auto", 1: "deno", 2: "node", 3: "bun", 4: "quickjs"}
         mode = mapping.get(index, "auto")
         config_manager.set("js_runtime", mode)
-        InfoBar.success(
+        InfoBar.info(
             "设置已更新",
             f"JS Runtime 已切换为: {self.jsRuntimeCard.comboBox.currentText()}",
             duration=5000,
@@ -3640,14 +3640,14 @@ class SettingsPage(QWidget):
         config_manager.set("subtitle_enabled", checked)
         self._update_subtitle_settings_visibility(checked)
         status = "已启用" if checked else "已禁用"
-        InfoBar.success("字幕设置", f"字幕下载{status}", duration=3000, parent=self)
+        InfoBar.info("字幕设置", f"字幕下载{status}", duration=3000, parent=self)
 
     def _on_subtitle_languages_changed(self, languages: list[str]) -> None:
         """语言选择改变回调"""
         if not languages:
             languages = ["zh-Hans", "en"]
         config_manager.set("subtitle_default_languages", languages)
-        InfoBar.success(
+        InfoBar.info(
             "语言设置", f"已选择字幕语言: {', '.join(languages)}", duration=3000, parent=self
         )
 
@@ -3659,7 +3659,7 @@ class SettingsPage(QWidget):
         config.embed_type = cast(Literal["soft", "external"], embed_type)
         config_manager.set_subtitle_config(config)
         type_names = {"soft": "软嵌入", "external": "外置文件"}
-        InfoBar.success(
+        InfoBar.info(
             "嵌入类型",
             f"字幕嵌入类型: {type_names.get(embed_type, embed_type)}",
             duration=3000,
@@ -3672,7 +3672,7 @@ class SettingsPage(QWidget):
         """保留外置字幕文件开关改变"""
         config_manager.set("subtitle_write_separate_file", checked)
         status = "保留" if checked else "不保留"
-        InfoBar.success("字幕文件", f"嵌入后{status}外置字幕文件", duration=3000, parent=self)
+        InfoBar.info("字幕文件", f"嵌入后{status}外置字幕文件", duration=3000, parent=self)
 
     def _on_subtitle_embed_mode_changed(self, index: int) -> None:
         mode_map = {0: "always", 1: "never", 2: "ask"}
@@ -3680,13 +3680,13 @@ class SettingsPage(QWidget):
         config_manager.set("subtitle_embed_mode", mode)
         display_map = {"always": "总是嵌入", "never": "从不嵌入", "ask": "每次询问"}
         display_text = display_map.get(mode, mode)
-        InfoBar.success("嵌入模式", f"字幕嵌入策略: {display_text}", duration=3000, parent=self)
+        InfoBar.info("嵌入模式", f"字幕嵌入策略: {display_text}", duration=3000, parent=self)
 
     def _on_subtitle_format_changed(self, index: int) -> None:
         format_map = {0: "srt", 1: "ass", 2: "vtt"}
         fmt = format_map.get(index, "srt")
         config_manager.set("subtitle_output_format", fmt)
-        InfoBar.success("格式设置", f"字幕输出格式: {fmt.upper()}", duration=3000, parent=self)
+        InfoBar.info("格式设置", f"字幕输出格式: {fmt.upper()}", duration=3000, parent=self)
 
     def _update_keep_separate_visibility(self) -> None:
         """根据嵌入类型更新「保留外置字幕文件」开关的可见性"""

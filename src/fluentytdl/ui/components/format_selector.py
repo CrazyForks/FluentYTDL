@@ -25,6 +25,8 @@ from qfluentwidgets import (
     PushButton,
     RadioButton,
     ScrollArea,
+    SmoothScrollArea,
+    TableWidget,
     SegmentedWidget,
     StrongBodyLabel,
     TransparentToolButton,
@@ -42,10 +44,15 @@ def _get_table_selection_qss() -> str:
     is_dark = isDarkTheme()
     sel_bg = "rgba(255, 255, 255, 0.08)" if is_dark else "#E8E8E8"
     sel_fg = "#ffffff" if is_dark else "#000000"
+    norm_fg = "#ffffff" if is_dark else "#000000"
     sel_bd = "rgba(255, 255, 255, 0.15)" if is_dark else "#C0C0C0"
     hov_bg = "rgba(255, 255, 255, 0.04)" if is_dark else "#F3F3F3"
     border = "rgba(255, 255, 255, 0.06)" if is_dark else "rgba(0, 0, 0, 0.06)"
     hover_border = "rgba(255, 255, 255, 0.1)" if is_dark else "rgba(0, 0, 0, 0.1)"
+
+    header_bg = "transparent"
+    header_fg = "#A0A0A0" if is_dark else "#5c5c5c"
+    header_border = "rgba(255, 255, 255, 0.08)" if is_dark else "rgba(0, 0, 0, 0.08)"
 
     return f"""
 QTableWidget {{
@@ -54,14 +61,26 @@ QTableWidget {{
     outline: none;
     border: none;
 }}
+QHeaderView {{
+    background-color: {header_bg};
+    border: none;
+}}
+QHeaderView::section {{
+    background-color: {header_bg};
+    color: {header_fg};
+    font-weight: 600;
+    border: none;
+    border-bottom: 1px solid {header_border};
+    padding-left: 4px;
+}}
 QTableWidget::item {{
     padding-left: 0px;
     border: 1px solid {border};
     margin-top: 3px;
     margin-bottom: 3px;
-    margin-left: 4px;
     margin-right: 4px;
     border-radius: 6px;
+    color: {norm_fg};
 }}
 QTableWidget::item:selected {{
     background-color: {sel_bg};
@@ -182,13 +201,14 @@ class SimplePresetWidget(QWidget):
         main_layout.addLayout(type_layout)
 
         # 滚动区域
-        scroll_area = ScrollArea(self)
+        scroll_area = SmoothScrollArea(self)
         scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
         scroll_area.setWidgetResizable(True)
         scroll_area.setMaximumHeight(450)
 
         self.content_widget = QWidget()
-        self.content_widget.setStyleSheet("background-color: transparent;")
+        self.content_widget.setObjectName("scroll_widget")
+        self.content_widget.setStyleSheet("#scroll_widget { background-color: transparent; }")
         self.v_layout = QVBoxLayout(self.content_widget)
         self.v_layout.setSpacing(12)
         self.v_layout.setContentsMargins(10, 10, 10, 10)
@@ -310,13 +330,8 @@ class SimplePresetWidget(QWidget):
 
         presets = self._all_presets.get(current_type, [])
         for i, (pid, title, desc, intent) in enumerate(presets):
-            container = QFrame(self.content_widget)
-            from qfluentwidgets import isDarkTheme
-
-            card_bd = "rgba(255, 255, 255, 0.08)" if isDarkTheme() else "rgba(0, 0, 0, 0.05)"
-            container.setStyleSheet(
-                f".QFrame {{ background-color: rgba(255, 255, 255, 0.05); border-radius: 6px; border: 1px solid {card_bd}; }}"
-            )
+            from qfluentwidgets import CardWidget
+            container = CardWidget(self.content_widget)
             h_layout = QHBoxLayout(container)
 
             rb = RadioButton(title, container)
@@ -492,17 +507,10 @@ class _ContainerFormatBar(QFrame):
         return self.audio_combo.currentText().lower()
 
 
-class FormatExpandCard(QFrame):
+from qfluentwidgets import CardWidget
+class FormatExpandCard(CardWidget):
     def __init__(self, icon: FluentIcon, title: str, parent=None):
         super().__init__(parent)
-        from qfluentwidgets import isDarkTheme
-
-        card_bg = "rgba(255, 255, 255, 0.03)" if isDarkTheme() else "rgba(255, 255, 255, 0.7)"
-        card_bd = "rgba(255, 255, 255, 0.08)" if isDarkTheme() else "rgba(0, 0, 0, 0.05)"
-        self.setStyleSheet(
-            f".FormatExpandCard {{ background-color: {card_bg}; border: 1px solid {card_bd}; border-radius: 8px; }}"
-        )
-
         self.v_layout = QVBoxLayout(self)
         self.v_layout.setContentsMargins(8, 8, 8, 8)
         self.v_layout.setSpacing(0)
@@ -544,6 +552,8 @@ class FormatExpandCard(QFrame):
 
         self.is_expanded = False
         self.body_widget.hide()
+
+        self.header_widget.mouseReleaseEvent = self._on_header_clicked
 
         self.header_widget.mouseReleaseEvent = self._on_header_clicked
 
@@ -591,6 +601,18 @@ class VideoFormatSelectorWidget(QWidget):
         self._init_ui()
         self._build_rows(info)
         self._refresh_table()
+        
+        from qfluentwidgets import qconfig
+        qconfig.themeChanged.connect(self._update_style)
+
+    def _update_style(self):
+        qss = _get_table_selection_qss()
+        if hasattr(self, "table"):
+            self.table.setStyleSheet(qss)
+        if hasattr(self, "video_table"):
+            self.video_table.setStyleSheet(qss)
+        if hasattr(self, "audio_table"):
+            self.audio_table.setStyleSheet(qss)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -685,7 +707,7 @@ class VideoFormatSelectorWidget(QWidget):
         self.simple_widget.typeChanged.connect(self._on_simple_type_changed)
 
     def _create_table(self, multi_select: bool = False):
-        t = QTableWidget(self.advanced_widget)
+        t = TableWidget(self.advanced_widget)
         t.setStyleSheet(_get_table_selection_qss())
         t.setColumnCount(3)
         t.setHorizontalHeaderLabels(["类型", "质量", "详情"])
@@ -1032,6 +1054,11 @@ class VideoFormatSelectorWidget(QWidget):
         self._highlight_table_rows(table, {selected_id} if selected_id else set())
 
     def _highlight_table_rows(self, table: QTableWidget, selected_ids: set[str]):
+        from qfluentwidgets import isDarkTheme
+        is_dark = isDarkTheme()
+        sel_bg = QColor(255, 255, 255, 20) if is_dark else QColor("#E8E8E8")
+        sel_fg = QColor(255, 255, 255) if is_dark else QColor(0, 0, 0)
+        
         rows = table.property("_rows") or []
         for i in range(table.rowCount()):
             # Reset style
@@ -1039,7 +1066,8 @@ class VideoFormatSelectorWidget(QWidget):
                 it = table.item(i, j)
                 if it:
                     it.setBackground(QBrush())
-                    it.setForeground(QBrush())  # Default
+                    norm_color = QColor(255, 255, 255) if is_dark else QColor(0, 0, 0)
+                    it.setForeground(norm_color)  # Default
 
             if i < len(rows):
                 fid = rows[i]["format_id"]
@@ -1047,8 +1075,8 @@ class VideoFormatSelectorWidget(QWidget):
                     for j in range(3):
                         it = table.item(i, j)
                         if it:
-                            it.setBackground(QColor("#E8E8E8"))
-                            it.setForeground(QColor(0, 0, 0))
+                            it.setBackground(sel_bg)
+                            it.setForeground(sel_fg)
 
     def _on_table_clicked(self, row, col):
         rows = self.table.property("_rows")

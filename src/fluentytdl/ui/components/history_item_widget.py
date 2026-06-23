@@ -183,7 +183,10 @@ class HistoryItemWidget(CardWidget):
 
         # 文件丢失时整体降低不透明度
         if not record.file_exists:
-            self.setStyleSheet("QWidget { opacity: 0.55; }")
+            from PySide6.QtWidgets import QGraphicsOpacityEffect
+            effect = QGraphicsOpacityEffect(self)
+            effect.setOpacity(0.55)
+            self.setGraphicsEffect(effect)
             self.title_label.setTextColor(QColor(160, 160, 160), QColor(100, 100, 100))
 
         # 加载缩略图
@@ -202,16 +205,6 @@ class HistoryItemWidget(CardWidget):
         bd = "rgba(255, 255, 255, 0.08)" if isDarkTheme() else "rgba(0, 0, 0, 0.08)"
         self.thumb.setStyleSheet(f"background: {bg}; border-radius: 6px; border: 1px solid {bd};")
 
-    def enterEvent(self, event) -> None:
-        super().enterEvent(event)
-        from qfluentwidgets import isDarkTheme
-
-        c = "rgba(255, 255, 255, 0.08)" if isDarkTheme() else "rgba(0, 0, 0, 0.06)"
-        self.setStyleSheet(f"HistoryItemWidget {{ background: {c}; border-radius: 8px; }}")
-
-    def leaveEvent(self, event) -> None:
-        super().leaveEvent(event)
-        self.setStyleSheet("")
 
     def _on_thumb_loaded(self, pixmap: QPixmap) -> None:
         if pixmap and not pixmap.isNull():

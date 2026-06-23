@@ -11,7 +11,6 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -27,6 +26,7 @@ from qfluentwidgets import (
     ToolTipFilter,
     ToolTipPosition,
     TransparentToolButton,
+    SmoothScrollArea,
 )
 
 from ...storage.history_service import HistoryRecord, history_service
@@ -110,12 +110,15 @@ class HistoryPage(QWidget):
         layout.addWidget(self.line)
 
         # --- 列表 ScrollArea ---
-        self.scroll_area = QScrollArea(self)
+        self.scroll_area = SmoothScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         self.scroll_widget = QWidget()
+        self.scroll_widget.setObjectName("scrollWidget")
+        self.scroll_widget.setStyleSheet("#scrollWidget { background: transparent; }")
         self.scroll_layout = QVBoxLayout(self.scroll_widget)
         self.scroll_layout.setContentsMargins(0, 0, 16, 0)
         self.scroll_layout.setSpacing(6)
@@ -248,7 +251,7 @@ class HistoryPage(QWidget):
         removed = history_service.remove_missing()
         if removed:
             self.reload()
-            InfoBar.success(
+            InfoBar.info(
                 "清理完成",
                 f"已移除 {removed} 条无效记录",
                 parent=self.window(),
@@ -275,7 +278,7 @@ class HistoryPage(QWidget):
         if box.exec():
             count = history_service.clear()
             self.reload()
-            InfoBar.success(
+            InfoBar.info(
                 "已清空",
                 f"已清除 {count} 条历史记录",
                 parent=self.window(),

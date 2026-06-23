@@ -152,7 +152,7 @@ class AppUpdateSettingCard(SettingCard):
         self.actionButton.setText("检查更新")
         self.setContent(f"当前版本: v{self._current_version}  |  已是最新")
 
-        InfoBar.success(
+        InfoBar.info(
             "已是最新",
             f"FluentYTDL v{self._current_version} 已是最新版本。",
             duration=5000,

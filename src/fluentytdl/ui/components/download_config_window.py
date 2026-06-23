@@ -458,6 +458,11 @@ class DownloadConfigWindow(FramelessWindow):
         self.contentLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.setSpacing(12)
         self.viewLayout.addWidget(self.contentWidget, 1)
+
+        # 深浅模式适配
+        from qfluentwidgets import qconfig
+        qconfig.themeChanged.connect(self._update_style)
+        self._update_style()
         self.contentWidget.hide()
 
         # ========== Cookie 预检警告条 ==========
@@ -4003,3 +4008,11 @@ class DownloadConfigWindow(FramelessWindow):
             return bool(result)
 
         return None
+
+    def _update_style(self):
+        from qfluentwidgets import isDarkTheme
+        from PySide6.QtGui import QColor
+        color = QColor(32, 32, 32) if isDarkTheme() else QColor(243, 243, 243)
+        self.setStyleSheet(f"DownloadConfigWindow {{ background-color: {color.name()}; }}")
+        if hasattr(self.titleBar, "updateStyle"):
+            self.titleBar.updateStyle()

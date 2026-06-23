@@ -184,7 +184,7 @@ class ComponentSettingCard(SettingCard):
 
             shutil.copy2(src, target_path)
 
-            InfoBar.success("导入成功", f"已手动导入 {exe_name}", parent=self.window())
+            InfoBar.info("导入成功", f"已手动导入 {exe_name}", parent=self.window())
             # Refresh version info
             dependency_manager.check_update(self.component_key)
 
@@ -233,7 +233,7 @@ class ComponentSettingCard(SettingCard):
                 self.actionButton.setText("立即安装")
             else:
                 self.actionButton.setText("检查更新")
-                InfoBar.success(
+                InfoBar.info(
                     "已是最新",
                     f"{title_text} 当前版本 {curr} 已是最新。",
                     duration=5000,
@@ -268,7 +268,7 @@ class ComponentSettingCard(SettingCard):
         dependency_manager.check_update(self.component_key)
 
         title_text = self.titleLabel.text()
-        InfoBar.success(
+        InfoBar.info(
             "安装完成", f"{title_text} 已成功安装/更新。", duration=5000, parent=self.window()
         )
 

@@ -21,7 +21,7 @@ from qfluentwidgets import (
     MessageBoxBase,
     PushButton,
     RadioButton,
-    ScrollArea,
+    SmoothScrollArea,
     SubtitleLabel,
     ToolTipFilter,
     ToolTipPosition,
@@ -76,15 +76,16 @@ class SimplePresetWidget(QWidget):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # 创建滚动区域
-        scroll_area = ScrollArea(self)
+        # 滚动区域
+        scroll_area = SmoothScrollArea(self)
         scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
         scroll_area.setWidgetResizable(True)
         scroll_area.setMaximumHeight(450)  # 限制最大高度
 
         # 滚动内容容器
         content_widget = QWidget()
-        content_widget.setStyleSheet("background-color: transparent;")
+        content_widget.setObjectName("scroll_widget")
+        content_widget.setStyleSheet("#scroll_widget { background-color: transparent; }")
         self.v_layout = QVBoxLayout(content_widget)
         self.v_layout.setSpacing(12)
         self.v_layout.setContentsMargins(10, 10, 10, 10)

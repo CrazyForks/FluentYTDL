@@ -387,15 +387,16 @@ class AuthenticationCard(CardWidget):
     def _update_status_icon(self, valid: bool):
         """更新状态图标"""
         if valid:
+            from qfluentwidgets import themeColor
             self.statusIcon.setIcon(FluentIcon.ACCEPT)
-            self.statusIcon.setStyleSheet("color: #107C10;")
+            self.statusIcon.setStyleSheet(f"color: {themeColor().name()};")
         else:
             self.statusIcon.setIcon(FluentIcon.INFO)
             self.statusIcon.setStyleSheet("color: #797775;")
 
     def _show_success(self, message: str):
         """显示成功提示"""
-        InfoBar.success(
+        InfoBar.info(
             title="成功",
             content=message,
             duration=2000,

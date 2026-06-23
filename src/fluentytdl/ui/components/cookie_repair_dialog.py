@@ -141,7 +141,7 @@ class CookieRepairDialog(QDialog):
             message: 结果消息
         """
         if success:
-            InfoBar.success(
+            InfoBar.info(
                 title="修复成功",
                 content=message,
                 orient=Qt.Orientation.Horizontal,

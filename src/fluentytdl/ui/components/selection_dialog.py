@@ -15,8 +15,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QListView,
     QSizePolicy,
+    QStackedWidget,
     QStyleOptionViewItem,
-    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -27,15 +28,19 @@ from qfluentwidgets import (
     ImageLabel,
     IndeterminateProgressRing,
     LineEdit,
+    ListView,
     MessageBox,
     MessageBoxBase,
     PrimaryPushButton,
     PushButton,
     RadioButton,
-    ScrollArea,
+    SmoothScrollArea,
+    StrongBodyLabel,
     SubtitleLabel,
+    TableWidget,
     ToolTipFilter,
     ToolTipPosition,
+    isDarkTheme,
 )
 
 from ...download.extract_manager import AsyncExtractManager
@@ -51,12 +56,13 @@ from ...utils.filesystem import sanitize_filename
 from ...utils.image_loader import ImageLoader
 from ...utils.logger import logger
 from ...youtube.youtube_service import YoutubeServiceOptions, YtDlpAuthOptions
-from ..delegates.playlist_delegate import PlaylistItemDelegate
-from ..models.playlist_model import PlaylistListModel, PlaylistModelRoles
+from .playlist_item_card import PlaylistItemCard
 from .cover_selector import CoverSelectorWidget
 from .format_selector import VideoFormatSelectorWidget
 from .subtitle_selector import SubtitleSelectorWidget
 from .vr_format_selector import VR_PRESETS, VRFormatSelectorWidget
+from qfluentwidgets import isDarkTheme
+from PySide6.QtGui import QPainter
 
 # ---- 字幕容器兼容性辅助函数 ----
 # MP4 和 MKV 都支持字幕嵌入（FFmpeg 自动将 SRT 转为 mov_text），只有 WebM 不支持 SRT/ASS
@@ -159,12 +165,28 @@ def _get_table_selection_qss() -> str:
     sel_bd = "rgba(255, 255, 255, 0.15)" if is_dark else "#C0C0C0"
     hov_bg = "rgba(255, 255, 255, 0.04)" if is_dark else "#F3F3F3"
 
+    header_bg = "transparent"
+    header_fg = "#A0A0A0" if is_dark else "#5c5c5c"
+    header_border = "rgba(255, 255, 255, 0.08)" if is_dark else "rgba(0, 0, 0, 0.08)"
+
     return f"""
 QTableWidget {{
     background-color: transparent;
     selection-background-color: transparent;
     outline: none;
     border: none;
+}}
+QHeaderView {{
+    background-color: {header_bg};
+    border: none;
+}}
+QHeaderView::section {{
+    background-color: {header_bg};
+    color: {header_fg};
+    font-weight: 600;
+    border: none;
+    border-bottom: 1px solid {header_border};
+    padding-left: 4px;
 }}
 QTableWidget::item {{
     padding-left: 8px;
@@ -195,14 +217,15 @@ class SimplePresetWidget(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
 
         # 创建滚动区域
-        scroll_area = ScrollArea(self)
+        scroll_area = SmoothScrollArea(self)
         scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
         scroll_area.setWidgetResizable(True)
         scroll_area.setMaximumHeight(450)  # 限制最大高度
 
         # 滚动内容容器
         content_widget = QWidget()
-        content_widget.setStyleSheet("background-color: transparent;")
+        content_widget.setObjectName("scroll_widget")
+        content_widget.setStyleSheet("#scroll_widget { background-color: transparent; }")
         self.v_layout = QVBoxLayout(content_widget)
         self.v_layout.setSpacing(12)
         self.v_layout.setContentsMargins(10, 10, 10, 10)
@@ -283,10 +306,8 @@ class SimplePresetWidget(QWidget):
         self.radios = []
 
         for i, (pid, title, desc, fmt, args) in enumerate(self.presets):
-            container = QFrame(self)
-            container.setStyleSheet(
-                ".QFrame { background-color: rgba(255, 255, 255, 0.05); border-radius: 6px; border: 1px solid rgba(0,0,0,0.05); }"
-            )
+            from qfluentwidgets import CardWidget
+            container = CardWidget(self)
             h_layout = QHBoxLayout(container)
 
             rb = RadioButton(title, container)
@@ -473,53 +494,6 @@ class PlaylistActionWidget(QWidget):
         if info_text is not None:
             self.infoLabel.setText(str(info_text))
 
-
-class _PlaylistModelRowProxy:
-    """
-    Drop-in replacement for PlaylistActionWidget that writes directly into
-    PlaylistListModel instead of QWidgets.
-
-    Used by _auto_apply_row_preset so that zero lines of that method need
-    to change: it still calls aw.set_loading() / aw.qualityButton.setText() /
-    aw.infoLabel.setText(), but all of those now update the model and trigger
-    a repaint of the delegate-rendered row.
-    """
-
-    def __init__(self, row: int, model: PlaylistListModel) -> None:
-        self._row = row
-        self._model = model
-
-        outer = self
-
-        class _QualityButtonProxy:
-            def setText(self_, text: str) -> None:
-                pass  # Delegate ignore button text changes outside set_loading
-
-            def setToolTip(self_, _t: str) -> None:
-                pass
-
-        class _InfoLabelProxy:
-            def setText(self_, text: str) -> None:
-                idx = outer._model.index(outer._row, 0)
-                task = outer._model.get_task(idx)
-                if task is not None:
-                    task.custom_options.format = str(text)
-                    outer._model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])
-
-        self.qualityButton = _QualityButtonProxy()
-        self.infoLabel = _InfoLabelProxy()
-
-    def set_loading(
-        self, loading: bool, btn_text: str | None = None, info_text: str | None = None
-    ) -> None:
-        idx = self._model.index(self._row, 0)
-        task = self._model.get_task(idx)
-        if task is None:
-            return
-        task.is_parsing = bool(loading)
-        if info_text is not None:
-            task.custom_options.format = str(info_text)
-        self._model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])
 
 
 def _infer_entry_url(entry: Any) -> str:
@@ -852,7 +826,7 @@ class SelectionDialog(MessageBoxBase):
 
         # single-video format selection state
         self._single_mode_combo: ComboBox | None = None
-        self._single_table: QTableWidget | None = None
+        self._single_table: TableWidget | None = None
         self._single_hint: CaptionLabel | None = None
         self._single_selection_label: CaptionLabel | None = None
         self._single_rows: list[dict[str, Any]] = []
@@ -862,9 +836,10 @@ class SelectionDialog(MessageBoxBase):
 
         # playlist UI state – MV architecture (QListView + model + delegate)
         self._playlist_rows: list[dict[str, Any]] = []
-        self._list_view: QListView | None = None
-        self._playlist_model: PlaylistListModel | None = None
-        self._playlist_delegate: PlaylistItemDelegate | None = None
+        self._scroll_area: SmoothScrollArea | None = None
+        self._scroll_widget: QWidget | None = None
+        self._scroll_layout: QVBoxLayout | None = None
+        self._cards: list[PlaylistItemCard] = []
         self._extract_manager: AsyncExtractManager | None = None
         # _action_widget_by_row now stores _PlaylistModelRowProxy objects
         self._action_widget_by_row: dict[int, Any] = {}
@@ -905,6 +880,8 @@ class SelectionDialog(MessageBoxBase):
 
         # 解析中：居中显示（避免左上角一行字 + 巨大空白）
         self.loadingWidget = QWidget(self)
+        bg_color = "#2b2b2b" if isDarkTheme() else "#f9f9f9"
+        self.loadingWidget.setStyleSheet(f"background-color: {bg_color};")
         self.loadingLayout = QVBoxLayout(self.loadingWidget)
         self.loadingLayout.setContentsMargins(0, 0, 0, 0)
         self.loadingLayout.setSpacing(12)
@@ -926,6 +903,9 @@ class SelectionDialog(MessageBoxBase):
 
         # 内容容器 (初始隐藏)
         self.contentWidget = QWidget()
+        self.contentWidget.setObjectName("contentWidget")
+        bg_color = "#2b2b2b" if isDarkTheme() else "#f9f9f9"
+        self.contentWidget.setStyleSheet(f"QWidget#contentWidget {{ background-color: {bg_color}; }}")
         self.contentLayout = QVBoxLayout(self.contentWidget)
         self.contentLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.setSpacing(12)
@@ -934,6 +914,8 @@ class SelectionDialog(MessageBoxBase):
 
         # 失败重试区（默认隐藏）：用于"需要 Cookies / 不是机器人验证"场景
         self.retryWidget = QWidget(self)
+        bg_color = "#2b2b2b" if isDarkTheme() else "#f9f9f9"
+        self.retryWidget.setStyleSheet(f"background-color: {bg_color};")
         self.retryLayout = QVBoxLayout(self.retryWidget)
         self.retryLayout.setContentsMargins(0, 0, 0, 0)
         self.retryLayout.setSpacing(8)
@@ -1588,48 +1570,36 @@ class SelectionDialog(MessageBoxBase):
         self.contentLayout.addLayout(toolbar)
 
         # table
-        # ── QListView (virtual rendering, no widget-per-row) ──────────────────
-        list_view = QListView(self.contentWidget)
-        list_view.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        list_view.setMouseTracking(True)
-        list_view.setUniformItemSizes(True)  # optimisation: all rows same height
-        # 修复C: Batched 布局——将布局工作分摊到多个事件循环，避免 endInsertRows 全列表同步布局
-        list_view.setLayoutMode(QListView.LayoutMode.Batched)
-        list_view.setBatchSize(50)
-        list_view.setStyleSheet(
-            "QListView { border: none; background: transparent; outline: none; }"
-        )
-        # ▶ 抗闪烁修复：像素级滚动 + 强制滚动条
-        list_view.setVerticalScrollMode(QListView.ScrollMode.ScrollPerPixel)
-        list_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        list_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        list_view.viewport().setAutoFillBackground(False)
-        # WA_OpaquePaintEvent=True 作用于 viewport：告知 Qt 本控件自行覆盖所有像素，
-        # 无需在每次局部重绘前先画父控件背景，消除 dataChanged 触发的两步渲染闪烁。
-        # delegate.paint() 里的 fillRect(rect, palette.window()) 保证每次都覆盖全行矩形。
-        list_view.viewport().setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+        # ── SmoothScrollArea (Widget-based virtual scrolling) ──────────────────
+        self._scroll_area = SmoothScrollArea(self.contentWidget)
+        self._scroll_area.setWidgetResizable(True)
+        self._scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        playlist_model = PlaylistListModel(list_view)
-        playlist_delegate = PlaylistItemDelegate(list_view)
-        list_view.setModel(playlist_model)
-        list_view.setItemDelegate(playlist_delegate)
+        self._scroll_area.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        bg_color = "#2b2b2b" if isDarkTheme() else "#f9f9f9"
+        self._scroll_area.setStyleSheet(f"QScrollArea {{ background-color: {bg_color}; border: none; }}")
+        self._scroll_area.viewport().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._scroll_area.viewport().setStyleSheet(f"background-color: {bg_color}; border: none;")
 
-        # 修复B: 滚动事件节流——50ms 合并，避免每像素触发重入队 + dataChanged 轰炸
+        self._scroll_widget = QWidget()
+        self._scroll_widget.setObjectName("scrollWidget")
+        self._scroll_widget.setStyleSheet(f"QWidget#scrollWidget {{ background-color: {bg_color}; }}")
+        self._scroll_layout = QVBoxLayout(self._scroll_widget)
+        self._scroll_layout.setContentsMargins(0, 0, 16, 0)
+        self._scroll_layout.setSpacing(0)
+        self._scroll_layout.addStretch(1)
+        self._scroll_area.setWidget(self._scroll_widget)
+
         self._scroll_throttle_timer = QTimer(self)
         self._scroll_throttle_timer.setSingleShot(True)
         self._scroll_throttle_timer.setInterval(50)
         self._scroll_throttle_timer.timeout.connect(self._on_scroll_throttled)
-        list_view.verticalScrollBar().valueChanged.connect(self._on_scroll_value_changed)
-        list_view.clicked.connect(self._on_list_item_clicked)
+        self._scroll_area.verticalScrollBar().valueChanged.connect(self._on_scroll_value_changed)
 
-        self._list_view = list_view
-        self._playlist_model = playlist_model
-        self._playlist_delegate = playlist_delegate
-
-        # AsyncExtractManager: 3 concurrent workers, FIFO queue
         self._extract_manager = AsyncExtractManager(max_concurrent=3, parent=self)
 
-        self.contentLayout.addWidget(list_view)
+        self.contentLayout.addWidget(self._scroll_area)
 
         # wire toolbar actions
         self.selectAllBtn.clicked.connect(self._select_all)
@@ -1667,11 +1637,13 @@ class SelectionDialog(MessageBoxBase):
         self._action_widget_by_row = {}
         self._thumb_retry_count = {}
 
-        model = self._playlist_model
-        if model is None:
-            return
-
-        model.clear()
+        # 彻底清空旧的 cards
+        while self._scroll_layout.count() > 0:
+            item = self._scroll_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+                item.widget().deleteLater()
+        self._cards.clear()
 
         # Store entries for chunked processing
         self._build_chunk_entries = entries
@@ -1685,10 +1657,6 @@ class SelectionDialog(MessageBoxBase):
         """Process up to _build_chunk_size entries, then schedule the next chunk."""
         if self._is_closing or not self._build_is_chunking:
             return
-        model = self._playlist_model
-        if model is None:
-            return
-
         from ...models.video_task import VideoTask
 
         entries = self._build_chunk_entries
@@ -1755,13 +1723,13 @@ class SelectionDialog(MessageBoxBase):
             )
             tasks.append(task)
 
-            # Proxy acts as the PlaylistActionWidget so _auto_apply_row_preset
-            # writes straight into the model without any code changes.
-            proxy = _PlaylistModelRowProxy(row, model)
-            self._action_widget_by_row[row] = proxy
-
-        # Batch insert this chunk
-        model.addTasks(tasks)
+            card = PlaylistItemCard(task, row, self._scroll_widget)
+            card.clicked.connect(self._on_list_item_clicked)
+            self._cards.append(card)
+            
+            # 插入到弹簧前面
+            self._scroll_layout.insertWidget(self._scroll_layout.count() - 1, card)
+            self._action_widget_by_row[row] = card
 
         self._build_chunk_offset = end
 
@@ -2400,10 +2368,8 @@ class SelectionDialog(MessageBoxBase):
         if pix is None:
             return
         # MV path – update delegate pixel cache; model emits dataChanged for repaint
-        if self._playlist_delegate is not None and self._playlist_model is not None:
-            self._playlist_delegate.set_pixmap(url, pix)
-            idx = self._playlist_model.index(row, 0)
-            self._playlist_model.dataChanged.emit(idx, idx, [PlaylistModelRoles.TaskObjectRole])
+        if row < len(self._cards):
+            self._cards[row].set_pixmap(pix)
 
     def _on_thumb_loaded_with_url(self, url: str, pixmap) -> None:
         # 减少并发计数，触发下一批加载

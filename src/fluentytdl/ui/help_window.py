@@ -24,37 +24,68 @@ from qfluentwidgets import (
 
 # CSS for Markdown styling - Card-Based UI (Fluent Settings Style)
 # Optimized for readability with color hierarchy and DataGrid-style tables
-MARKDOWN_CSS = """
-/* ========== Base Container ========== */
-QTextBrowser {
-    font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", sans-serif;
-    font-size: 14px;
-    line-height: 1.6;
-    padding: 30px 50px;
-    border: none;
-    background-color: transparent;
-    color: #5e5e5e;
-}
-h1 { font-size: 28px; font-weight: 600; margin: 0 0 8px 0; color: #202020; letter-spacing: -0.4px; }
-h1 + p { font-size: 14px; color: #767676; margin: 0 0 28px 0; line-height: 1.5; }
-h2 { font-size: 16px; font-weight: 600; margin: 28px 0 14px 0; padding: 0; color: #202020; background: none; border: none; letter-spacing: 0.1px; }
-h3 { font-size: 14px; font-weight: 600; margin: 0; padding: 14px 18px; color: #202020; background-color: #FAFAFA; border: 1px solid #E8E8E8; border-bottom: none; border-radius: 8px 8px 0 0; }
-h3 + p, h3 + ul, h3 + ol, h3 + table { margin: 0; padding: 14px 18px 18px 18px; background-color: #FFFFFF; border: 1px solid #E8E8E8; border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 20px; }
-p { margin: 0 0 14px 0; color: #5e5e5e; line-height: 1.7; font-size: 14px; }
-ul, ol { margin: 8px 0; padding-left: 20px; }
-li { margin-bottom: 8px; color: #5e5e5e; line-height: 1.65; font-size: 14px; }
-blockquote { margin: 14px 0; padding: 14px 18px; background-color: #EBF5FF; border-left: 3px solid #0078D4; border-radius: 6px; font-size: 13px; color: #202020; font-style: normal; }
-blockquote strong { color: #0078D4; }
-table { width: 100%; margin: 0; border-collapse: collapse; border: none; font-size: 13px; background-color: transparent; }
-th { background-color: transparent; color: #767676; font-weight: 600; font-size: 12px; padding: 10px 14px; text-align: left; border-bottom: 1px solid #E0E0E0; border-top: none; border-left: none; border-right: none; }
-td { padding: 12px 14px; color: #5e5e5e; border-bottom: 1px solid #F0F0F0; border-top: none; border-left: none; border-right: none; vertical-align: top; line-height: 1.55; }
-tr:last-child td { border-bottom: none; }
-code { font-family: "Cascadia Code", "Consolas", monospace; background-color: #F3F3F3; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #333333; border: none; }
-pre { background-color: #2D2D2D; padding: 16px 20px; border-radius: 8px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; color: #D4D4D4; margin: 14px 0; overflow-x: auto; }
-hr { border: none; height: 1px; background-color: #EEEEEE; margin: 28px 0; }
-blockquote:last-of-type { background-color: #FAFAFA; border-left-color: #CCCCCC; font-size: 12px; color: #999999; margin-top: 36px; }
-strong { font-weight: 600; color: #0078D4; }
-"""
+def get_markdown_css() -> str:
+    from qfluentwidgets import isDarkTheme
+    is_dark = isDarkTheme()
+    
+    # Define colors based on theme
+    text_color = "#D4D4D4" if is_dark else "#5e5e5e"
+    h1_color = "#FFFFFF" if is_dark else "#202020"
+    h1_sub_color = "#A0A0A0" if is_dark else "#767676"
+    h2_color = "#E0E0E0" if is_dark else "#202020"
+    h3_color = "#E0E0E0" if is_dark else "#202020"
+    h3_bg = "#2D2D2D" if is_dark else "#FAFAFA"
+    h3_border = "#3E3E42" if is_dark else "#E8E8E8"
+    content_bg = "#1E1E1E" if is_dark else "#FFFFFF"
+    content_border = "#3E3E42" if is_dark else "#E8E8E8"
+    blockquote_bg = "#253041" if is_dark else "#EBF5FF"
+    blockquote_border = "#3A96DD" if is_dark else "#0078D4"
+    blockquote_text = "#E0E0E0" if is_dark else "#202020"
+    link_color = "#6CB8F6" if is_dark else "#0078D4"
+    table_border = "#3E3E42" if is_dark else "#F0F0F0"
+    table_header_border = "#505050" if is_dark else "#E0E0E0"
+    table_header_text = "#A0A0A0" if is_dark else "#767676"
+    code_bg = "#2D2D2D" if is_dark else "#F3F3F3"
+    code_text = "#D4D4D4" if is_dark else "#333333"
+    pre_bg = "#181818" if is_dark else "#2D2D2D"
+    pre_text = "#D4D4D4" if is_dark else "#D4D4D4"
+    hr_color = "#3E3E42" if is_dark else "#EEEEEE"
+    footer_bg = "#2D2D2D" if is_dark else "#FAFAFA"
+    footer_border = "#505050" if is_dark else "#CCCCCC"
+    footer_text = "#808080" if is_dark else "#999999"
+
+    return f"""
+    /* ========== Base Container ========== */
+    QTextBrowser {{
+        font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        padding: 30px 50px;
+        border: none;
+        background-color: transparent;
+        color: {text_color};
+    }}
+    h1 {{ font-size: 28px; font-weight: 600; margin: 0 0 8px 0; color: {h1_color}; letter-spacing: -0.4px; }}
+    h1 + p {{ font-size: 14px; color: {h1_sub_color}; margin: 0 0 28px 0; line-height: 1.5; }}
+    h2 {{ font-size: 16px; font-weight: 600; margin: 28px 0 14px 0; padding: 0; color: {h2_color}; background: none; border: none; letter-spacing: 0.1px; }}
+    h3 {{ font-size: 14px; font-weight: 600; margin: 0; padding: 14px 18px; color: {h3_color}; background-color: {h3_bg}; border: 1px solid {h3_border}; border-bottom: none; border-radius: 8px 8px 0 0; }}
+    h3 + p, h3 + ul, h3 + ol, h3 + table {{ margin: 0; padding: 14px 18px 18px 18px; background-color: {content_bg}; border: 1px solid {content_border}; border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 20px; }}
+    p {{ margin: 0 0 14px 0; color: {text_color}; line-height: 1.7; font-size: 14px; }}
+    ul, ol {{ margin: 8px 0; padding-left: 20px; }}
+    li {{ margin-bottom: 8px; color: {text_color}; line-height: 1.65; font-size: 14px; }}
+    blockquote {{ margin: 14px 0; padding: 14px 18px; background-color: {blockquote_bg}; border-left: 3px solid {blockquote_border}; border-radius: 6px; font-size: 13px; color: {blockquote_text}; font-style: normal; }}
+    blockquote strong {{ color: {link_color}; }}
+    table {{ width: 100%; margin: 0; border-collapse: collapse; border: none; font-size: 13px; background-color: transparent; }}
+    th {{ background-color: transparent; color: {table_header_text}; font-weight: 600; font-size: 12px; padding: 10px 14px; text-align: left; border-bottom: 1px solid {table_header_border}; border-top: none; border-left: none; border-right: none; }}
+    td {{ padding: 12px 14px; color: {text_color}; border-bottom: 1px solid {table_border}; border-top: none; border-left: none; border-right: none; vertical-align: top; line-height: 1.55; }}
+    tr:last-child td {{ border-bottom: none; }}
+    code {{ font-family: "Cascadia Code", "Consolas", monospace; background-color: {code_bg}; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: {code_text}; border: none; }}
+    pre {{ background-color: {pre_bg}; padding: 16px 20px; border-radius: 8px; font-family: "Cascadia Code", "Consolas", monospace; font-size: 13px; color: {pre_text}; margin: 14px 0; overflow-x: auto; }}
+    hr {{ border: none; height: 1px; background-color: {hr_color}; margin: 28px 0; }}
+    blockquote:last-of-type {{ background-color: {footer_bg}; border-left-color: {footer_border}; font-size: 12px; color: {footer_text}; margin-top: 36px; }}
+    strong {{ font-weight: 600; color: {link_color}; }}
+    """
+
 
 _WIZARD_CSS_OVERRIDE = """
 QTextBrowser {
@@ -115,22 +146,41 @@ td {
 
 
 class _AutoHeightTextBrowser(QTextBrowser):
-    """QTextBrowser that sizes to its document content height."""
+    """QTextBrowser that sizes to its document content height and auto-adapts to theme changes."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, is_expand_card=False, is_wizard=False):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.document().documentLayout().documentSizeChanged.connect(self._adjustHeight)
+        
+        self._is_expand_card = is_expand_card
+        self._is_wizard = is_wizard
+        self._raw_html = ""
+        
+        from qfluentwidgets import qconfig
+        qconfig.themeChanged.connect(self._update_theme)
 
     def _adjustHeight(self):
         doc_h = self.document().size().height()
         self.setFixedHeight(int(doc_h) + 4)
 
     def setHtml(self, html):
+        self._raw_html = html
         super().setHtml(html)
         self._adjustHeight()
+
+    def _update_theme(self):
+        css = get_markdown_css()
+        if self._is_expand_card:
+            css += _EXPAND_CSS_OVERRIDE
+        elif self._is_wizard:
+            css += _WIZARD_CSS_OVERRIDE
+        self.document().setDefaultStyleSheet(css)
+        if self._raw_html:
+            super().setHtml(self._raw_html)
+            self._adjustHeight()
 
 
 class ExpandHelpCard(ExpandSettingCard):
@@ -138,9 +188,9 @@ class ExpandHelpCard(ExpandSettingCard):
 
     def __init__(self, icon, title, content, html_body, parent=None):
         super().__init__(icon, title, content, parent)
-        self._browser = _AutoHeightTextBrowser(self.view)
+        self._browser = _AutoHeightTextBrowser(self.view, is_expand_card=True)
         self._browser.setOpenExternalLinks(True)
-        self._browser.document().setDefaultStyleSheet(MARKDOWN_CSS + _EXPAND_CSS_OVERRIDE)
+        self._browser.document().setDefaultStyleSheet(get_markdown_css() + _EXPAND_CSS_OVERRIDE)
         self._browser.setHtml(html_body)
         self.viewLayout.addWidget(self._browser)
 
@@ -268,13 +318,14 @@ class WelcomeGuideWidget(QWidget):
             _WIZARD_STEP4_HTML,
             _WIZARD_STEP5_HTML,
         ]:
-            browser = _AutoHeightTextBrowser(self)
-            browser.document().setDefaultStyleSheet(MARKDOWN_CSS + _WIZARD_CSS_OVERRIDE)
+            browser = _AutoHeightTextBrowser(self, is_wizard=True)
+            browser.document().setDefaultStyleSheet(get_markdown_css() + _WIZARD_CSS_OVERRIDE)
             browser.setHtml(f'<div style="text-align:center">{html}</div>')
             self.step_browsers.append(browser)
             self.stack.addWidget(browser)
 
         self.v_layout.addWidget(self.stack, 1)
+        
         self.v_layout.addSpacing(8)
 
         # Navigation Buttons

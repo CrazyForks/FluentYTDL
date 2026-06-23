@@ -1288,7 +1288,7 @@ class MainWindow(FluentWindow):
             success, message = cookie_sentinel.force_refresh_with_uac()
 
             if success:
-                InfoBar.success(
+                InfoBar.info(
                     "Cookie提取成功",
                     f"已从 {browser_name} 提取 Cookie（管理员权限）",
                     duration=5000,

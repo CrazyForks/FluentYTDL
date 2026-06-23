@@ -389,7 +389,7 @@ class DownloadItemCard(CardWidget):
         self.set_state("completed")
         self.actionBtn.setEnabled(False)
         self.folderBtn.setEnabled(True)
-        InfoBar.success(
+        InfoBar.info(
             "下载完成",
             self.title_text,
             parent=self.window(),

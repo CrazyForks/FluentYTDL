@@ -45,6 +45,13 @@ def _macaron_bg(color_style: str) -> QColor:
         "red": "#F8D7DA",
         "gray": "#F8F9FA",
     }.get(color_style, "#F8F9FA")
+    
+    from qfluentwidgets import isDarkTheme
+    if isDarkTheme():
+        # Darken the macaron colors for dark mode
+        c = QColor(bg_hex)
+        return _hsl_adjust(c, sat_mul=0.6, light_mul=0.25)
+        
     return QColor(bg_hex)
 
 
@@ -69,9 +76,11 @@ class QualityBadge(QLabel):
         self.setFont(font)
 
         bg = _macaron_bg(color_style)
+        from qfluentwidgets import isDarkTheme
+        is_dark = isDarkTheme()
         # Derive border/text from the background itself to keep the palette cohesive.
-        border = _with_alpha(_hsl_adjust(bg, sat_mul=1.05, light_mul=0.82), 200)
-        fg = _hsl_adjust(bg, sat_mul=1.10, light_mul=0.28)
+        border = _with_alpha(_hsl_adjust(bg, sat_mul=1.05, light_mul=1.8 if is_dark else 0.82), 200)
+        fg = _hsl_adjust(bg, sat_mul=1.10, light_mul=3.8 if is_dark else 0.28)
         fg.setAlpha(255)
 
         self.setStyleSheet(
@@ -109,7 +118,8 @@ class QualityCellWidget(QWidget):
             layout.addWidget(badge)
 
         if text:
-            label = QLabel(text, self)
+            from qfluentwidgets import BodyLabel
+            label = BodyLabel(text, self)
             label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
             font = label.font()
             base_ps = font.pointSize()

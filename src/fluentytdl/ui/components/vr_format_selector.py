@@ -23,7 +23,8 @@ from qfluentwidgets import (
     FluentIcon,
     IconWidget,
     RadioButton,
-    ScrollArea,
+    SmoothScrollArea,
+    TableWidget,
     SegmentedWidget,
     StrongBodyLabel,
 )
@@ -132,12 +133,28 @@ def _get_table_selection_qss() -> str:
     border = "rgba(255, 255, 255, 0.06)" if is_dark else "rgba(0, 0, 0, 0.06)"
     hover_border = "rgba(255, 255, 255, 0.1)" if is_dark else "rgba(0, 0, 0, 0.1)"
 
+    header_bg = "transparent"
+    header_fg = "#A0A0A0" if is_dark else "#5c5c5c"
+    header_border = "rgba(255, 255, 255, 0.08)" if is_dark else "rgba(0, 0, 0, 0.08)"
+
     return f"""
 QTableWidget {{
     background-color: transparent;
     selection-background-color: transparent;
     outline: none;
     border: none;
+}}
+QHeaderView {{
+    background-color: {header_bg};
+    border: none;
+}}
+QHeaderView::section {{
+    background-color: {header_bg};
+    color: {header_fg};
+    font-weight: 600;
+    border: none;
+    border-bottom: 1px solid {header_border};
+    padding-left: 4px;
 }}
 QTableWidget::item {{
     padding-left: 0px;
@@ -199,14 +216,15 @@ class VRPresetWidget(QWidget):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        scroll_area = ScrollArea(self)
+        scroll_area = SmoothScrollArea(self)
         scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
         scroll_area.setWidgetResizable(True)
         scroll_area.setMaximumHeight(450)
 
-        content_widget = QWidget()
-        content_widget.setStyleSheet("background-color: transparent;")
-        self.v_layout = QVBoxLayout(content_widget)
+        self.content_widget = QWidget()
+        self.content_widget.setObjectName("scroll_widget")
+        self.content_widget.setStyleSheet("#scroll_widget { background-color: transparent; }")
+        self.v_layout = QVBoxLayout(self.content_widget)
         self.v_layout.setSpacing(12)
         self.v_layout.setContentsMargins(10, 10, 10, 10)
 
@@ -215,13 +233,8 @@ class VRPresetWidget(QWidget):
         self.radios: list[RadioButton] = []
 
         for i, (pid, title, desc, fmt, args) in enumerate(VR_PRESETS):
-            container = QFrame(self)
-            from qfluentwidgets import isDarkTheme
-
-            card_bd = "rgba(255, 255, 255, 0.08)" if isDarkTheme() else "rgba(0, 0, 0, 0.05)"
-            container.setStyleSheet(
-                f".QFrame {{ background-color: rgba(255, 255, 255, 0.05); border-radius: 6px; border: 1px solid {card_bd}; }}"
-            )
+            from qfluentwidgets import CardWidget
+            container = CardWidget(self)
             h_layout = QHBoxLayout(container)
 
             rb = RadioButton(title, container)
@@ -242,12 +255,12 @@ class VRPresetWidget(QWidget):
             self.v_layout.addWidget(container)
 
         # 播放提示
-        hint_label = CaptionLabel(_VR_PLAYBACK_HINT, content_widget)
+        hint_label = CaptionLabel(_VR_PLAYBACK_HINT, self.content_widget)
         hint_label.setTextColor(QColor(100, 100, 100), QColor(160, 160, 160))
         hint_label.setWordWrap(True)
         self.v_layout.addWidget(hint_label)
 
-        scroll_area.setWidget(content_widget)
+        scroll_area.setWidget(self.content_widget)
         main_layout.addWidget(scroll_area)
 
         # 默认选中第一个
@@ -329,21 +342,59 @@ class VRFormatTableWidget(QWidget):
         split_layout.setSpacing(8)
 
         # Video Section
-        self.video_container = QFrame(self.split_container)
-        from qfluentwidgets import isDarkTheme
-
-        card_bg = "rgba(255, 255, 255, 0.03)" if isDarkTheme() else "rgba(255, 255, 255, 0.7)"
-        card_bd = "rgba(255, 255, 255, 0.08)" if isDarkTheme() else "rgba(0, 0, 0, 0.05)"
-        self.video_container.setStyleSheet(
-            f".QFrame {{ background-color: {card_bg}; border: 1px solid {card_bd}; border-radius: 8px; }}"
-        )
+        from qfluentwidgets import CardWidget
+        self.video_container = CardWidget(self.split_container)
         v_layout = QVBoxLayout(self.video_container)
         v_layout.setContentsMargins(8, 8, 8, 8)
 
         self.video_label = StrongBodyLabel("\u89c6\u9891\u6d41", self.video_container)
         v_layout.addWidget(self.video_label)
 
-        self.video_table = QTableWidget(self.video_container)
+        self._build_video_table()
+        v_layout.addWidget(self.video_table)
+
+        split_layout.addWidget(self.video_container)
+
+        # Audio Section
+        self.audio_container = CardWidget(self.split_container)
+        a_layout = QVBoxLayout(self.audio_container)
+        a_layout.setContentsMargins(8, 8, 8, 8)
+
+        self.audio_label = StrongBodyLabel("\u97f3\u9891\u6d41", self.audio_container)
+        a_layout.addWidget(self.audio_label)
+
+        self._build_audio_table()
+        a_layout.addWidget(self.audio_table)
+
+        split_layout.addWidget(self.audio_container)
+
+        layout.addWidget(self.split_container)
+
+        # Single Container (for video-only / audio-only modes)
+        self._build_single_table()
+        self.single_table.hide()
+        layout.addWidget(self.single_table)
+
+        # 选择摘要
+        self.summary_label = CaptionLabel("", self)
+        layout.addWidget(self.summary_label)
+
+        # 内部状态
+        self._video_rows: list[dict[str, Any]] = []
+        self._audio_rows: list[dict[str, Any]] = []
+        self._muxed_rows: list[dict[str, Any]] = []
+        self._selected_video_id: str | None = None
+        self._selected_audio_id: str | None = None
+        self._selected_muxed_id: str | None = None
+        self._single_rows: list[dict[str, Any]] = []
+
+        # 保存原始格式列表引用（过滤器刷新时用）
+        self._all_video_fmts: list[dict[str, Any]] = []
+
+        self._populate(info)
+
+    def _build_video_table(self):
+        self.video_table = TableWidget(self.video_container)
         self.video_table.setColumnCount(len(self._VCOLS))
         self.video_table.setHorizontalHeaderLabels(self._VCOLS)
         self.video_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -356,21 +407,11 @@ class VRFormatTableWidget(QWidget):
         self.video_table.setWordWrap(False)
         try:
             self.video_table.verticalHeader().setDefaultSectionSize(42)
-            self.video_table.horizontalHeader().setSectionResizeMode(
-                0, QHeaderView.ResizeMode.Fixed
-            )
-            self.video_table.horizontalHeader().setSectionResizeMode(
-                1, QHeaderView.ResizeMode.Fixed
-            )
-            self.video_table.horizontalHeader().setSectionResizeMode(
-                2, QHeaderView.ResizeMode.Fixed
-            )
-            self.video_table.horizontalHeader().setSectionResizeMode(
-                3, QHeaderView.ResizeMode.Fixed
-            )
-            self.video_table.horizontalHeader().setSectionResizeMode(
-                4, QHeaderView.ResizeMode.Stretch
-            )
+            self.video_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+            self.video_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+            self.video_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+            self.video_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+            self.video_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
             self.video_table.setColumnWidth(0, 60)
             self.video_table.setColumnWidth(1, 130)
             self.video_table.setColumnWidth(2, 100)
@@ -379,22 +420,9 @@ class VRFormatTableWidget(QWidget):
             pass
         self.video_table.setMaximumHeight(220)
         self.video_table.itemSelectionChanged.connect(self._on_video_selected)
-        v_layout.addWidget(self.video_table)
 
-        split_layout.addWidget(self.video_container)
-
-        # Audio Section
-        self.audio_container = QFrame(self.split_container)
-        self.audio_container.setStyleSheet(
-            f".QFrame {{ background-color: {card_bg}; border: 1px solid {card_bd}; border-radius: 8px; }}"
-        )
-        a_layout = QVBoxLayout(self.audio_container)
-        a_layout.setContentsMargins(8, 8, 8, 8)
-
-        self.audio_label = StrongBodyLabel("\u97f3\u9891\u6d41", self.audio_container)
-        a_layout.addWidget(self.audio_label)
-
-        self.audio_table = QTableWidget(self.audio_container)
+    def _build_audio_table(self):
+        self.audio_table = TableWidget(self.audio_container)
         self.audio_table.setColumnCount(len(self._ACOLS))
         self.audio_table.setHorizontalHeaderLabels(self._ACOLS)
         self.audio_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -407,29 +435,18 @@ class VRFormatTableWidget(QWidget):
         self.audio_table.setWordWrap(False)
         try:
             self.audio_table.verticalHeader().setDefaultSectionSize(42)
-            self.audio_table.horizontalHeader().setSectionResizeMode(
-                0, QHeaderView.ResizeMode.Fixed
-            )
-            self.audio_table.horizontalHeader().setSectionResizeMode(
-                1, QHeaderView.ResizeMode.Fixed
-            )
-            self.audio_table.horizontalHeader().setSectionResizeMode(
-                2, QHeaderView.ResizeMode.Stretch
-            )
+            self.audio_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+            self.audio_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+            self.audio_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
             self.audio_table.setColumnWidth(0, 60)
             self.audio_table.setColumnWidth(1, 130)
         except Exception:
             pass
         self.audio_table.setMaximumHeight(180)
         self.audio_table.itemSelectionChanged.connect(self._on_audio_selected)
-        a_layout.addWidget(self.audio_table)
 
-        split_layout.addWidget(self.audio_container)
-
-        layout.addWidget(self.split_container)
-
-        # Single Container (for video-only / audio-only modes)
-        self.single_table = QTableWidget(self)
+    def _build_single_table(self):
+        self.single_table = TableWidget(self)
         self.single_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.single_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.single_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -439,8 +456,6 @@ class VRFormatTableWidget(QWidget):
         self.single_table.setAlternatingRowColors(True)
         self.single_table.setWordWrap(False)
         self.single_table.itemSelectionChanged.connect(self._on_single_selected)
-        self.single_table.hide()
-        layout.addWidget(self.single_table)
 
         # 选择摘要
         self.summary_label = CaptionLabel("", self)
