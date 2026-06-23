@@ -2006,7 +2006,7 @@ class DownloadConfigWindow(FramelessWindow):
         list_view.viewport().setAutoFillBackground(True)
         list_view.viewport().setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
         list_view.setStyleSheet(
-            "QListView { border: none; background: palette(window); outline: none; }"
+            "QListView { border: none; background: transparent; outline: none; }"
         )
 
         playlist_model = PlaylistListModel(list_view)

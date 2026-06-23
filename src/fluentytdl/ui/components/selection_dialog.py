@@ -904,8 +904,12 @@ class SelectionDialog(MessageBoxBase):
         # 内容容器 (初始隐藏)
         self.contentWidget = QWidget()
         self.contentWidget.setObjectName("contentWidget")
-        bg_color = "#2b2b2b" if isDarkTheme() else "#f9f9f9"
-        self.contentWidget.setStyleSheet(f"QWidget#contentWidget {{ background-color: {bg_color}; }}")
+        self.contentWidget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+        
+        from qfluentwidgets import isDarkTheme, qconfig, Theme
+        is_dark = isDarkTheme() or qconfig.theme == Theme.DARK
+        bg_color = "#2b2b2b"
+        self.contentWidget.setStyleSheet(f"QWidget#contentWidget {{ background-color: {bg_color}; border: none; }}")
         self.contentLayout = QVBoxLayout(self.contentWidget)
         self.contentLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.setSpacing(12)
@@ -914,8 +918,12 @@ class SelectionDialog(MessageBoxBase):
 
         # 失败重试区（默认隐藏）：用于"需要 Cookies / 不是机器人验证"场景
         self.retryWidget = QWidget(self)
-        bg_color = "#2b2b2b" if isDarkTheme() else "#f9f9f9"
-        self.retryWidget.setStyleSheet(f"background-color: {bg_color};")
+        self.retryWidget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+        
+        from qfluentwidgets import isDarkTheme, qconfig, Theme
+        is_dark = isDarkTheme() or qconfig.theme == Theme.DARK
+        bg_color = "#2b2b2b"
+        self.retryWidget.setStyleSheet(f"background-color: {bg_color}; border: none;")
         self.retryLayout = QVBoxLayout(self.retryWidget)
         self.retryLayout.setContentsMargins(0, 0, 0, 0)
         self.retryLayout.setSpacing(8)
@@ -1576,15 +1584,20 @@ class SelectionDialog(MessageBoxBase):
         self._scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        self._scroll_area.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        bg_color = "#2b2b2b" if isDarkTheme() else "#f9f9f9"
+        from qfluentwidgets import isDarkTheme, qconfig, Theme
+        # Force evaluation by checking both the function and the exact config enum
+        is_dark = isDarkTheme() or qconfig.theme == Theme.DARK
+        bg_color = "#2b2b2b"
+        
+        self._scroll_area.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self._scroll_area.setStyleSheet(f"QScrollArea {{ background-color: {bg_color}; border: none; }}")
-        self._scroll_area.viewport().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._scroll_area.viewport().setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self._scroll_area.viewport().setStyleSheet(f"background-color: {bg_color}; border: none;")
 
-        self._scroll_widget = QWidget()
+        self._scroll_widget = QWidget(self._scroll_area)
         self._scroll_widget.setObjectName("scrollWidget")
-        self._scroll_widget.setStyleSheet(f"QWidget#scrollWidget {{ background-color: {bg_color}; }}")
+        self._scroll_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+        self._scroll_widget.setStyleSheet(f"QWidget#scrollWidget {{ background-color: {bg_color}; border: none; }}")
         self._scroll_layout = QVBoxLayout(self._scroll_widget)
         self._scroll_layout.setContentsMargins(0, 0, 16, 0)
         self._scroll_layout.setSpacing(0)
