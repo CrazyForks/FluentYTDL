@@ -57,10 +57,12 @@ def quick_params_to_opts(params: QuickDownloadParams) -> dict[str, Any]:
         opts["writethumbnail"] = True
         opts["embedthumbnail"] = True
         opts["convert_thumbnail"] = "jpg"
+        opts["__fluentytdl_keep_thumbnail"] = True
     elif params.download_thumbnail:
         opts["writethumbnail"] = True
         opts["embedthumbnail"] = False
         opts["convert_thumbnail"] = "jpg"
+        opts["__fluentytdl_keep_thumbnail"] = True
 
     # === 字幕 ===
     if params.subtitle_enabled:

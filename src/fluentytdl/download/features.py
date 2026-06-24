@@ -57,25 +57,73 @@ class DownloadContext:
         if not output_path:
             return None
 
+        # 列出父目录中的实际文件（用于兜底匹配）
+        parent_dir = os.path.dirname(output_path)
+        actual_files: list[str] | None = None
+        if os.path.isdir(parent_dir):
+            try:
+                actual_files = os.listdir(parent_dir)
+            except OSError:
+                pass
+
         # 检查当前 output_path 是否是分片文件
         match = re.search(r"^(.+)\.[fF]\d+\.(\w+)$", output_path)
-        if not match:
-            if os.path.exists(output_path):
-                return output_path
-            return None
+        if match:
+            base_name = match.group(1)
+            possible_extensions = [".mp4", ".mkv", ".webm", ".avi", ".mov"]
+            for ext in possible_extensions:
+                merged_path = base_name + ext
+                if os.path.exists(merged_path):
+                    return merged_path
+        elif os.path.exists(output_path):
+            return output_path
 
-        base_name = match.group(1)
-        possible_extensions = [".mp4", ".mkv", ".webm", ".avi", ".mov"]
-        for ext in possible_extensions:
-            merged_path = base_name + ext
-            if os.path.exists(merged_path):
-                return merged_path
-
-        # 检查 dest_paths
+        # 如果直接匹配失败，检查 dest_paths (例如 yt-dlp 最终下载了不同扩展名的视频)
+        video_exts = {".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv"}
+        fallback_path = None
         for dest_path in self.dest_paths:
+            # 排除纯分片文件
             if not re.search(r"\.[fF]\d+\.\w+$", dest_path):
                 if os.path.exists(dest_path):
-                    return dest_path
+                    ext = os.path.splitext(dest_path)[1].lower()
+                    if ext in video_exts:
+                        return dest_path
+                    elif fallback_path is None and ext not in {
+                        ".jpg",
+                        ".jpeg",
+                        ".png",
+                        ".webp",
+                        ".srt",
+                        ".vtt",
+                        ".ass",
+                        ".lrc",
+                        ".json",
+                    }:
+                        fallback_path = dest_path
+
+        if fallback_path:
+            return fallback_path
+
+        # ── 兜底：目录扫描 ──
+        # yt-dlp 在 Windows 上的 stdout 可能丢失特殊 Unicode 字符（如 U+30FB 片假名中点），
+        # 导致解析出的路径与磁盘实际文件名不匹配。
+        # 沙盒目录是隔离的（每个任务独立），因此按扩展名扫描是安全的。
+        if actual_files:
+            # 优先使用 output_path 的扩展名
+            expected_ext = os.path.splitext(output_path)[1].lower()
+            target_exts = [expected_ext] if expected_ext in video_exts else list(video_exts)
+
+            for ext in target_exts:
+                for f in actual_files:
+                    if f.lower().endswith(ext):
+                        resolved = os.path.join(parent_dir, f)
+                        logger.warning(
+                            "路径不匹配兜底生效: yt-dlp 报告的文件名与磁盘不一致，"
+                            "已通过目录扫描定位到: {}",
+                            resolved,
+                        )
+                        return resolved
+
         return None
 
     def find_thumbnail_file(self, video_path: str) -> str | None:

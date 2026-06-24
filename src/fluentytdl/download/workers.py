@@ -640,14 +640,21 @@ class DownloadWorker(QThread):
 
                     final_moved_path = None
                     try:
-                        for entry in os.scandir(self.sandbox_dir):
-                            if (
-                                entry.is_file()
-                                and not entry.name.endswith(".part")
-                                and not entry.name.endswith(".ytdl")
-                            ):
-                                src = entry.path
-                                dst = os.path.join(self.download_dir, entry.name)
+                        for root, _, files in os.walk(self.sandbox_dir):
+                            for f in files:
+                                if f.endswith(".part") or f.endswith(".ytdl"):
+                                    continue
+
+                                rel_path = os.path.relpath(root, self.sandbox_dir)
+                                target_dir = (
+                                    os.path.join(self.download_dir, rel_path)
+                                    if rel_path != "."
+                                    else self.download_dir
+                                )
+                                os.makedirs(target_dir, exist_ok=True)
+
+                                src = os.path.join(root, f)
+                                dst = os.path.join(target_dir, f)
 
                                 # Move the file
                                 if os.path.exists(dst):
@@ -655,12 +662,9 @@ class DownloadWorker(QThread):
                                 shutil.move(src, dst)
 
                                 # Check if this is the main output path
-                                if (
-                                    self.output_path
-                                    and os.path.basename(self.output_path) == entry.name
-                                ):
+                                if self.output_path and os.path.basename(self.output_path) == f:
                                     final_moved_path = dst
-                                elif not self.output_path and not entry.name.endswith(
+                                elif not self.output_path and not f.endswith(
                                     (
                                         ".jpg",
                                         ".jpeg",

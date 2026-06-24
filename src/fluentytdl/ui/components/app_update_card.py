@@ -40,7 +40,7 @@ class AppUpdateSettingCard(SettingCard):
         super().__init__(
             FluentIcon.APPLICATION,
             "FluentYTDL",
-            f"当前版本: v{current_ver}",
+            f"当前版本: {current_ver}",
             parent,
         )
         self._current_version = current_ver
@@ -135,13 +135,13 @@ class AppUpdateSettingCard(SettingCard):
         prefix = "预发布 " if is_pre else ""
 
         self.setTitle(f"FluentYTDL ({prefix}更新)")
-        self.setContent(f"当前: v{self._current_version}  |  最新: v{latest_ver}")
+        self.setContent(f"当前: {self._current_version}  |  最新: v-{latest_ver}")
         self.actionButton.setText("立即更新")
         self.changelogButton.setVisible(True)
 
         InfoBar.info(
             "发现新版本",
-            f"FluentYTDL v{latest_ver} 已可用",
+            f"FluentYTDL v-{latest_ver} 已可用",
             duration=10000,
             parent=self.window(),
         )
@@ -150,11 +150,11 @@ class AppUpdateSettingCard(SettingCard):
         """无更新。"""
         self.actionButton.setEnabled(True)
         self.actionButton.setText("检查更新")
-        self.setContent(f"当前版本: v{self._current_version}  |  已是最新")
+        self.setContent(f"当前版本: {self._current_version}  |  已是最新")
 
         InfoBar.info(
             "已是最新",
-            f"FluentYTDL v{self._current_version} 已是最新版本。",
+            f"FluentYTDL {self._current_version} 已是最新版本。",
             duration=5000,
             parent=self.window(),
         )
