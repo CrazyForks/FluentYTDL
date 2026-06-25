@@ -137,29 +137,21 @@ def fetch_yt_dlp(dest_dir: Path) -> None:
     print("\n🔧 获取 yt-dlp...")
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    release = github_api("/repos/yt-dlp/yt-dlp/releases/latest")
-    tag = release.get("tag_name", "unknown")
-    print(f"  最新版本: {tag}")
-
-    # 查找 exe 资产
-    exe_asset = next((a for a in release["assets"] if a["name"] == "yt-dlp.exe"), None)
-    if not exe_asset:
-        raise RuntimeError("未找到 yt-dlp.exe 资产")
-
-    # 查找校验和文件
-    checksum_asset = next((a for a in release["assets"] if a["name"] == "SHA2-256SUMS"), None)
+    print("  最新版本: latest (直接下载)")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
 
         # 下载 exe
         exe_path = tmp_path / "yt-dlp.exe"
-        download_file(exe_asset["browser_download_url"], exe_path)
+        exe_url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+        download_file(exe_url, exe_path)
 
         # 下载并校验
-        if checksum_asset:
-            checksum_path = tmp_path / "checksums.txt"
-            download_file(checksum_asset["browser_download_url"], checksum_path)
+        checksum_path = tmp_path / "checksums.txt"
+        checksum_url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS"
+        try:
+            download_file(checksum_url, checksum_path)
             checksums = checksum_path.read_text(encoding="utf-8")
             for line in checksums.splitlines():
                 if "yt-dlp.exe" in line:
@@ -167,14 +159,14 @@ def fetch_yt_dlp(dest_dir: Path) -> None:
                     if not verify_sha256(exe_path, expected_hash):
                         raise RuntimeError("yt-dlp.exe 校验失败")
                     break
-        else:
-            print("  ⚠ 未找到校验文件，跳过校验")
+        except Exception as e:
+            print(f"  ⚠ 校验文件下载或校验失败，跳过校验: {e}")
 
         # 移动到目标
         final_path = dest_dir / "yt-dlp.exe"
         shutil.move(str(exe_path), str(final_path))
 
-    print(f"  ✓ yt-dlp {tag} 已安装到 {dest_dir}")
+    print(f"  ✓ yt-dlp 已安装到 {dest_dir}")
 
 
 def fetch_ffmpeg(dest_dir: Path) -> None:
@@ -224,29 +216,14 @@ def fetch_deno(dest_dir: Path) -> None:
     print("\n🔧 获取 Deno...")
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    release = github_api("/repos/denoland/deno/releases/latest")
-    tag = release.get("tag_name", "unknown")
-    print(f"  最新版本: {tag}")
-
-    # 查找 Windows x86_64 zip
-    zip_asset = next(
-        (
-            a
-            for a in release["assets"]
-            if "x86_64" in a["name"]
-            and "windows" in a["name"].lower()
-            and a["name"].endswith(".zip")
-        ),
-        None,
-    )
-    if not zip_asset:
-        raise RuntimeError("未找到 Deno Windows x86_64 zip 资产")
+    print("  最新版本: latest (直接下载)")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         zip_path = tmp_path / "deno.zip"
 
-        download_file(zip_asset["browser_download_url"], zip_path)
+        url = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip"
+        download_file(url, zip_path)
 
         # 解压
         print("  📦 解压中...")
@@ -263,7 +240,7 @@ def fetch_deno(dest_dir: Path) -> None:
         if not exe_found:
             raise RuntimeError("未找到 deno.exe")
 
-    print(f"  ✓ Deno {tag} 已安装到 {dest_dir}")
+    print(f"  ✓ Deno 已安装到 {dest_dir}")
 
 
 def fetch_atomicparsley(dest_dir: Path) -> None:
@@ -271,23 +248,14 @@ def fetch_atomicparsley(dest_dir: Path) -> None:
     print("\n🔧 获取 AtomicParsley...")
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    release = github_api("/repos/wez/atomicparsley/releases/latest")
-    tag = release.get("tag_name", "unknown")
-    print(f"  最新版本: {tag}")
-
-    # 查找 Windows zip
-    zip_asset = next(
-        (a for a in release["assets"] if "Windows" in a["name"] and a["name"].endswith(".zip")),
-        None,
-    )
-    if not zip_asset:
-        raise RuntimeError("未找到 AtomicParsley Windows zip 资产")
+    print("  最新版本: latest (直接下载)")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         zip_path = tmp_path / "atomicparsley.zip"
 
-        download_file(zip_asset["browser_download_url"], zip_path)
+        url = "https://github.com/wez/atomicparsley/releases/latest/download/AtomicParsleyWindows.zip"
+        download_file(url, zip_path)
 
         # 解压
         print("  📦 解压中...")
@@ -304,7 +272,7 @@ def fetch_atomicparsley(dest_dir: Path) -> None:
         if not exe_found:
             raise RuntimeError("未找到 AtomicParsley.exe")
 
-    print(f"  ✓ AtomicParsley {tag} 已安装到 {dest_dir}")
+    print(f"  ✓ AtomicParsley 已安装到 {dest_dir}")
 
 
 def fetch_pot_provider(dest_dir: Path) -> None:
@@ -312,34 +280,20 @@ def fetch_pot_provider(dest_dir: Path) -> None:
     print("\n🔧 获取 POT Provider...")
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    release = github_api("/repos/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest")
-    tag = release.get("tag_name", "unknown")
-    print(f"  最新版本: {tag}")
-
-    # 查找 Windows exe
-    # 通常命名为: bgutil-pot-windows-x86_64.exe
-    exe_asset = next(
-        (
-            a
-            for a in release["assets"]
-            if "windows" in a["name"].lower() and a["name"].endswith(".exe")
-        ),
-        None,
-    )
-    if not exe_asset:
-        raise RuntimeError("未找到 POT Provider Windows exe 资产")
+    print("  最新版本: latest (直接下载)")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         exe_path = tmp_path / "bgutil-pot-provider.exe"
 
-        download_file(exe_asset["browser_download_url"], exe_path)
+        url = "https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/latest/download/bgutil-pot-windows-x86_64.exe"
+        download_file(url, exe_path)
 
         # 移动到目标
         final_path = dest_dir / "bgutil-pot-provider.exe"
         shutil.move(str(exe_path), str(final_path))
 
-    print(f"  ✓ POT Provider {tag} 已安装到 {dest_dir}")
+    print(f"  ✓ POT Provider 已安装到 {dest_dir}")
 
 
 # ============================================================================
