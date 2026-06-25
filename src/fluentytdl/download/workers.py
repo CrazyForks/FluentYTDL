@@ -545,15 +545,6 @@ class DownloadWorker(QThread):
                 feature.configure(merged)
                 feature.on_download_start(context)
 
-            # Capture intent flags before stripping
-            merged.get("__fluentytdl_use_android_vr", False)
-            merged.get("embedsubtitles", False)
-
-            # Strip internal meta options (never pass to yt-dlp)
-            for k in list(merged.keys()):
-                if isinstance(k, str) and k.startswith("__fluentytdl_"):
-                    merged.pop(k, None)
-
             # === Phase 2: 断点续传支持 ===
             if config_manager.get("enable_resume", True):
                 merged["continuedl"] = True  # 继续下载部分文件
@@ -632,6 +623,15 @@ class DownloadWorker(QThread):
                             "后处理功能 {} 发生异常: {}", feature.__class__.__name__, e
                         )
                         context.emit_warning(f"后处理异常 ({feature.__class__.__name__}): {str(e)}")
+
+                # Strip internal meta options after all features have post-processed.
+                # Must run AFTER on_post_process so that protection gates like
+                # __fluentytdl_keep_thumbnail still work (context.opts is the same
+                # dict reference as merged). These keys are never passed to yt-dlp
+                # because ydl_opts_to_cli_args() only reads specific known keys.
+                for k in list(merged.keys()):
+                    if isinstance(k, str) and k.startswith("__fluentytdl_"):
+                        merged.pop(k, None)
 
                 # ── 转移上岸 (Extraction) ──
                 if hasattr(self, "sandbox_dir") and os.path.exists(self.sandbox_dir):
