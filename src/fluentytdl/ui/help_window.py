@@ -217,85 +217,133 @@ class ExpandHelpCard(ExpandSettingCard):
 _WIZARD_LOGO_URI = r"e:\YouTube\FluentYTDL\assets\logo.png"
 
 _WIZARD_STEP1_HTML = """
-<div style="text-align:center; padding:20px 0;">
-  <img src="file:///e:/YouTube/FluentYTDL/assets/logo.png" width="100" height="100">
-  <h1 style="margin:16px 0 4px 0;">FluentYTDL Pro</h1>
-  <p style="color:#767676; font-size:13px; margin:0 0 24px 0;">__version__</p>
-  <p style="font-size:15px; color:#444; margin-bottom:28px;">全能、极速、现代化的视频下载工具</p>
-  <table style="width:100%; margin:0 auto;">
+<div style="text-align:center; padding:40px 0 20px 0;">
+  <img src="file:///e:/YouTube/FluentYTDL/assets/logo.png" width="112" height="112" style="margin-bottom:16px;">
+  <h1 style="margin:0 0 8px 0; font-size:28px; font-weight:700;">FluentYTDL Pro</h1>
+  <p style="color:#767676; font-size:14px; margin:0 0 32px 0;">Version __version__</p>
+  <p style="font-size:15px; margin:0 0 8px 0; line-height:1.6;">欢迎使用 FluentYTDL Pro。</p>
+  <p style="font-size:13px; color:#767676; margin:0;">本向导将协助您快速熟悉系统的基础工作流、模块分布与核心特性。</p>
+</div>
+"""
+
+_WIZARD_STEP2_HTML = """
+<div style="text-align:left; padding:0 20px;">
+  <p style="font-size:16px; font-weight:600; margin-bottom:8px;">👉 快捷工作流（推荐）</p>
+  <p>您可以在 <strong>设置 → 自动化</strong> 中开启「剪贴板自动识别」。</p>
+  <p>开启后，系统在后台监测到支持的媒体链接（包含单视频、播放列表或频道）时，将自动唤醒解析窗口，点击下载即可建立任务。</p>
+
+  <p style="font-size:16px; font-weight:600; margin-top:24px; margin-bottom:8px;">✍️ 标准解析工作流</p>
+  <p>1. 复制媒体链接并在主页搜索栏进行粘贴。<br>
+  2. 按下回车键或点击右侧解析按钮启动引擎。<br>
+  3. 系统将展现可用画质与音轨，按需选择并确认下载。</p>
+
+  <p style="margin-top:20px; font-size:13px; color:#3A8FB7;">✅ 提示：核心解析与合并管线（yt-dlp、FFmpeg）已在系统内预置，无需额外配置环境。</p>
+</div>
+"""
+
+_WIZARD_STEP3_HTML = """
+<div style="text-align:left; padding:0 20px;">
+  <p style="color:#767676; font-size:13px; margin-bottom:16px;">当需要下载具备年龄限制、会员专属的视频，或遭遇服务端机器人检测拦截时，系统需要身份凭证支持。</p>
+  
+  <p style="font-size:16px; font-weight:600; margin-bottom:12px;">身份验证接入方案</p>
+  <table style="width:100%; margin:0;">
+    <tr><th style="width:25%;">接入方式</th><th style="width:15%;">推荐等级</th><th>说明</th></tr>
+    <tr><td><strong>WebView2 登录</strong></td><td>⭐⭐⭐</td><td>通过隔离的安全沙盒环境授权账号，稳定性最高，为官方推荐首选。</td></tr>
+    <tr><td><strong>本机浏览器提取</strong></td><td>⭐⭐</td><td>通过接口自动提取 Firefox 等浏览器的凭证，部分浏览器因安全策略受限。</td></tr>
+    <tr><td><strong>外部文件导入</strong></td><td>⭐</td><td>通过浏览器扩展导出标准的 Netscape 格式文件，并在系统内导入。</td></tr>
+  </table>
+
+  <p style="margin-top:20px; font-size:13px; color:#3A8FB7;">🛡️ 隐私合规：系统仅保留维持下载会话所需的验证令牌，自动过滤其他追踪性数据。</p>
+</div>
+"""
+
+_WIZARD_STEP4_HTML = """
+<div style="text-align:left; padding:0 10px;">
+  <p style="font-size:16px; font-weight:600; margin-bottom:16px; margin-left:10px;">系统核心特性</p>
+  <table style="width:100%; margin:0;">
     <tr>
-      <td style="text-align:center; padding:12px; width:33%;">
-        <div style="font-size:28px;">⚡</div>
-        <div style="font-weight:600; color:#202020; margin-top:6px;">极速下载</div>
-        <div style="color:#767676; font-size:12px;">多线程分片，全速拉满</div>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">🛡️ 质量风控引擎 (Quality Guard)</div>
+        <div style="color:#767676; font-size:12px;">前置与后置双重质量校验，拦截分辨率异常降级，保障下载质量。</div>
       </td>
-      <td style="text-align:center; padding:12px; width:33%;">
-        <div style="font-size:28px;">🧠</div>
-        <div style="font-weight:600; color:#202020; margin-top:6px;">智能解析</div>
-        <div style="color:#767676; font-size:12px;">自动选择最佳画质</div>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">🔊 智能音轨打分机制</div>
+        <div style="color:#767676; font-size:12px;">依据语言学分析评分，优先为您匹配高质量原生音轨或真人配音。</div>
       </td>
-      <td style="text-align:center; padding:12px; width:33%;">
-        <div style="font-size:28px;">🎬</div>
-        <div style="font-weight:600; color:#202020; margin-top:6px;">专业画质</div>
-        <div style="color:#767676; font-size:12px;">支持 4K / 8K / VR</div>
+    </tr>
+    <tr>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">⚡ 频道与列表极速解析</div>
+        <div style="color:#767676; font-size:12px;">构建三层优先调度系统，支持大规模播放列表的视口感知与懒加载。</div>
+      </td>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">🎵 智能片段跳过 (SponsorBlock)</div>
+        <div style="color:#767676; font-size:12px;">接入众包数据库，在处理管线中自动识别并跳过赞助商与推广片段。</div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">🥽 VR 空间后处理管道</div>
+        <div style="color:#767676; font-size:12px;">自动对 VR180/360 视频进行投影转换并注入空间元数据。</div>
+      </td>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">🔄 任务状态持久化</div>
+        <div style="color:#767676; font-size:12px;">底层基于 SQLite 管理任务生命周期，支持崩溃或意外重启后无缝恢复。</div>
       </td>
     </tr>
   </table>
 </div>
 """
 
-_WIZARD_STEP2_HTML = """
-<h3>👉 懒人模式（推荐）</h3>
-<p>在<strong>设置 → 自动化</strong>中开启「剪贴板自动识别」。</p>
-<p>之后只要复制 YouTube 链接，软件自动弹出下载窗口，点击「下载」即可。</p>
-<h3>✍️ 手动模式</h3>
-<p>在主页搜索栏粘贴链接 → 按回车 → 解析完成 → 选择格式 → 下载。</p>
-<blockquote><strong>✅ 开箱即用：</strong>软件已内置 yt-dlp、FFmpeg、Deno，无需额外安装任何组件。</blockquote>
-"""
-
-_WIZARD_STEP3_HTML = """
-<p style="color:#767676; font-size:13px;">只有下载会员专属、年龄限制等受限视频时才需要配置。日常公开视频无需任何操作。</p>
-<h3>三种获取方式</h3>
-<table>
-<tr><th>方式</th><th>推荐度</th><th>说明</th></tr>
-<tr><td><strong>WebView2 登录获取</strong></td><td>⭐⭐⭐ 强烈推荐</td><td>弹出安全沙盒窗口登录，一键获取，最稳定无兼容性问题</td></tr>
-<tr><td><strong>Firefox 自动提取</strong></td><td>⭐⭐ 推荐</td><td>无需管理员权限，稳定可靠</td></tr>
-<tr><td><strong>手动导入</strong></td><td>⭐ 兜底</td><td>用浏览器插件导出 cookies.txt 后导入</td></tr>
-</table>
-<blockquote><strong>⚠️ Chrome 用户注意：</strong>Chrome v127+ 加密机制导致自动提取基本不可用，请优先使用 WebView2 登录。</blockquote>
-"""
-
-_WIZARD_STEP4_HTML = """
-<table style="width:100%;">
-<tr>
-  <td style="padding:12px; vertical-align:top; width:50%;">
-    <h3 style="border-radius:8px 8px 0 0;">🎨 A+B 专业模式</h3>
-    <p>解析后点击「选择格式」，自由组合 4K 视频流与 Hi-Res 音频流，定制完美文件。</p>
-  </td>
-  <td style="padding:12px; vertical-align:top; width:50%;">
-    <h3 style="border-radius:8px 8px 0 0;">🎵 SponsorBlock</h3>
-    <p>自动跳过视频中的赞助广告片段，社区众包数据库支持数百万视频。</p>
-  </td>
-</tr>
-<tr>
-  <td style="padding:12px; vertical-align:top; width:50%;">
-    <h3 style="border-radius:8px 8px 0 0;">🕶️ VR 视频</h3>
-    <p>自动检测 VR 内容，支持最高 8K VR 全景视频下载。</p>
-  </td>
-  <td style="padding:12px; vertical-align:top; width:50%;">
-    <h3 style="border-radius:8px 8px 0 0;">🔄 崩溃恢复</h3>
-    <p>任务数据实时写入数据库，崩溃/断电后任务列表自动保留。</p>
-  </td>
-</tr>
-</table>
-"""
-
 _WIZARD_STEP5_HTML = """
-<div style="text-align:center; padding:30px 0;">
-  <div style="font-size:48px; margin-bottom:16px;">✅</div>
-  <h2 style="margin:0 0 8px 0;">一切就绪！</h2>
-  <p style="color:#767676; font-size:14px; margin-bottom:24px;">核心组件已自动安装完成，随时可以开始下载。</p>
-  <blockquote><strong>📖 遇到问题？</strong>点击标题栏帮助按钮，查看「用户手册」标签页获取详细指南。</blockquote>
+<div style="text-align:left; padding:0 10px;">
+  <p style="font-size:16px; font-weight:600; margin-bottom:16px; margin-left:10px;">侧边栏功能导航</p>
+  <table style="width:100%; margin:0;">
+    <tr>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">🏠 主页 / 基础解析</div>
+        <div style="color:#767676; font-size:12px;">核心工作区。粘贴链接即可解析单个视频或整个播放列表，并自由组装画质与音轨。</div>
+      </td>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">📺 频道下载</div>
+        <div style="color:#767676; font-size:12px;">专为频道级别搬运设计。支持动态懒加载频道内的所有视频，并一键批量建立任务。</div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">🥽 VR 下载</div>
+        <div style="color:#767676; font-size:12px;">独立的 VR 处理管线。自动提取 VR 全景格式并重投影，适配主流头显。</div>
+      </td>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">📝 物料提取 (字幕/封面)</div>
+        <div style="color:#767676; font-size:12px;">提供独立的提取页面，无需下载巨大视频本体即可高速获取多语种字幕与高清海报。</div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">⬇️ 任务列表</div>
+        <div style="color:#767676; font-size:12px;">统一的下载调度中心。支持任务的全局暂停、开始，以及任务队列的批量管理。</div>
+      </td>
+      <td style="padding:10px; vertical-align:top; width:50%; border:none;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">⚙️ 设置中心</div>
+        <div style="color:#767676; font-size:12px;">提供身份验证 (Cookie) 授权、底层组件维护、并发数调整及其他核心偏好设定。</div>
+      </td>
+    </tr>
+  </table>
+</div>
+"""
+
+_WIZARD_STEP6_HTML = """
+<div style="text-align:center; padding:30px 0 10px 0;">
+  <div style="font-size:64px; margin-bottom:16px;">🚀</div>
+  <h2 style="margin:0 0 12px 0; font-size:28px; font-weight:700;">一切准备就绪</h2>
+  <p style="font-size:14px; margin:0 0 36px 0;">核心服务进程已初始化，您可以开始建立下载任务了。</p>
+  
+  <div style="text-align:left; border:1px solid #767676; padding:16px 20px; border-radius:8px; display:inline-block; max-width:85%;">
+    <p style="font-size:16px; font-weight:600; margin:0 0 10px 0;">⚠️ 核心组件更新预警</p>
+    <p style="font-size:13px; margin:0 0 10px 0; line-height:1.6;">流媒体平台的防护策略更新极为频繁。如果您在未来使用中遭遇<strong>大面积解析错误、HTTP 403 异常或频繁的机器人验证拦截</strong>，这通常是因为上游策略发生了改变。</p>
+    <p style="font-size:13px; margin:0; line-height:1.6;">👉 <strong>排障第一步：</strong>请立即前往 <strong>「设置 → 更新」</strong> 页面，将内部核心组件升级至最新版本，99% 的解析问题都能由此解决。</p>
+  </div>
 </div>
 """
 
@@ -317,7 +365,7 @@ class WelcomeGuideWidget(QWidget):
         self.v_layout.setContentsMargins(40, 20, 40, 20)
 
         # Step progress label
-        self.step_label = BodyLabel("第 1 步 / 共 5 步", self)
+        self.step_label = BodyLabel("第 1 步 / 共 6 步", self)
         self.step_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.step_label.setTextColor(QColor(140, 140, 140), QColor(160, 160, 160))
         self.v_layout.addWidget(self.step_label)
@@ -342,6 +390,7 @@ class WelcomeGuideWidget(QWidget):
             _WIZARD_STEP3_HTML,
             _WIZARD_STEP4_HTML,
             _WIZARD_STEP5_HTML,
+            _WIZARD_STEP6_HTML,
         ]:
             browser = _AutoHeightTextBrowser(self, is_wizard=True)
             browser.document().setDefaultStyleSheet(get_markdown_css() + _WIZARD_CSS_OVERRIDE)
@@ -450,7 +499,7 @@ _QUICK_DOWNLOAD_HTML = """
 <tr><td>短视频</td><td><code>youtube.com/shorts/...</code></td></tr>
 </table>
 
-<blockquote><strong>提示：</strong>支持 B 站、Patreon 等数百个网站（底层引擎 yt-dlp 支持），但 FluentYTDL 的 UI 优化专为 YouTube 定制。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>支持 B 站、Patreon 等数百个网站（底层引擎 yt-dlp 支持），但 FluentYTDL 的 UI 优化专为 YouTube 定制。</p>
 """
 
 _FORMAT_QUALITY_HTML = """
@@ -481,7 +530,7 @@ _LAZY_MODE_HTML = """
 <h3>使用效果</h3>
 <p>开启后，软件在后台监听剪贴板。只要复制了 YouTube 链接，就会自动弹出下载确认窗口，无需手动粘贴。点击「下载」即开始。</p>
 
-<blockquote><strong>推荐：</strong>这是最高效的使用方式，尤其适合日常频繁下载的用户。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>推荐：</strong>这是最高效的使用方式，尤其适合日常频繁下载的用户。</p>
 """
 
 _BATCH_MANAGE_HTML = """
@@ -525,7 +574,7 @@ _COOKIE_COMPARE_HTML = """
 <tr><td>Chrome</td><td>基本不可用</td><td>v127+ 加密机制导致第三方无法解密</td></tr>
 </table>
 
-<blockquote><strong>重要：</strong>Chrome 自动提取极不稳定。如果你使用 Chrome 且频繁失败，请切换到 WebView2 或 Firefox。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>重要：</strong>Chrome 自动提取极不稳定。如果你使用 Chrome 且频繁失败，请切换到 WebView2 或 Firefox。</p>
 """
 
 _POTOKEN_HTML = """
@@ -547,7 +596,7 @@ _POTOKEN_HTML = """
 <tr><td>缺失后果</td><td>触发人机验证、画质受限</td><td>无法下载受限内容</td></tr>
 </table>
 
-<blockquote><strong>最佳实践：</strong>两者同时启用是最稳定的配置。PO Token 确保请求不被拦截，Cookie 确保有权限获取完整内容。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>最佳实践：</strong>两者同时启用是最稳定的配置。PO Token 确保请求不被拦截，Cookie 确保有权限获取完整内容。</p>
 
 <h3>POT Provider 预热</h3>
 <p>应用启动时，POT Provider 需要 5-15 秒初始化 BotGuard 环境。预热期间日志显示「正在初始化」，完成后显示「已激活」。如果一直无法激活，请检查 Deno 是否已安装。</p>
@@ -568,7 +617,7 @@ _NETWORK_PROXY_HTML = """
 <h3>手动配置代理</h3>
 <p>如果自动代理不工作，在 <strong>设置 → 网络连接</strong> 中选择「手动配置」，填入代理端口（如 <code>http://127.0.0.1:7890</code>）。</p>
 
-<blockquote><strong>注意：</strong>不推荐长期使用手动代理。代理软件换端口后需手动同步修改，容易遗漏。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>注意：</strong>不推荐长期使用手动代理。代理软件换端口后需手动同步修改，容易遗漏。</p>
 
 <h3>DNS 错误 / 连接重置</h3>
 <ul>
@@ -597,7 +646,7 @@ _LOGIN_ERROR_HTML = """
 <li>私享视频</li>
 </ul>
 
-<blockquote><strong>提示：</strong>绝大多数公开视频不需要登录。日常使用直接复制链接粘贴解析即可。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>绝大多数公开视频不需要登录。日常使用直接复制链接粘贴解析即可。</p>
 
 <h3>修改账号资料后出现验证错误</h3>
 <p>修改用户名/头像触发了 Google 安全风控。解决：浏览器退出 YouTube → 重新登录 → 播放一个视频确认正常 → 重新获取 Cookie。</p>
@@ -639,7 +688,7 @@ _VR_VIDEO_HTML = """
 <h3>播放说明</h3>
 <p>VR 视频在普通播放器中呈畸变是正常的，需用 VR 头显或全景播放器（Skybox、PotPlayer 全景模式）。</p>
 
-<blockquote><strong>注意：</strong>EAC 格式的 8K 转码极度消耗资源（建议 32GB+ 内存），没有高性能硬件时建议限制在 4K/6K。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>注意：</strong>EAC 格式的 8K 转码极度消耗资源（建议 32GB+ 内存），没有高性能硬件时建议限制在 4K/6K。</p>
 """
 
 _FORMAT_COMPAT_HTML = """
@@ -669,7 +718,7 @@ _FORMAT_COMPAT_HTML = """
 <li>其他混合编码 → MKV（万能容器）</li>
 </ul>
 
-<blockquote><strong>什么是 remux？</strong>重封装是把音视频数据从一个容器搬到另一个容器，不重新编码，速度极快且画质零损失。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>什么是 remux？</strong>重封装是把音视频数据从一个容器搬到另一个容器，不重新编码，速度极快且画质零损失。</p>
 """
 
 _CRASH_RECOVERY_HTML = """
@@ -685,7 +734,7 @@ _CRASH_RECOVERY_HTML = """
 <li>纯提取任务（封面/字幕）重启后标记为错误，避免产生「幽灵任务」</li>
 </ul>
 
-<blockquote><strong>提示：</strong>这意味着您可以放心地在下载过程中关闭软件，下次打开时任务不会丢失。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>这意味着您可以放心地在下载过程中关闭软件，下次打开时任务不会丢失。</p>
 """
 
 _COMPONENTS_HTML = """
@@ -734,7 +783,7 @@ _PERFORMANCE_HTML = """
 <tr><td>16+</td><td>不推荐</td><td>高概率限流、IP 封锁</td></tr>
 </table>
 
-<blockquote><strong>注意：</strong>分片数并非越大越快。YouTube 会对单 IP 的并发连接数监控，超过阈值会触发限流甚至封锁。默认值 4 是最佳平衡点。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>注意：</strong>分片数并非越大越快。YouTube 会对单 IP 的并发连接数监控，超过阈值会触发限流甚至封锁。默认值 4 是最佳平衡点。</p>
 
 <h3>下载限速</h3>
 <p>在「设置 → 下载选项」中可设置速率上限，适用场景：</p>
@@ -765,7 +814,7 @@ _ERROR_TABLE_HTML = """
 <li><strong>更新 yt-dlp</strong>：社区会持续适配 YouTube 的反爬变化</li>
 </ol>
 
-<blockquote><strong>提示：</strong>403 的 IP 封锁通常需要等 12-24 小时解封。更换节点是最快的解决方案。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>403 的 IP 封锁通常需要等 12-24 小时解封。更换节点是最快的解决方案。</p>
 """
 
 _LOG_REPORT_HTML = """
@@ -781,7 +830,7 @@ _LOG_REPORT_HTML = """
 <h3>一键上报 Bug</h3>
 <p>遇到未知的解析异常或下载中断时，点击报错卡片处弹出的「反馈此错误」图标按钮，会自动预填错误信息提报给开发者。</p>
 
-<blockquote><strong>提示：</strong>附上日志文件能让开发者更快定位问题。在 GitHub Issue 中粘贴日志内容即可。</blockquote>
+<p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>附上日志文件能让开发者更快定位问题。在 GitHub Issue 中粘贴日志内容即可。</p>
 """
 
 
@@ -799,6 +848,9 @@ class ManualReaderWidget(ScrollArea):
         self.setWidget(self.view)
         self.setWidgetResizable(True)
         self.setObjectName("manualScrollArea")
+        
+        from PySide6.QtWidgets import QFrame
+        self.setFrameShape(QFrame.Shape.NoFrame)
 
         from qfluentwidgets import qconfig
 

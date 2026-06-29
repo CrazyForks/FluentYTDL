@@ -41,9 +41,9 @@ class UpdateDialog(MessageBoxBase):
         version = update_info.get("version", "?")
         is_prerelease = update_info.get("is_prerelease", False)
         if is_prerelease:
-            title_text = f"发现预发布版本 pre-{version}"
+            title_text = f"发现预发布版本 {version}"
         else:
-            title_text = f"发现新版本 v{version}"
+            title_text = f"发现新版本 {version}"
 
         self.titleLabel = SubtitleLabel(title_text, self)
         self.viewLayout.addWidget(self.titleLabel)
@@ -128,10 +128,8 @@ class UpdateDialog(MessageBoxBase):
 
     def _on_skip_clicked(self) -> None:
         ver = self.update_info.get("version") or ""
-        is_prerelease = self.update_info.get("is_prerelease", False)
-        # 按通道分别存储跳过版本
-        key = "skipped_pre_version" if is_prerelease else "skipped_stable_version"
-        config_manager.set(key, ver)
+        # 仅 stable 通道支持自动更新，统一使用 skipped_stable_version
+        config_manager.set("skipped_stable_version", ver)
         self.reject()
 
     def hideEvent(self, event) -> None:  # noqa: N802

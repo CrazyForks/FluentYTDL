@@ -1,5 +1,6 @@
 """Tests for the standalone updater module (no Qt/network dependencies)."""
 
+import importlib.util
 import os
 import sys
 import zipfile
@@ -7,15 +8,25 @@ from pathlib import Path
 
 import pytest
 
-# Resolve src/ for direct execution
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
-from fluentytdl.core.updater import (
-    extract_archive,
-    request_admin_if_needed,
-    self_delete,
-    wait_for_process,
+# Load updater.py directly via importlib to avoid triggering
+# fluentytdl.core.__init__ -> config_manager -> PySide6 import chain.
+_updater_path = (
+    Path(__file__).resolve().parent.parent
+    / "src"
+    / "fluentytdl"
+    / "core"
+    / "updater.py"
 )
+_spec = importlib.util.spec_from_file_location("_updater_under_test", _updater_path)
+_updater_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_updater_mod)
+
+_move_extracted_files = _updater_mod._move_extracted_files
+_verify_extraction = _updater_mod._verify_extraction
+extract_archive = _updater_mod.extract_archive
+request_admin_if_needed = _updater_mod.request_admin_if_needed
+self_delete = _updater_mod.self_delete
+wait_for_process = _updater_mod.wait_for_process
 
 
 class TestWaitForProcess:
@@ -87,3 +98,81 @@ class TestSelfDelete:
         fake_exe.write_bytes(b"MZ")
         # Should not raise
         self_delete(fake_exe)
+
+
+class TestVerifyExtraction:
+    def test_valid_extraction_passes(self, tmp_path):
+        """A complete extraction with exe, _internal, and VERSION should pass."""
+        (tmp_path / "FluentYTDL.exe").write_bytes(b"MZ" + b"\x00" * 100)
+        internal = tmp_path / "_internal"
+        internal.mkdir()
+        (internal / "python311.dll").write_bytes(b"dll")
+        (tmp_path / "VERSION").write_text("v-3.0.18")
+
+        assert _verify_extraction(tmp_path, "FluentYTDL.exe") is True
+
+    def test_missing_exe_fails(self, tmp_path):
+        """Missing exe should fail verification."""
+        internal = tmp_path / "_internal"
+        internal.mkdir()
+        (internal / "lib.dll").write_bytes(b"dll")
+
+        assert _verify_extraction(tmp_path, "FluentYTDL.exe") is False
+
+    def test_empty_exe_fails(self, tmp_path):
+        """Zero-byte exe should fail verification."""
+        (tmp_path / "FluentYTDL.exe").write_bytes(b"")
+        internal = tmp_path / "_internal"
+        internal.mkdir()
+        (internal / "lib.dll").write_bytes(b"dll")
+
+        assert _verify_extraction(tmp_path, "FluentYTDL.exe") is False
+
+    def test_empty_internal_fails(self, tmp_path):
+        """Empty _internal/ should fail verification."""
+        (tmp_path / "FluentYTDL.exe").write_bytes(b"MZ" + b"\x00" * 100)
+        (tmp_path / "_internal").mkdir()
+
+        assert _verify_extraction(tmp_path, "FluentYTDL.exe") is False
+
+    def test_missing_internal_fails(self, tmp_path):
+        """Missing _internal/ should fail verification."""
+        (tmp_path / "FluentYTDL.exe").write_bytes(b"MZ" + b"\x00" * 100)
+
+        assert _verify_extraction(tmp_path, "FluentYTDL.exe") is False
+
+
+class TestMoveExtractedFiles:
+    def test_move_all_files(self, tmp_path):
+        """All files from tmp_dir should be moved to dest_dir."""
+        src = tmp_path / "src"
+        dest = tmp_path / "dest"
+        src.mkdir()
+        dest.mkdir()
+
+        (src / "FluentYTDL.exe").write_bytes(b"MZ")
+        (src / "VERSION").write_text("v-3.0.18")
+        docs = src / "docs"
+        docs.mkdir()
+        (docs / "README.md").write_text("hello")
+
+        assert _move_extracted_files(src, dest) is True
+
+        assert (dest / "FluentYTDL.exe").exists()
+        assert (dest / "VERSION").read_text() == "v-3.0.18"
+        assert (dest / "docs" / "README.md").read_text() == "hello"
+        # Source should be empty after move
+        assert not any(src.iterdir())
+
+    def test_move_overwrites_existing(self, tmp_path):
+        """Existing files in dest should be overwritten."""
+        src = tmp_path / "src"
+        dest = tmp_path / "dest"
+        src.mkdir()
+        dest.mkdir()
+
+        (src / "VERSION").write_text("v-3.0.19")
+        (dest / "VERSION").write_text("v-3.0.18")  # old version
+
+        assert _move_extracted_files(src, dest) is True
+        assert (dest / "VERSION").read_text() == "v-3.0.19"

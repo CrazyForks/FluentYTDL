@@ -832,8 +832,7 @@ class SelectionDialog(MessageBoxBase):
         self._scroll_area: SmoothScrollArea | None = None
         self._scroll_widget: QWidget | None = None
         self._scroll_layout: QVBoxLayout | None = None
-        self._cards: list[PlaylistItemCard] = []
-        self._extract_manager: AsyncExtractManager | None = None
+        self._cards = []
         # _action_widget_by_row now stores _PlaylistModelRowProxy objects
         self._action_widget_by_row: dict[int, Any] = {}
         self._thumb_cache: dict[str, Any] = {}
@@ -1122,14 +1121,7 @@ class SelectionDialog(MessageBoxBase):
         except Exception:
             self.video_info_dto = None
 
-        # Cancel any previous extract_manager before rebuilding to prevent
-        # stale worker callbacks from firing on a newly-constructed model.
-        if self._extract_manager is not None:
-            try:
-                self._extract_manager.cancel_all()
-            except Exception:
-                pass
-            self._extract_manager = None
+        # Legacy extract manager cleanup removed
 
         self.retryWidget.hide()
         if self._error_label is not None:
@@ -1156,9 +1148,14 @@ class SelectionDialog(MessageBoxBase):
         self._clear_content_layout()
 
         if self._is_playlist:
-            self.titleLabel.show()
-            self.yesButton.setEnabled(False)
-            self.setup_playlist_ui(info_dict)
+            self.on_parse_error(
+                {
+                    "title": "不支持的操作",
+                    "content": "此对话框仅用于单视频备选格式挑选，不再支持播放列表。请通过主页重新解析。",
+                    "raw_error": "Playlist not supported in fallback dialog.",
+                }
+            )
+            return
         else:
             # 单视频：不占用额外纵向空间显示"解析成功"，用顶部信息区承载
             self.titleLabel.hide()
@@ -1603,7 +1600,9 @@ class SelectionDialog(MessageBoxBase):
         self._scroll_throttle_timer.timeout.connect(self._on_scroll_throttled)
         self._scroll_area.verticalScrollBar().valueChanged.connect(self._on_scroll_value_changed)
 
-        self._extract_manager = AsyncExtractManager(max_concurrent=3, parent=self)
+        from ...core.config_manager import config_manager
+        concurrency = int(config_manager.get("playlist_extract_concurrency", 3))
+        self._extract_manager = AsyncExtractManager(max_concurrent=concurrency, parent=self)
 
         self.contentLayout.addWidget(self._scroll_area)
 
@@ -2823,36 +2822,7 @@ class SelectionDialog(MessageBoxBase):
 
             # 【关键修复】集成字幕服务到新格式选择器路径
             if self.video_info:
-                # 优先使用缓存的用户选择（在 accept() 中已询问）
-                if self._subtitle_choice_made:
-                    logger.debug(
-                        "get_selected_tasks: Using cached subtitle choice: {}",
-                        self._subtitle_embed_choice,
-                    )
-                    embed_override = self._subtitle_embed_choice
-                else:
-                    # 如果没有缓存，再询问（不应该发生，但作为后备）
-                    logger.debug(
-                        "get_selected_tasks: No cached choice, calling _check_subtitle_and_ask()"
-                    )
-                    try:
-                        embed_override = self._check_subtitle_and_ask()
-                        logger.debug("get_selected_tasks: embed_override = {}", embed_override)
-                    except ValueError as e:
-                        # 用户取消下载
-                        logger.debug("get_selected_tasks: User cancelled - {}", e)
-                        return []
-                    except Exception as e:
-                        # 其他异常
-                        logger.error(
-                            "get_selected_tasks: Exception in _check_subtitle_and_ask - {}", e
-                        )
-
-                        logger.exception(
-                            "get_selected_tasks: _check_subtitle_and_ask exception details"
-                        )
-                        # 继续下载，但不设置字幕
-                        embed_override = None
+                embed_override = None
 
                 subtitle_opts = subtitle_service.apply(
                     video_id=(dto.video_id if dto is not None else self.video_info.get("id", "")),
@@ -2967,92 +2937,6 @@ class SelectionDialog(MessageBoxBase):
 
         return tasks
 
-    def _check_subtitle_and_ask(self) -> bool | None:
-        """
-        检查字幕配置并弹出询问对话框
-
-        Returns:
-            None: 不需要嵌入或使用默认配置
-            True: 用户选择嵌入
-            False: 用户选择不嵌入
-
-        Raises:
-            ValueError: 用户取消下载
-        """
-        logger.debug("_check_subtitle_and_ask: Method called")
-
-        if not self.video_info:
-            logger.debug("_check_subtitle_and_ask: No video_info, returning None")
-            return None
-
-        from ...core.config_manager import config_manager
-        from ...processing.subtitle_manager import extract_subtitle_tracks
-
-        subtitle_config = config_manager.get_subtitle_config()
-        logger.debug(
-            "_check_subtitle_and_ask: subtitle_enabled={}, embed_mode={}",
-            subtitle_config.enabled,
-            subtitle_config.embed_mode,
-        )
-
-        if not subtitle_config.enabled:
-            logger.debug("_check_subtitle_and_ask: Subtitle disabled, returning None")
-            return None
-
-        # 检查视频是否有字幕
-        tracks = extract_subtitle_tracks(self.video_info)
-        logger.debug("_check_subtitle_and_ask: Found {} subtitle tracks", len(tracks))
-
-        if not tracks:
-            # 视频没有字幕，提示用户
-            logger.debug("_check_subtitle_and_ask: No subtitles, showing warning dialog")
-            box = MessageBox(
-                "⚠️ 无可用字幕",
-                "此视频没有可用字幕。\n\n是否继续下载（无字幕）？",
-                parent=self,
-            )
-            box.yesButton.setText("继续下载")
-            box.cancelButton.setText("取消")
-            logger.debug(
-                "_check_subtitle_and_ask: About to call box.exec() for no subtitle warning"
-            )
-            result = box.exec()
-            logger.debug("_check_subtitle_and_ask: box.exec() returned {}", result)
-            if not result:
-                logger.debug("_check_subtitle_and_ask: User cancelled, raising ValueError")
-                raise ValueError("用户取消下载：无字幕")
-            logger.debug("_check_subtitle_and_ask: User continue, returning None")
-            return None
-
-        # 有字幕，检查是否需要询问嵌入模式
-        if subtitle_config.embed_mode == "ask":
-            available_langs = [t.lang_code for t in tracks[:5]]
-            lang_display = ", ".join(available_langs)
-            if len(tracks) > 5:
-                lang_display += f" 等 {len(tracks)} 种语言"
-
-            logger.debug(
-                "_check_subtitle_and_ask: embed_mode is 'ask', showing confirmation dialog with langs: {}",
-                lang_display,
-            )
-            box = MessageBox(
-                "📝 字幕嵌入确认",
-                f"检测到可用字幕：{lang_display}\n\n"
-                f"是否将字幕嵌入到视频文件中？\n"
-                f"(嵌入后可在播放器中直接显示)",
-                parent=self,
-            )
-            box.yesButton.setText("嵌入字幕")
-            box.cancelButton.setText("仅下载文件")
-            logger.debug("_check_subtitle_and_ask: About to call box.exec() for embed confirmation")
-            result = box.exec()
-            logger.debug(
-                "_check_subtitle_and_ask: box.exec() returned {} (type: {})", result, type(result)
-            )
-            return bool(result)
-
-        logger.debug("_check_subtitle_and_ask: Returning None (use config default)")
-        return None  # 使用配置默认值
 
     def accept(self) -> None:
         if self._is_playlist:
@@ -3090,20 +2974,6 @@ class SelectionDialog(MessageBoxBase):
         else:
             # 单个视频下载
             logger.debug("accept: Single video mode")
-
-            # 【关键修复】无论是否有格式选择器，都需要在这里询问字幕
-            # 因为 accept() 是在对话框关闭前执行，此时 MessageBox 能正常工作
-            # get_selected_tasks() 是在对话框关闭后执行，MessageBox 可能无法正常工作
-            if self.video_info is not None and not self._subtitle_choice_made:
-                try:
-                    logger.debug("accept: Calling _check_subtitle_and_ask()")
-                    self._subtitle_embed_choice = self._check_subtitle_and_ask()
-                    self._subtitle_choice_made = True
-                    logger.debug("accept: User choice cached: {}", self._subtitle_embed_choice)
-                except ValueError:
-                    # 用户取消下载
-                    logger.debug("accept: User cancelled")
-                    return
 
             # 检查是否有格式选择器
             logger.debug("accept: Checking for format selector")

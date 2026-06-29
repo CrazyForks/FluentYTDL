@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
@@ -10,11 +10,8 @@ from qfluentwidgets import (
     LineEdit,
     PrimaryPushButton,
     PushButton,
-    SegmentedWidget,
     SubtitleLabel,
 )
-
-from .quick_add_panel import QuickAddPanel
 
 
 class ParsePage(QWidget):
@@ -24,8 +21,6 @@ class ParsePage(QWidget):
     """
 
     parse_requested = Signal(str)
-    quick_download_requested = Signal(list, object)
-
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setObjectName("parsePage")
@@ -37,16 +32,7 @@ class ParsePage(QWidget):
         self.vBoxLayout.setContentsMargins(30, 30, 30, 30)
         self.vBoxLayout.setSpacing(0)
 
-        self.pivot = SegmentedWidget(self)
-        self.pivot.addItem("standard", "精确解析")
-        self.pivot.addItem("quick", "批量快速下载")
-        self.vBoxLayout.addWidget(self.pivot, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.vBoxLayout.addSpacing(20)
-
-        self.stackedWidget = QStackedWidget(self)
-        self.vBoxLayout.addWidget(self.stackedWidget, 1)
-
-        # ====================================================
+        # 不再使用 Pivot/StackedWidget，直接作为主视图
         # 1. Standard Page
         # ====================================================
         self.standardPage = QWidget(self)
@@ -128,19 +114,7 @@ class ParsePage(QWidget):
         self.tipsLabel.setMaximumWidth(760)
         self.centerLayout.addWidget(self.tipsLabel)
 
-        self.stackedWidget.addWidget(self.standardPage)
-
-        # ====================================================
-        # 2. Quick Add Page
-        # ====================================================
-        self.quickAddPage = QuickAddPanel(self)
-        self.quickAddPage.download_requested.connect(self.quick_download_requested)
-        self.stackedWidget.addWidget(self.quickAddPage)
-
-        self.pivot.currentItemChanged.connect(
-            lambda x: self.stackedWidget.setCurrentIndex(0 if x == "standard" else 1)
-        )
-        self.stackedWidget.setCurrentIndex(0)
+        self.vBoxLayout.addWidget(self.standardPage, 1)
 
         # Connect to theme changes
         from qfluentwidgets import qconfig

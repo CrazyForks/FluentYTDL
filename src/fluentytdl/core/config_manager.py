@@ -71,6 +71,7 @@ class ConfigManager(QObject):
         # Official suggestion: --extractor-args youtubetab:skip=authcheck
         # Default OFF to avoid surprising behavior changes.
         "playlist_skip_authcheck": False,
+        "playlist_extract_concurrency": 2,
         # Dependency update source
         # github: official github api/releases
         # ghproxy: use ghproxy mirror

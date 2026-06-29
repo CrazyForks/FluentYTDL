@@ -41,6 +41,7 @@ from .cover_download_page import CoverDownloadPage
 from .help_window import HelpWindow
 from .pages.history_page import HistoryPage
 from .parse_page import ParsePage
+from .quick_add_panel import QuickAddPanel
 from .settings_page import SettingsPage
 from .subtitle_download_page import SubtitleDownloadPage
 from .unified_task_list_page import UnifiedTaskListPage
@@ -194,6 +195,7 @@ class MainWindow(FluentWindow):
         self.history_page = HistoryPage(self)
 
         self.parse_page = ParsePage(self)
+        self.quick_parse_page = QuickAddPanel(self)
         self.vr_parse_page = VRParsePage(self)
         self.channel_parse_page = ChannelParsePage(self)
         self.subtitle_page = SubtitleDownloadPage(self)
@@ -221,7 +223,7 @@ class MainWindow(FluentWindow):
         self.parse_page.parse_requested.connect(
             lambda url: self.show_selection_dialog(url, smart_detect=False, playlist_flat=True)
         )
-        self.parse_page.quick_download_requested.connect(self.handle_quick_download_requested)
+        self.quick_parse_page.download_requested.connect(self.handle_quick_download_requested)
         self.vr_parse_page.parse_requested.connect(self.show_vr_selection_dialog)
         self.channel_parse_page.parse_requested.connect(self._show_channel_dialog)
         self.subtitle_page.parse_requested.connect(self.show_subtitle_selection_dialog)
@@ -287,7 +289,7 @@ class MainWindow(FluentWindow):
         prefix = "预发布版本" if is_pre else "新版本"
         InfoBar.info(
             "软件更新",
-            f"{prefix} v{version} 已可用，前往设置页面更新",
+            f"{prefix} {version} 已可用，前往设置页面更新",
             duration=10000,
             parent=self,
         )
@@ -296,6 +298,11 @@ class MainWindow(FluentWindow):
         # 1. 新建任务
         self.addSubInterface(
             self.parse_page, FluentIcon.ADD, "新建任务", position=NavigationItemPosition.TOP
+        )
+
+        # 1.1 批量快速下载
+        self.addSubInterface(
+            self.quick_parse_page, FluentIcon.ADD_TO, "批量快速下载", position=NavigationItemPosition.TOP
         )
 
         # 2. VR 下载
@@ -653,7 +660,7 @@ class MainWindow(FluentWindow):
         logger.info(f"[DEBUG] Delegating {len(tasks)} tasks to Controller")
         if self.controller:
             created_workers = self.controller.handle_add_tasks(tasks)
-            for worker, t_title, t_thumb in created_workers:
+            for worker, t_title, t_thumb in reversed(created_workers):
                 self.task_page.model.add_task(worker, t_title, str(t_thumb) if t_thumb else "")
         else:
             logger.error("AppController not provided to MainWindow!")

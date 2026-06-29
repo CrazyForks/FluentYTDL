@@ -127,6 +127,51 @@ def detect_component_versions(release_dir: Path) -> dict[str, dict]:
     return components
 
 
+def _read_changelog(full_version: str) -> str:
+    """从 CHANGELOG.md 或 git tag 读取更新日志。
+
+    优先从 docs/CHANGELOG.md 读取对应版本段落，
+    回退到 git tag message。
+    """
+    import subprocess
+
+    # 1. 尝试从 CHANGELOG.md 读取
+    changelog_file = ROOT / "docs" / "CHANGELOG.md"
+    if changelog_file.exists():
+        try:
+            content = changelog_file.read_text(encoding="utf-8")
+            # 查找版本标题（## v-3.0.18 或 ## 3.0.18）
+            import re
+            numeric = re.sub(r"^[a-zA-Z\-]+", "", full_version)
+            for pattern in [f"## {full_version}", f"## v{numeric}", f"## {numeric}"]:
+                idx = content.find(pattern)
+                if idx != -1:
+                    # 截取到下一个 ## 或文件末尾
+                    rest = content[idx + len(pattern):]
+                    next_section = rest.find("\n## ")
+                    if next_section != -1:
+                        return rest[:next_section].strip()
+                    return rest.strip()
+        except Exception:
+            pass
+
+    # 2. 回退到 git tag message
+    try:
+        result = subprocess.run(
+            ["git", "tag", "-l", "--format=%(contents:body)", full_version],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=ROOT,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except Exception:
+        pass
+
+    return ""
+
+
 def generate_manifest(
     full_version: str,
     release_dir: Path,
@@ -136,10 +181,14 @@ def generate_manifest(
     prefix, numeric = parse_version_prefix(full_version)
     arch = "win64" if sys.maxsize > 2**32 else "win32"
 
+    # 读取 changelog（RAW 直链无法获取 release body，需内嵌到清单中）
+    changelog = _read_changelog(full_version)
+
     manifest: dict = {
         "manifest_version": 1,
         "app_version": full_version,
         "release_tag": full_version,
+        "changelog": changelog,
         "components": {},
     }
 
@@ -152,13 +201,14 @@ def generate_manifest(
             "url": f"{base_url}/{app_core_name}",
             "sha256": sha256_file(app_core_path),
             "size": app_core_path.stat().st_size,
+            # updater.exe 不包含在 app-core 归档中，因为 updater.exe 正在运行时无法被覆写
+            # updater.exe 的更新通过延迟替换机制处理（见 main.py _cleanup_update_residuals）
             "files": [
                 "FluentYTDL.exe",
                 "_internal/",
                 "VERSION",
                 "docs/",
                 "licenses/",
-                "updater.exe",
             ],
         }
         print(f"  app-core: {app_core_name} (SHA256 OK)")

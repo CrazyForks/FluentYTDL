@@ -57,7 +57,9 @@ class VRParsePage(QWidget):
         infoLayout.setSpacing(8)
 
         infoTitle = BodyLabel("为什么需要 VR 模式？", self.infoCard)
-        infoTitle.setStyleSheet("font-weight: 600;")
+        font = infoTitle.font()
+        font.setBold(True)
+        infoTitle.setFont(font)
         infoLayout.addWidget(infoTitle)
 
         infoText = CaptionLabel(

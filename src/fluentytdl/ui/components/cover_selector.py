@@ -153,7 +153,9 @@ class CoverSelectorWidget(QFrame):
 
         # 标题及提示
         self.titleLabel = BodyLabel("🖼️ 封面选择", self)
-        self.titleLabel.setStyleSheet("font-weight: 600;")
+        font = self.titleLabel.font()
+        font.setBold(True)
+        self.titleLabel.setFont(font)
         layout.addWidget(self.titleLabel)
 
         self.tipLabel = CaptionLabel(
@@ -228,7 +230,7 @@ class CoverSelectorWidget(QFrame):
 
         self.previewLabel = ImageLabel(previewContainer)
         self.previewLabel.setFixedSize(220, 124)  # 16:9 ratio approx
-        self.previewLabel.scaledToWidth(220)
+        self.previewLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.previewInfo = CaptionLabel("预览加载中...", previewContainer)
         self.previewInfo.setWordWrap(True)
@@ -275,9 +277,9 @@ class CoverSelectorWidget(QFrame):
             return
 
         if pixmap and not pixmap.isNull():
-            # Scale to fit
+            # Scale to fit fixed bounding box
             scaled = pixmap.scaled(
-                self.previewLabel.size(),
+                220, 124,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )

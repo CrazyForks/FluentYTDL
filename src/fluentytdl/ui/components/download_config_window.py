@@ -307,14 +307,15 @@ class DownloadConfigWindow(FramelessWindow):
 
         # === UI Init ===
         self.setWindowTitle("新建任务")
-        self.resize(760, 650)
+        init_w, init_h = 600, 400
+        
+        # 解除硬限制，完全由几何动画或手动设定控制
+        self.setMinimumSize(0, 0)
+        self.setMaximumSize(16777215, 16777215)
 
-        # Center on parent if available
-        if parent:
-            geo = parent.geometry()
-            x = geo.center().x() - self.width() // 2
-            y = geo.center().y() - self.height() // 2
-            self.move(x, y)
+        # 初始居中（计算独立的目标几何图形）
+        target_geo = self._get_target_geometry(init_w, init_h, 40)
+        self.setGeometry(target_geo)
 
         # 主布局容器
         self.main_widget = QWidget(self)
@@ -737,6 +738,8 @@ class DownloadConfigWindow(FramelessWindow):
         label = CaptionLabel(text, wrap)
         toggle = SwitchButton(wrap)
         toggle.setChecked(checked)
+        toggle.setOnText("")
+        toggle.setOffText("")
 
         row.addWidget(label)
         row.addWidget(toggle)
@@ -910,6 +913,11 @@ class DownloadConfigWindow(FramelessWindow):
             layout.addStretch(1)
             return container
 
+        if self._mode == "cover":
+            # 封面解析模式不需要字幕和视频嵌入选项
+            layout.addStretch(1)
+            return container
+
         title = CaptionLabel("下载选项", container)
         layout.addWidget(title)
 
@@ -992,13 +1000,73 @@ class DownloadConfigWindow(FramelessWindow):
 
     def _apply_dialog_size_for_mode(self) -> None:
         if self._is_playlist:
-            size = (980, 760)
+            w, h = 980, 760
+            y_offset = 30
+            x_offset = 25
         elif self._vr_mode:
-            size = (880, 620)
+            w, h = 880, 620
+            y_offset = 80
+            x_offset = 0
+        elif self._mode in ("subtitle", "cover"):
+            w, h = 760, 520
+            y_offset = 30
+            x_offset = 0
         else:
-            size = (760, 520)
+            w, h = 760, 520
+            y_offset = 110
+            x_offset = 0
+            
+        target_geo = self._get_target_geometry(w, h, y_offset, x_offset)
+        
+        from PySide6.QtCore import QEasingCurve, QPropertyAnimation
+        
+        # 动画期间放开尺寸限制
+        self.setMinimumSize(0, 0)
+        self.setMaximumSize(16777215, 16777215)
+        
+        self.geo_anim = QPropertyAnimation(self, b"geometry")
+        self.geo_anim.setDuration(250)
+        self.geo_anim.setStartValue(self.geometry())
+        self.geo_anim.setEndValue(target_geo)
+        self.geo_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        
+        def on_anim_finished():
+            self.setMinimumWidth(w)
+            self.setMaximumWidth(w + 60)
+            
+        self.geo_anim.finished.connect(on_anim_finished)
+        self.geo_anim.start()
 
-        self.resize(*size)
+    def _get_target_geometry(self, w: int, h: int, y_offset: int, x_offset: int = 0):
+        from PySide6.QtCore import QRect
+        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtWidgets import QApplication
+        
+        main_window = None
+        for widget in QApplication.topLevelWidgets():
+            if widget.objectName() == "MainWindow" or type(widget).__name__ == "MainWindow":
+                main_window = widget
+                break
+                
+        if main_window:
+            geo = main_window.geometry()
+            cx = geo.center().x()
+            cy = geo.center().y()
+        else:
+            screen = QGuiApplication.primaryScreen().availableGeometry()
+            cx = screen.center().x()
+            cy = screen.center().y()
+        
+        # 严格计算左上角坐标，并应用独立的水平偏移
+        x = cx - w // 2 + x_offset
+        # 根据独立的 y_offset 偏移视觉中心
+        y = cy - h // 2 - y_offset
+        
+        # 防止移出屏幕顶部
+        if y < 0:
+            y = 0
+            
+        return QRect(x, y, w, h)
 
     def _stop_background_parsing(self) -> None:
         if self._is_closing:
@@ -1768,7 +1836,11 @@ class DownloadConfigWindow(FramelessWindow):
 
     def setup_content_ui(self, info: dict[str, Any]) -> None:
         # 1. Top Info Card
+        from PySide6.QtWidgets import QSizePolicy
+        
         top_card = CardWidget(self.contentWidget)
+        top_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        
         top_h = QHBoxLayout(top_card)
         top_h.setContentsMargins(16, 16, 16, 16)
         top_h.setSpacing(16)
@@ -1991,8 +2063,8 @@ class DownloadConfigWindow(FramelessWindow):
 
                 self._playlist_format_override = PlaylistGlobalFormatOverride(
                     download_type="video_audio",
-                    preset_id="1080p",
-                    preset_intent={"type": "video_audio", "max_height": 1080, "prefer_ext": "mp4"},
+                    preset_id="best_raw",
+                    preset_intent={"type": "video_audio", "max_height": None, "prefer_ext": None},
                 )
 
         if self._mode in ("subtitle", "cover"):
@@ -2002,6 +2074,25 @@ class DownloadConfigWindow(FramelessWindow):
             self.applyPresetBtn.hide()
 
         toolbar.addStretch(1)
+        
+        # 并发控制
+        self.concurrency_label = CaptionLabel("解析并发:", self.contentWidget)
+        self.concurrency_combo = ComboBox(self.contentWidget)
+        self.concurrency_combo.addItems(["1", "2", "3", "5", "8", "12", "16"])
+        
+        from ...core.config_manager import config_manager
+        curr_val = int(config_manager.get("playlist_extract_concurrency", 2))
+        try:
+            idx = ["1", "2", "3", "5", "8", "12", "16"].index(str(curr_val))
+            self.concurrency_combo.setCurrentIndex(idx)
+        except ValueError:
+            self.concurrency_combo.setCurrentIndex(1) # fallback to 2
+            
+        self.concurrency_combo.currentIndexChanged.connect(self._on_concurrency_changed)
+        
+        toolbar.addWidget(self.concurrency_label)
+        toolbar.addWidget(self.concurrency_combo)
+
         self.contentLayout.addLayout(toolbar)
 
         list_view = QListView(self.contentWidget)
@@ -2027,7 +2118,9 @@ class DownloadConfigWindow(FramelessWindow):
         self._list_view = list_view
         self._playlist_model = playlist_model
         self._playlist_delegate = playlist_delegate
-        self._extract_manager = AsyncExtractManager(max_concurrent=2, parent=self)
+        from ...core.config_manager import config_manager
+        concurrency = int(config_manager.get("playlist_extract_concurrency", 2))
+        self._extract_manager = AsyncExtractManager(max_concurrent=concurrency, parent=self)
 
         self.contentLayout.addWidget(list_view)
 
@@ -2176,13 +2269,15 @@ class DownloadConfigWindow(FramelessWindow):
                 return str(self._playlist_rows[row].get("url") or "").strip() or None
             return None
 
+        from ...core.config_manager import config_manager
+        concurrency = int(config_manager.get("playlist_extract_concurrency", 3))
         scheduler = PlaylistScheduler(
             extract_manager=mgr,
             get_row_url=_get_url,
             total_rows=lambda: len(self._playlist_rows),
             options=self._current_options,
             vr_mode=self._vr_mode,
-            exec_limit=3,
+            exec_limit=concurrency,
             parent=self,
         )
         scheduler.detail_finished.connect(self._on_scheduler_detail_finished)
@@ -2472,36 +2567,79 @@ class DownloadConfigWindow(FramelessWindow):
         override = getattr(self, "_playlist_format_override", None)
         if override is not None:
             aw.set_loading(False)
-            pid = getattr(override, "preset_id", None)
-            preset_map = {
-                "best_mp4": "最佳画质",
-                "best_raw": "最佳画质(原盘)",
-                "2160p": "2160p",
-                "1440p": "1440p",
-                "1080p": "1080p",
-                "720p": "720p",
-                "480p": "480p",
-                "360p": "360p",
-                "best_video": "最佳质量(无声)",
-                "1080p_video": "1080p(无声)",
-                "audio_best": "最佳音质",
-                "audio_high": "高品质音频",
-                "audio_std": "标准音频",
-            }
-            aw.qualityButton.setText(preset_map.get(pid, "全局格式"))
-
-            c_info = (
-                override.container_override.upper()
-                if getattr(override, "container_override", None)
-                else "自动容器"
-            )
-            if getattr(override, "download_type", None) == "audio_only":
+            from .format_selector import resolve_global_format
+            fmt_str, _ = resolve_global_format(data.get("detail"), override)
+            
+            parts = fmt_str.split('+')
+            vid = parts[0] if len(parts) > 0 else ""
+            aid = parts[1] if len(parts) > 1 else ""
+            
+            # Get the full unfiltered formats list from detail
+            detail_info = data.get("detail") or {}
+            full_fmts = detail_info.get("formats") or []
+            
+            v_fmt = next((f for f in full_fmts if str(f.get("format_id") or f.get("id")) == vid), None)
+            a_fmt = next((f for f in full_fmts if str(f.get("format_id") or f.get("id")) == aid), None)
+            
+            if not v_fmt and not a_fmt and override.download_type != "audio_only":
+                pid = getattr(override, "preset_id", None)
+                preset_map = {
+                    "best_mp4": "最佳画质",
+                    "best_raw": "最佳画质(原盘)",
+                    "2160p": "2160p",
+                    "1440p": "1440p",
+                    "1080p": "1080p",
+                    "720p": "720p",
+                    "480p": "480p",
+                    "360p": "360p",
+                    "best_video": "最佳质量(无声)",
+                    "1080p_video": "1080p(无声)",
+                    "audio_best": "最佳音质",
+                    "audio_high": "高品质音频",
+                    "audio_std": "标准音频",
+                }
+                aw.qualityButton.setText(preset_map.get(pid, "全局格式"))
                 c_info = (
-                    override.audio_format_override.upper()
-                    if override.audio_format_override
-                    else "自动格式"
+                    override.container_override.upper()
+                    if getattr(override, "container_override", None)
+                    else "自动容器"
                 )
-            aw.infoLabel.setText(f"全局: {c_info}")
+                if getattr(override, "download_type", None) == "audio_only":
+                    c_info = (
+                        override.audio_format_override.upper()
+                        if override.audio_format_override
+                        else "自动格式"
+                    )
+                aw.infoLabel.setText(f"全局: {c_info}")
+                return
+
+            if override.download_type == "audio_only":
+                a_fmt = next((f for f in full_fmts if str(f.get("format_id") or f.get("id")) == vid), None)
+                aw.qualityButton.setText(_format_audio_brief(a_fmt) if a_fmt else "音频(自动)")
+                if a_fmt:
+                    aw.infoLabel.setText(_format_info_line("", a_fmt.get("filesize") or a_fmt.get("filesize_approx"), a_fmt.get("ext")))
+                else:
+                    aw.infoLabel.setText("-")
+            else:
+                v_h = v_fmt.get("height") if v_fmt else None
+                v_text = f"{v_h}p" if v_h else "最佳画质"
+                a_text = _format_audio_brief(a_fmt) if a_fmt else ("" if override.download_type == "video_only" else "音频(自动)")
+                
+                if override.download_type == "video_only":
+                    aw.qualityButton.setText(v_text)
+                else:
+                    aw.qualityButton.setText(f"{v_text} + {a_text}")
+                
+                v_size = v_fmt.get("filesize") or v_fmt.get("filesize_approx") if v_fmt else None
+                v_ext = v_fmt.get("ext") if v_fmt else None
+                v_line = _format_info_line("视频 ", v_size, v_ext) if v_fmt else ""
+                
+                a_line = ""
+                if a_fmt:
+                    a_size = a_fmt.get("filesize") or a_fmt.get("filesize_approx")
+                    a_ext = a_fmt.get("ext")
+                    a_line = "\n" + _format_info_line("音频 ", a_size, a_ext)
+                aw.infoLabel.setText(v_line + a_line if (v_line or a_line) else "-")
             return
 
         audio_fmts: list[dict[str, Any]] = data.get("audio_formats") or []
@@ -2726,6 +2864,17 @@ class DownloadConfigWindow(FramelessWindow):
         for r in range(len(self._playlist_rows)):
             self._auto_apply_row_preset(r)
         self._update_download_btn_state()
+
+    def _on_concurrency_changed(self, index: int) -> None:
+        vals = [1, 2, 3, 5, 8, 12, 16]
+        if 0 <= index < len(vals):
+            new_val = vals[index]
+            from ...core.config_manager import config_manager
+            config_manager.set("playlist_extract_concurrency", new_val)
+            if self._extract_manager:
+                self._extract_manager.set_concurrency(new_val)
+            if self._scheduler:
+                self._scheduler.set_concurrency(new_val)
 
     def _on_global_format_clicked(self):
         from ..dialogs.playlist_format_dialog import PlaylistFormatConfigDialog
@@ -3479,21 +3628,7 @@ class DownloadConfigWindow(FramelessWindow):
                     if pick.output_format:
                         ydl_opts["convertsubtitles"] = pick.output_format
                 else:
-                    if self._subtitle_choice_made:
-                        embed_override = self._subtitle_embed_choice
-                    else:
-                        try:
-                            embed_override = self._check_subtitle_and_ask(
-                                config=sub_config_override
-                            )
-                        except ValueError as e:
-                            logger.debug("get_selected_tasks: User cancelled - {}", e)
-                            return []
-                        except Exception as e:
-                            logger.error(
-                                "get_selected_tasks: Exception in _check_subtitle_and_ask - {}", e
-                            )
-                            embed_override = None
+                    embed_override = None
 
                     subtitle_opts = subtitle_service.apply(
                         video_id=(
@@ -3964,61 +4099,7 @@ class DownloadConfigWindow(FramelessWindow):
 
         return tasks
 
-    def _check_subtitle_and_ask(self, config=None) -> bool | None:
-        """
-        检查字幕配置并弹出询问对话框
-        """
-        if not self.video_info:
-            return None
 
-        from ...core.config_manager import config_manager
-        from ...processing.subtitle_manager import extract_subtitle_tracks
-
-        subtitle_config = config or config_manager.get_subtitle_config()
-
-        if not subtitle_config.enabled:
-            return None
-
-        tracks = extract_subtitle_tracks(self.video_info)
-
-        if not tracks:
-            # 视频没有字幕，提示用户
-            box = MessageBox(
-                "⚠️ 无可用字幕",
-                "此视频没有可用字幕。\n\n是否继续下载（无字幕）？",
-                parent=self,
-            )
-            box.yesButton.setText("继续下载")
-            box.cancelButton.setText("取消")
-            if not box.exec():
-                raise ValueError("用户取消下载：无字幕")
-            return None
-
-        # 有字幕，检查是否需要询问嵌入模式
-        if subtitle_config.embed_mode == "ask":
-            available_langs = [t.lang_code for t in tracks[:5]]
-            lang_display = ", ".join(available_langs)
-            if len(tracks) > 5:
-                lang_display += f" 等 {len(tracks)} 种语言"
-
-            box = MessageBox(
-                "检测到字幕",
-                f"此视频包含 {len(tracks)} 个字幕轨道 ({lang_display})。\n\n是否将字幕嵌入视频？",
-                parent=self,
-            )
-            box.yesButton.setText("嵌入字幕")
-            box.cancelButton.setText("不嵌入")
-
-            # 这里的 Cancel 按钮意味着 "不嵌入"，而不是 "取消下载"
-            # MessageBox 的 exec 返回 True (yes) 或 False (cancel)
-            # 所以如果返回 False，我们返回 False (不嵌入)，而不是抛出异常
-
-            result = box.exec()
-            self._subtitle_choice_made = True
-            self._subtitle_embed_choice = bool(result)
-            return bool(result)
-
-        return None
 
     def _update_style(self):
         from PySide6.QtGui import QColor

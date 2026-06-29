@@ -184,7 +184,7 @@ class SubtitleSelectorWidget(QFrame):
                 color = Qt.GlobalColor.gray
             else:
                 type_text = "自动翻译"
-                color = Qt.GlobalColor.darkRed
+                color = None
 
             item_type = QTableWidgetItem(type_text)
             item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)

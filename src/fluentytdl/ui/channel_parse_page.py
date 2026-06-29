@@ -54,7 +54,9 @@ class ChannelParsePage(QWidget):
         infoLayout.setSpacing(8)
 
         infoTitle = BodyLabel("频道批量下载", self.infoCard)
-        infoTitle.setStyleSheet("font-weight: 600;")
+        font = infoTitle.font()
+        font.setBold(True)
+        infoTitle.setFont(font)
         infoLayout.addWidget(infoTitle)
 
         infoText = CaptionLabel(

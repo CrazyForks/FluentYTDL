@@ -205,9 +205,9 @@ class PlaylistItemDelegate(QStyledItemDelegate):
 
         current_x += self.THUMB_WIDTH + self.SPACING
 
-        # 画右侧格式按钮/Loading状态保留位宽度定为 140 左右，放在最右边
+        # 画右侧格式按钮/Loading状态保留位宽度定为 180 左右，放在最右边
         right_margin = rect.right() - self.MARGIN
-        action_width = 140
+        action_width = 180
         action_rect = QRect(right_margin - action_width, center_y - 16, action_width, 32)
 
         # 中间剩下区域就是标题文本
@@ -397,8 +397,8 @@ class PlaylistItemDelegate(QStyledItemDelegate):
 
             # 格式
             fmt_note = task.custom_options.format if task.custom_options.format else "自动最佳"
-            if len(fmt_note) > 12:
-                fmt_note = fmt_note[:10] + ".."
+            if len(fmt_note) > 20:
+                fmt_note = fmt_note[:18] + ".."
             text = fmt_note
 
         painter.setBrush(QBrush(bg))
@@ -432,7 +432,7 @@ class PlaylistItemDelegate(QStyledItemDelegate):
             return "checkbox"
 
         right_margin = rect.right() - self.MARGIN
-        action_width = 140
+        action_width = 180
         btn_rect = QRect(right_margin - action_width, center_y - 16, action_width, 32)
         if btn_rect.contains(point):
             return "action_btn"

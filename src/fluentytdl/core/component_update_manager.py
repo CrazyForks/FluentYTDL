@@ -32,6 +32,11 @@ REPO_NAME = "FluentYTDL"
 GITHUB_API_BASE = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}"
 
 MANIFEST_FILENAME = "update-manifest.json"
+# RAW 直链：releases/latest/download/ 会自动 302 重定向到最新 release 的 asset
+# 完全绕过 GitHub API 速率限制（无 token 时 60 次/小时）
+MANIFEST_RAW_URL = (
+    f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/latest/download/{MANIFEST_FILENAME}"
+)
 
 # ─── 版本比较 ────────────────────────────────────────────
 
@@ -62,14 +67,16 @@ def _parse_version_prefix(full_version: str) -> tuple[str, str]:
 
 
 def _get_update_channel() -> str:
-    """根据当前版本前缀确定更新通道。"""
+    """根据当前版本前缀确定更新通道。
+
+    仅 stable（v- 前缀）支持自动更新。
+    beta 和 pre 统一为 locked，提示用户去 GitHub 手动下载。
+    """
     from fluentytdl import __version__
 
-    if __version__.startswith("beta-"):
-        return "beta"
-    elif __version__.startswith("pre-"):
-        return "pre"
-    return "stable"
+    if __version__.startswith("v-"):
+        return "stable"
+    return "locked"  # beta- 和 pre- 统一为 locked
 
 
 def _get_proxies() -> dict[str, str]:
@@ -97,81 +104,71 @@ def _get_mirror_url(url: str) -> str:
 
 
 class _ManifestWorker(QThread):
-    """后台线程：获取 update-manifest.json"""
+    """后台线程：获取 update-manifest.json
+
+    使用 RAW 直链 (releases/latest/download/) 替代 GitHub API，
+    彻底绕过 API 速率限制（无 token 时 60 次/小时）。
+    失败时回退到本地缓存清单（7 天有效期）。
+    """
 
     finished = Signal(dict)  # manifest dict
     error = Signal(str)
 
-    def __init__(self, release_tag: str):
+    def __init__(self, release_tag: str = ""):
         super().__init__()
         self.release_tag = release_tag
 
     def run(self) -> None:
         try:
+            import json
+
             import requests
+
+            from ..utils.paths import user_data_dir
 
             proxies = _get_proxies()
 
-            # 1. 先从 GitHub Release 获取 manifest 资产 URL
-            channel = _get_update_channel()
+            # RAW 直链下载 — 一步到位，无需 API 调用
+            manifest_url = _get_mirror_url(MANIFEST_RAW_URL)
+            sep = "&" if "?" in manifest_url else "?"
+            final_url = f"{manifest_url}{sep}t={int(time.time())}"
 
-            if channel == "stable":
-                api_url = f"{GITHUB_API_BASE}/releases/latest"
-            else:
-                # pre 通道检查所有 release，取最新的
-                api_url = f"{GITHUB_API_BASE}/releases?per_page=5"
-
-            headers = {"Accept": "application/vnd.github.v3+json"}
-            token = os.environ.get("GITHUB_TOKEN")
-            if token:
-                headers["Authorization"] = f"token {token}"
-
-            resp = requests.get(api_url, headers=headers, proxies=proxies, timeout=15)
-            resp.raise_for_status()
-
-            if channel == "stable":
-                release_data = resp.json()
-            else:
-                releases = resp.json()
-                # 找到最新的非 draft release
-                release_data = next(
-                    (r for r in releases if not r.get("draft")),
-                    releases[0] if releases else {},
-                )
-
-            if not release_data:
-                self.error.emit("未找到 Release")
-                return
-
-            # 2. 从 assets 中找到 manifest
-            manifest_url = ""
-            assets = release_data.get("assets") or []
-            for asset in assets:
-                if asset.get("name") == MANIFEST_FILENAME:
-                    manifest_url = asset.get("browser_download_url", "")
-                    break
-
-            if not manifest_url:
-                self.error.emit("Release 中未找到 update-manifest.json")
-                return
-
-            # 3. 下载 manifest（附加时间戳穿透缓存）
-            final_url = _get_mirror_url(manifest_url)
-            sep = "&" if "?" in final_url else "?"
-            final_url = f"{final_url}{sep}t={int(time.time())}"
-
-            resp = requests.get(final_url, headers=headers, proxies=proxies, timeout=15)
+            resp = requests.get(final_url, proxies=proxies, timeout=15)
             resp.raise_for_status()
             manifest = resp.json()
 
-            # 附加 release 信息
-            manifest["_release_tag"] = release_data.get("tag_name", "")
-            manifest["_release_body"] = release_data.get("body", "")
-            manifest["_is_prerelease"] = release_data.get("prerelease", False)
+            # 本地缓存（离线回退用）
+            try:
+                cache_path = user_data_dir() / "update_manifest_cache.json"
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(
+                    json.dumps(manifest, ensure_ascii=False), encoding="utf-8"
+                )
+            except Exception:
+                pass
 
             self.finished.emit(manifest)
 
         except Exception as e:
+            # 回退到本地缓存清单
+            try:
+                import json
+
+                from ..utils.paths import user_data_dir
+
+                cache_path = user_data_dir() / "update_manifest_cache.json"
+                if cache_path.exists():
+                    age = time.time() - cache_path.stat().st_mtime
+                    if age < 7 * 86400:  # 7 天有效期
+                        manifest = json.loads(cache_path.read_text(encoding="utf-8"))
+                        logger.info(
+                            f"[ComponentUpdate] 网络失败，使用缓存清单（{int(age / 3600)}小时前）"
+                        )
+                        self.finished.emit(manifest)
+                        return
+            except Exception:
+                pass
+
             logger.error(f"[ComponentUpdate] 清单获取失败: {e}")
             self.error.emit(str(e))
 
@@ -192,50 +189,67 @@ class _DownloadWorker(QThread):
         self.expected_sha256 = expected_sha256
 
     def run(self) -> None:
-        try:
-            import hashlib
-            import tempfile
-
-            import requests
-
-            final_url = _get_mirror_url(self.url)
-            proxies = _get_proxies()
-
-            tmp_dir = Path(tempfile.mkdtemp(prefix="fluentytdl_update_"))
-            filename = self.url.rsplit("/", 1)[-1]
-            dest = tmp_dir / filename
-
-            resp = requests.get(final_url, proxies=proxies, timeout=300, stream=True)
-            resp.raise_for_status()
-
-            total = int(resp.headers.get("Content-Length") or 0)
-            downloaded = 0
-            sha256 = hashlib.sha256()
-
-            with open(dest, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=65536):
-                    if not chunk:
-                        continue
-                    f.write(chunk)
-                    sha256.update(chunk)
-                    downloaded += len(chunk)
-                    if total > 0:
-                        self.progress.emit(int(downloaded / total * 100))
-
-            if self.expected_sha256:
-                actual = sha256.hexdigest().lower()
-                expected = self.expected_sha256.strip().lower()
-                if actual != expected:
-                    dest.unlink(missing_ok=True)
-                    self.error.emit(f"SHA256 校验失败\n预期: {expected}\n实际: {actual}")
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                result = self._download_once()
+                if result:
+                    self.finished.emit(result)
+                    return
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    wait = 2 ** attempt  # 1s, 2s
+                    logger.warning(
+                        f"[ComponentUpdate] 下载失败（尝试 {attempt + 1}/{max_retries}），"
+                        f"{wait}s 后重试: {e}"
+                    )
+                    self.progress.emit(0)
+                    time.sleep(wait)
+                else:
+                    logger.error(f"[ComponentUpdate] 下载失败（已重试 {max_retries} 次）: {e}")
+                    self.error.emit(str(e))
                     return
 
-            self.progress.emit(100)
-            self.finished.emit(str(dest))
+    def _download_once(self) -> str | None:
+        """单次下载尝试。成功返回文件路径，失败抛异常。"""
+        import hashlib
+        import tempfile
 
-        except Exception as e:
-            logger.error(f"[ComponentUpdate] 下载失败: {e}")
-            self.error.emit(str(e))
+        import requests
+
+        final_url = _get_mirror_url(self.url)
+        proxies = _get_proxies()
+
+        tmp_dir = Path(tempfile.mkdtemp(prefix="fluentytdl_update_"))
+        filename = self.url.rsplit("/", 1)[-1]
+        dest = tmp_dir / filename
+
+        resp = requests.get(final_url, proxies=proxies, timeout=600, stream=True)
+        resp.raise_for_status()
+
+        total = int(resp.headers.get("Content-Length") or 0)
+        downloaded = 0
+        sha256 = hashlib.sha256()
+
+        with open(dest, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                if not chunk:
+                    continue
+                f.write(chunk)
+                sha256.update(chunk)
+                downloaded += len(chunk)
+                if total > 0:
+                    self.progress.emit(int(downloaded / total * 100))
+
+        if self.expected_sha256:
+            actual = sha256.hexdigest().lower()
+            expected = self.expected_sha256.strip().lower()
+            if actual != expected:
+                dest.unlink(missing_ok=True)
+                raise ValueError(f"SHA256 校验失败\n预期: {expected}\n实际: {actual}")
+
+        self.progress.emit(100)
+        return str(dest)
 
 
 # ─── 主管理器 ────────────────────────────────────────────
@@ -276,8 +290,8 @@ class ComponentUpdateManager(QObject):
     def fetch_manifest(self) -> None:
         """异步获取更新清单。"""
         channel = _get_update_channel()
-        if channel == "beta":
-            logger.info("[ComponentUpdate] beta 通道，跳过清单获取")
+        if channel == "locked":
+            logger.info("[ComponentUpdate] locked 通道，跳过清单获取")
             return
 
         worker = _ManifestWorker(release_tag="")
@@ -301,8 +315,8 @@ class ComponentUpdateManager(QObject):
         """检查所有组件更新（app-core + bin/ 工具）。"""
         channel = _get_update_channel()
 
-        if channel == "beta":
-            # beta 通道不检查更新
+        if channel == "locked":
+            # locked 通道（beta/pre）不检查更新
             return
 
         # 先获取清单
@@ -312,8 +326,8 @@ class ComponentUpdateManager(QObject):
         """仅检查 app-core 更新。"""
         channel = _get_update_channel()
 
-        if channel == "beta":
-            self.app_check_error.emit("beta")
+        if channel == "locked":
+            self.app_check_error.emit("locked")
             return
 
         if self._manifest:
@@ -333,7 +347,7 @@ class ComponentUpdateManager(QObject):
         self._compare_app_version()
 
     def _compare_app_version(self) -> None:
-        """比对 app-core 版本。"""
+        """比对 app-core 版本（仅 stable 通道）。"""
         if not self._manifest:
             self.app_check_error.emit("清单未获取")
             return
@@ -344,15 +358,12 @@ class ComponentUpdateManager(QObject):
             self.app_check_error.emit("无法获取当前版本")
             return
 
-        channel = _get_update_channel()
         manifest_version = self._manifest.get("app_version", "")
         manifest_tag = self._manifest.get("release_tag", manifest_version)
-        is_prerelease = self._manifest.get("_is_prerelease", False)
 
-        # 通道过滤：稳定版不接收预发布
-        if channel == "stable" and is_prerelease:
-            self.app_no_update.emit()
-            return
+        # 确保版本号带前缀（v-3.1.4 格式），防止清单中缺少前缀
+        prefix, numeric = _parse_version_prefix(manifest_version)
+        manifest_version = f"{prefix}{numeric}"
 
         current = _parse_version(__version__)
         latest = _parse_version(manifest_version)
@@ -361,9 +372,8 @@ class ComponentUpdateManager(QObject):
             self.app_no_update.emit()
             return
 
-        # 检查跳过版本
-        skipped_key = "skipped_stable_version" if channel == "stable" else "skipped_pre_version"
-        skipped = str(config_manager.get(skipped_key) or "")
+        # 检查跳过版本（仅 stable）
+        skipped = str(config_manager.get("skipped_stable_version") or "")
         if skipped and _parse_version(skipped) >= latest:
             self.app_no_update.emit()
             return
@@ -375,11 +385,11 @@ class ComponentUpdateManager(QObject):
             {
                 "version": manifest_version,
                 "tag": manifest_tag,
-                "changelog": self._manifest.get("_release_body", ""),
+                "changelog": self._manifest.get("changelog", ""),
                 "url": app_core.get("url", ""),
                 "sha256": app_core.get("sha256", ""),
                 "size": app_core.get("size", 0),
-                "is_prerelease": is_prerelease,
+                "is_prerelease": False,
             }
         )
 
@@ -452,8 +462,13 @@ class ComponentUpdateManager(QObject):
 
     @staticmethod
     def is_beta() -> bool:
-        """是否为 beta 版本。"""
-        return _get_update_channel() == "beta"
+        """已弃用，使用 is_locked()。"""
+        return ComponentUpdateManager.is_locked()
+
+    @staticmethod
+    def is_locked() -> bool:
+        """是否为锁定版本（beta/pre），不支持自动更新。"""
+        return _get_update_channel() == "locked"
 
     def get_manifest_component(self, key: str) -> dict | None:
         """从缓存清单中获取指定组件信息。"""

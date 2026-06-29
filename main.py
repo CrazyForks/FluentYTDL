@@ -31,10 +31,17 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 
 def _cleanup_update_residuals() -> None:
-    """清理更新残留文件（.old 文件、旧备份目录、临时目录）。
+    """清理更新残留文件并恢复失败的更新。
 
     设计为 best-effort：任何失败都静默跳过，不阻塞启动。
     仅在 frozen（打包）模式下执行。
+
+    处理场景：
+    1. _internal_old/ 存在但 _internal/ 不完整 → 自动恢复旧版
+    2. FluentYTDL.exe 不存在但 .exe.old 存在 → 自动恢复旧版
+    3. _update_tmp/ 存在 → 清理失败的更新临时目录
+    4. updater.exe.new 存在 → 延迟替换 updater.exe
+    5. 常规清理：_internal_old/、*.exe.old、%TEMP% 临时目录
     """
     if not getattr(sys, "frozen", False):
         return
@@ -43,16 +50,71 @@ def _cleanup_update_residuals() -> None:
     import tempfile
 
     app_dir = Path(sys.executable).resolve().parent
-
-    # 1. 清理 _internal_old/ 备份目录
+    exe_name = Path(sys.executable).name
+    exe_path = app_dir / exe_name
+    internal_dir = app_dir / "_internal"
     internal_old = app_dir / "_internal_old"
+    exe_old = exe_path.with_suffix(".exe.old")
+    tmp_update_dir = app_dir / "_update_tmp"
+    updater_new = app_dir / "updater.exe.new"
+    updater_path = app_dir / "updater.exe"
+
+    # === 1. 恢复失败的更新 ===
+
+    # 场景 A: _internal_old 存在且 _internal 不存在或为空 → 恢复
+    if internal_old.exists():
+        need_restore = False
+        if not internal_dir.exists():
+            need_restore = True
+        elif not any(internal_dir.iterdir()):
+            need_restore = True
+
+        if need_restore:
+            try:
+                if internal_dir.exists():
+                    shutil.rmtree(internal_dir, ignore_errors=True)
+                internal_old.rename(internal_dir)
+            except Exception:
+                pass
+
+    # 场景 B: 主 exe 不存在但 .exe.old 存在 → 恢复
+    if exe_old.exists() and not exe_path.exists():
+        try:
+            exe_old.rename(exe_path)
+        except Exception:
+            pass
+
+    # === 2. 清理失败的更新临时目录 ===
+    if tmp_update_dir.exists():
+        try:
+            shutil.rmtree(tmp_update_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+    # === 3. 延迟替换 updater.exe ===
+    # updater.exe 在运行时无法被覆写，更新器将新版写入 updater.exe.new
+    # 主程序启动时检测并替换
+    if updater_new.exists() and updater_path.exists():
+        try:
+            updater_path.unlink(missing_ok=True)
+            updater_new.rename(updater_path)
+        except Exception:
+            # 替换失败，删除 .new 文件，保留旧版
+            try:
+                updater_new.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    # === 4. 常规清理 ===
+
+    # 清理 _internal_old/ 备份目录（恢复后仍可能残留）
     if internal_old.exists():
         try:
             shutil.rmtree(internal_old, ignore_errors=True)
         except Exception:
             pass
 
-    # 2. 清理 *.exe.old 文件
+    # 清理 *.exe.old 文件
     try:
         for old_file in app_dir.glob("*.exe.old"):
             try:
@@ -62,7 +124,7 @@ def _cleanup_update_residuals() -> None:
     except Exception:
         pass
 
-    # 3. 清理 %TEMP% 中过时的更新临时目录
+    # 清理 %TEMP% 中过时的更新临时目录
     try:
         temp_root = Path(tempfile.gettempdir())
         for tmp_dir in temp_root.glob("fluentytdl_update_*"):

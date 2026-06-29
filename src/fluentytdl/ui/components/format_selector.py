@@ -347,6 +347,14 @@ class SimplePresetWidget(QWidget):
             h_layout.addWidget(rb)
             h_layout.addWidget(desc_label, 1)
 
+            # 点击卡片任意位置即可选中
+            def on_card_clicked(event, r=rb):
+                r.click()
+
+            container.mousePressEvent = on_card_clicked
+            from PySide6.QtCore import Qt
+            container.setCursor(Qt.CursorShape.PointingHandCursor)
+
             self.v_layout.addWidget(container)
 
         self.v_layout.addStretch(1)

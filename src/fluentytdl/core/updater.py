@@ -198,7 +198,7 @@ def _extract_zip(archive_path: Path, dest_dir: Path) -> None:
 
 
 def self_delete(exe_path: Path) -> None:
-    """延迟自删除。通过 cmd 命令在短暂延迟后删除自身。"""
+    """延迟自删除。通过 cmd 命令在短暂延迟后删除自身，带重试。"""
     if sys.platform != "win32":
         try:
             exe_path.unlink(missing_ok=True)
@@ -206,8 +206,13 @@ def self_delete(exe_path: Path) -> None:
             pass
         return
 
-    # Windows: 用 cmd /c 延迟删除（ping 是一种可靠的 sleep 替代）
-    cmd = f'ping -n 2 127.0.0.1 >nul & del /f /q "{exe_path}"'
+    # Windows: 用 cmd /c 延迟删除，增加重试避免进程未退出时删除失败
+    # ping -n 3 ≈ 2 秒延迟，若删除失败再等待重试一次
+    cmd = (
+        f'ping -n 3 127.0.0.1 >nul 2>&1'
+        f' & (del /f /q "{exe_path}" 2>nul'
+        f' || (ping -n 3 127.0.0.1 >nul 2>&1 & del /f /q "{exe_path}" 2>nul))'
+    )
     subprocess.Popen(
         ["cmd", "/c", cmd],
         creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
@@ -247,21 +252,28 @@ def request_admin_if_needed(app_dir: Path) -> bool:
 def _elevate_self() -> bool:
     """使用 ShellExecuteW 的 runas verb 提权重启自身。"""
     try:
-        # 重新构建命令行参数
-        args = " ".join(sys.argv[1:])
-        exe = sys.executable
+        # 构建命令行参数（处理含空格的路径）
+        def _quote(arg: str) -> str:
+            return f'"{arg}"' if " " in arg else arg
+
+        args = " ".join(_quote(a) for a in sys.argv[1:])
+
         if getattr(sys, "frozen", False):
+            # 打包模式：直接重新启动 updater.exe
             exe = sys.executable
+            params = args
         else:
-            exe = f'"{exe}" "{__file__}"'
+            # 开发模式：用 python 运行 updater.py
+            exe = sys.executable
+            params = f'{_quote(str(Path(__file__).resolve()))} {args}'
 
         shell32 = ctypes.windll.shell32  # type: ignore[attr-defined]
         ret = shell32.ShellExecuteW(
             None,
             "runas",
-            sys.executable if getattr(sys, "frozen", False) else sys.executable,
-            f'"{__file__}" {args}' if not getattr(sys, "frozen", False) else args,
-            None,
+            exe,
+            params,
+            str(Path(sys.executable).resolve().parent),
             0,  # SW_HIDE — 不显示窗口
         )
         if ret > 32:
@@ -273,6 +285,48 @@ def _elevate_self() -> bool:
     except Exception as e:
         log(f"提权失败: {e}")
         return False
+
+
+def _verify_extraction(extract_dir: Path, exe_name: str) -> bool:
+    """验证解压后的文件完整性。"""
+    exe_path = extract_dir / exe_name
+    if not exe_path.exists() or exe_path.stat().st_size == 0:
+        log(f"错误: {exe_name} 不存在或大小为 0")
+        return False
+
+    internal_dir = extract_dir / "_internal"
+    if not internal_dir.exists() or not any(internal_dir.iterdir()):
+        log("错误: _internal/ 目录不存在或为空")
+        return False
+
+    version_file = extract_dir / "VERSION"
+    if not version_file.exists():
+        log("警告: VERSION 文件不存在（非致命）")
+
+    return True
+
+
+def _move_extracted_files(tmp_dir: Path, dest_dir: Path) -> bool:
+    """从临时目录移动所有文件到目标目录。
+
+    目标目录中的同名文件应已被重命名为备份（由调用方处理）。
+    对于未被备份的文件（如 VERSION、docs/、licenses/），直接覆写。
+    """
+    for item in tmp_dir.iterdir():
+        dest = dest_dir / item.name
+        try:
+            if dest.exists():
+                # 这些文件应该已被重命名为备份，若仍存在则直接删除
+                if dest.is_dir():
+                    shutil.rmtree(dest, ignore_errors=True)
+                else:
+                    dest.unlink(missing_ok=True)
+            shutil.move(str(item), str(dest))
+            log(f"  移动: {item.name}")
+        except OSError as e:
+            log(f"移动 {item.name} 失败: {e}")
+            return False
+    return True
 
 
 def main() -> int:
@@ -323,60 +377,96 @@ def main() -> int:
     # 额外等待一小段时间，确保文件句柄释放
     time.sleep(0.5)
 
-    # 清理旧备份
+    # === 新流程：先解压到临时目录，验证后再原子替换 ===
+    # 这确保即使解压失败也不会影响现有文件
+    tmp_dir = dest_dir / "_update_tmp"
+
+    # 清理可能残留的旧临时目录
+    if tmp_dir.exists():
+        log("清理残留的 _update_tmp/ 目录...")
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    # Step 1: 解压归档到临时目录（不触碰运行中的文件）
+    log("Step 1: 解压新版本到临时目录...")
+    try:
+        extract_archive(archive_path, tmp_dir)
+    except Exception as e:
+        log(f"解压失败: {e}")
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        return 1
+
+    # Step 2: 验证解压结果
+    log("Step 2: 验证解压结果...")
+    if not _verify_extraction(tmp_dir, exe_name):
+        log("解压验证失败，中止更新")
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        return 1
+    log("解压验证通过")
+
+    # Step 3: 准备备份变量
     internal_dir = dest_dir / "_internal"
     internal_old = dest_dir / "_internal_old"
     exe_old = exe_path.with_suffix(".exe.old")
 
+    # 清理上次更新可能残留的旧备份
     if internal_old.exists():
         log("清理旧备份目录 _internal_old/ ...")
         shutil.rmtree(internal_old, ignore_errors=True)
+    if exe_old.exists():
+        exe_old.unlink(missing_ok=True)
 
-    # 重命名旧目录
+    # Step 4: 重命名旧文件为备份
     if internal_dir.exists():
-        log("重命名 _internal/ → _internal_old/ ...")
+        log("Step 4: 重命名 _internal/ → _internal_old/ ...")
         try:
             internal_dir.rename(internal_old)
         except OSError as e:
             log(f"重命名 _internal 失败: {e}")
+            shutil.rmtree(tmp_dir, ignore_errors=True)
             return 1
 
-    # 重命名旧 exe
     if exe_path.exists():
         log(f"重命名 {exe_name} → {exe_name}.old ...")
         try:
-            if exe_old.exists():
-                exe_old.unlink(missing_ok=True)
             exe_path.rename(exe_old)
         except OSError as e:
             log(f"重命名 {exe_name} 失败: {e}")
             # 回滚 _internal 重命名
             if internal_old.exists() and not internal_dir.exists():
                 internal_old.rename(internal_dir)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
             return 1
 
-    # 解压新版本
-    log("解压新版本...")
-    try:
-        extract_archive(archive_path, dest_dir)
-    except Exception as e:
-        log(f"解压失败: {e}")
-        # 回滚
+    # Step 5: 从临时目录移动文件到目标目录
+    log("Step 5: 移动新文件到目标目录...")
+    if not _move_extracted_files(tmp_dir, dest_dir):
+        log("移动文件失败，执行完整回滚...")
+        # 删除可能已移动的不完整文件
+        if internal_dir.exists():
+            shutil.rmtree(internal_dir, ignore_errors=True)
+        if exe_path.exists():
+            exe_path.unlink(missing_ok=True)
+        # 恢复备份
         if internal_old.exists() and not internal_dir.exists():
             internal_old.rename(internal_dir)
         if exe_old.exists() and not exe_path.exists():
             exe_old.rename(exe_path)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         return 1
 
-    # 优先启动新版本（不被清理阻塞）
-    log(f"启动新版本: {exe_path}")
+    # 清理临时目录
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    # Step 6: 启动新版本
+    log(f"Step 6: 启动新版本: {exe_path}")
     if not exe_path.exists():
         log(f"错误: 新版本 {exe_path} 不存在")
         return 1
 
     if sys.platform == "win32":
         # 使用 ShellExecuteW 启动 GUI 应用（等同于双击 exe，最可靠）
-        # subprocess.Popen + DETACHED_PROCESS 从 windowed 进程启动 GUI 不可靠
         ret = ctypes.windll.shell32.ShellExecuteW(  # type: ignore[union-attr]
             None,
             "open",
@@ -388,11 +478,11 @@ def main() -> int:
         if ret <= 32:
             log(f"错误: ShellExecuteW 返回 {ret}，启动新版本失败")
             return 1
-        log(f"✓ ShellExecuteW 成功 (ret={ret})")
+        log(f"ShellExecuteW 成功 (ret={ret})")
     else:
         subprocess.Popen([str(exe_path)], cwd=str(dest_dir))
 
-    # 等待新版本进程初始化后再清理旧文件（best-effort）
+    # Step 7: 等待新版本初始化后清理旧文件（best-effort）
     # 即使清理失败，主程序启动时也会兜底清理
     log("等待 2 秒后清理旧文件...")
     time.sleep(2)
@@ -401,20 +491,20 @@ def main() -> int:
     if internal_old.exists():
         try:
             shutil.rmtree(internal_old, ignore_errors=True)
-            log("✓ _internal_old/ 已删除")
+            log("_internal_old/ 已删除")
         except Exception as e:
-            log(f"⚠ _internal_old/ 清理失败（主程序启动时会重试）: {e}")
+            log(f"_internal_old/ 清理失败（主程序启动时会重试）: {e}")
     if exe_old.exists():
         try:
             exe_old.unlink(missing_ok=True)
-            log("✓ .exe.old 已删除")
+            log(".exe.old 已删除")
         except OSError as e:
-            log(f"⚠ .exe.old 清理失败（主程序启动时会重试）: {e}")
+            log(f".exe.old 清理失败（主程序启动时会重试）: {e}")
 
     # 删除归档文件
     try:
         archive_path.unlink(missing_ok=True)
-        log("✓ 归档文件已删除")
+        log("归档文件已删除")
     except OSError:
         pass
 

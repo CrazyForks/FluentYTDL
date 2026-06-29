@@ -58,7 +58,7 @@ class QuickAddPanel(QWidget):
         self.scrollLayout.addStretch(1)
 
         # 1. 顶部标题
-        self.titleLabel = SubtitleLabel("快速下载 (批量)", self)
+        self.titleLabel = SubtitleLabel("快速解析 (批量)", self)
         self.scrollLayout.addWidget(self.titleLabel)
 
         # 2. 核心操作区 (卡片风格)

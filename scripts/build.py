@@ -689,20 +689,20 @@ class Builder:
         with tempfile.TemporaryDirectory(prefix="fluentytdl_appcore_") as tmp_dir:
             tmp_path = Path(tmp_dir)
 
-            # 复制主程序文件（排除 bin/）
+            # 复制主程序文件（排除 bin/ 和 updater.exe）
+            # updater.exe 不包含在 app-core 归档中，因为 updater.exe 正在运行时
+            # 无法被覆写（onefile 模式进程锁定 exe）。updater.exe 的更新通过
+            # 延迟替换机制处理（见 main.py _cleanup_update_residuals）
             for item in source_dir.iterdir():
                 if item.name == "bin":
                     continue  # 排除 bin/ 工具目录
+                if item.name == "updater.exe":
+                    continue  # 排除 updater.exe（运行时锁死）
                 dest = tmp_path / item.name
                 if item.is_dir():
                     shutil.copytree(item, dest, dirs_exist_ok=True)
                 else:
                     shutil.copy2(item, dest)
-
-            # 确保 updater.exe 存在
-            updater_src = source_dir / "updater.exe"
-            if updater_src.exists():
-                shutil.copy2(updater_src, tmp_path / "updater.exe")
 
             # 压缩
             sevenzip = shutil.which("7z") or shutil.which("7za")

@@ -100,6 +100,10 @@ class PlaylistScheduler(QObject):
     def set_vr_mode(self, vr_mode: bool) -> None:
         self._vr_mode = vr_mode
 
+    def set_concurrency(self, limit: int) -> None:
+        self._exec_limit = limit
+        self._pump()
+
     @property
     def lazy_paused(self) -> bool:
         return self._lazy_paused
@@ -301,7 +305,7 @@ class PlaylistScheduler(QObject):
             self._running.add(row)
 
             self.row_started.emit(row)  # 触发延迟"解析中"指示器
-            self._mgr.enqueue(task_id, url, self._options, self._vr_mode, high_priority=False)
+            self._mgr.enqueue(task_id, url, self._options, self._vr_mode)
             self._fill_exec_queue()
 
     def _crawl_tick(self) -> None:

@@ -94,9 +94,9 @@ class AppUpdateSettingCard(SettingCard):
 
     def _start_check(self) -> None:
         """开始检查更新。"""
-        # 检查 beta 锁定
-        if component_update_manager.is_beta():
-            self._show_beta_dialog()
+        # 检查版本锁定（beta/pre）
+        if component_update_manager.is_locked():
+            self._show_locked_dialog()
             return
 
         self.actionButton.setText("正在检查...")
@@ -135,13 +135,13 @@ class AppUpdateSettingCard(SettingCard):
         prefix = "预发布 " if is_pre else ""
 
         self.setTitle(f"FluentYTDL ({prefix}更新)")
-        self.setContent(f"当前: {self._current_version}  |  最新: v-{latest_ver}")
+        self.setContent(f"当前: {self._current_version}  |  最新: {latest_ver}")
         self.actionButton.setText("立即更新")
         self.changelogButton.setVisible(True)
 
         InfoBar.info(
             "发现新版本",
-            f"FluentYTDL v-{latest_ver} 已可用",
+            f"FluentYTDL {latest_ver} 已可用",
             duration=10000,
             parent=self.window(),
         )
@@ -164,8 +164,8 @@ class AppUpdateSettingCard(SettingCard):
         self.actionButton.setEnabled(True)
         self.actionButton.setText("检查更新")
 
-        if msg == "beta":
-            self._show_beta_dialog()
+        if msg == "locked":
+            self._show_locked_dialog()
             return
 
         InfoBar.error("检查更新失败", msg, duration=10000, parent=self.window())
@@ -226,10 +226,10 @@ class AppUpdateSettingCard(SettingCard):
         )
         dialog.exec()
 
-    # ── Beta 弹窗 ─────────────────────────────────────────
+    # ── Locked 弹窗 ──────────────────────────────────────
 
-    def _show_beta_dialog(self) -> None:
-        """显示 beta 版本锁定提示。"""
+    def _show_locked_dialog(self) -> None:
+        """显示锁定版本提示（beta/pre 不支持自动更新）。"""
         try:
             from fluentytdl import __version__
 
@@ -239,7 +239,7 @@ class AppUpdateSettingCard(SettingCard):
 
         InfoBar.warning(
             "检测到测试版本",
-            f"当前运行的是 {ver} 测试版本，不支持自动更新。"
+            f"当前运行的是 {ver} 测试/预发布版本，不支持自动更新。"
             "如需更新请前往 GitHub Releases 下载正式版。",
             duration=10000,
             parent=self.window(),
@@ -249,7 +249,7 @@ class AppUpdateSettingCard(SettingCard):
 
     def check_for_update(self) -> None:
         """外部调用：自动检查更新（静默模式，不弹无更新提示）。"""
-        if component_update_manager.is_beta():
+        if component_update_manager.is_locked():
             return
         component_update_manager.check_app_update()
 

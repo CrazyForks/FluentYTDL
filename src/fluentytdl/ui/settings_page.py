@@ -977,6 +977,19 @@ class SettingsPage(QWidget):
         self.maxConcurrentCard.comboBox.setCurrentIndex(max(0, min(9, int(current_max) - 1)))
         self.maxConcurrentCard.comboBox.currentIndexChanged.connect(self._on_max_concurrent_changed)
 
+        # Playlist Extract Concurrency
+        self.playlistExtractConcurrencyCard = InlineComboBoxCard(
+            FluentIcon.SYNC,
+            "播放列表解析并发",
+            "控制进入解析页后同时获取视频详情的数量。过高可能触发 YouTube IP 限制 (默认: 2)",
+            ["1", "2", "3", "5", "8", "12", "16"],
+            self.downloadGroup,
+        )
+        current_extract_concurrency = config_manager.get("playlist_extract_concurrency", 2)
+        mapping_ext = {1: 0, 2: 1, 3: 2, 5: 3, 8: 4, 12: 5, 16: 6}
+        self.playlistExtractConcurrencyCard.comboBox.setCurrentIndex(mapping_ext.get(int(current_extract_concurrency), 1))
+        self.playlistExtractConcurrencyCard.comboBox.currentIndexChanged.connect(self._on_playlist_extract_concurrency_changed)
+
         self.failedTaskRetentionCard = InlineComboBoxCard(
             FluentIcon.HISTORY,
             "失败任务保留时间",
@@ -996,6 +1009,7 @@ class SettingsPage(QWidget):
         self.downloadGroup.addSettingCard(self.downloadFolderCard)
         self.downloadGroup.addSettingCard(self.concurrentFragmentsCard)
         self.downloadGroup.addSettingCard(self.maxConcurrentCard)
+        self.downloadGroup.addSettingCard(self.playlistExtractConcurrencyCard)
         self.downloadGroup.addSettingCard(self.failedTaskRetentionCard)
         layout.addWidget(self.downloadGroup)
 
@@ -1895,17 +1909,6 @@ class SettingsPage(QWidget):
         )
         self.subtitleEmbedTypeCard.valueChanged.connect(self._on_subtitle_embed_type_changed)
 
-        # 嵌入模式 (询问/总是/从不)
-        self.subtitleEmbedModeCard = InlineComboBoxCard(
-            FluentIcon.CHECKBOX,
-            "嵌入确认",
-            "是否在下载前询问是否嵌入字幕",
-            ["总是嵌入", "从不嵌入", "每次询问"],
-            parent=self.subtitleGroup,
-        )
-        self.subtitleEmbedModeCard.comboBox.currentIndexChanged.connect(
-            self._on_subtitle_embed_mode_changed
-        )
 
         # 字幕输出格式
         self.subtitleFormatCard = InlineComboBoxCard(
@@ -1923,14 +1926,14 @@ class SettingsPage(QWidget):
         self.subtitleGroup.addSettingCard(self.subtitleTypePrefCard)
         self.subtitleGroup.addSettingCard(self.subtitleLanguagesCard)
         self.subtitleGroup.addSettingCard(self.subtitleEmbedTypeCard)
-        self.subtitleGroup.addSettingCard(self.subtitleEmbedModeCard)
+
         self.subtitleGroup.addSettingCard(self.subtitleFormatCard)
 
         # 缩进依赖项
         self._indent_setting_card(self.subtitleTypePrefCard)
         self._indent_setting_card(self.subtitleLanguagesCard)
         self._indent_setting_card(self.subtitleEmbedTypeCard)
-        self._indent_setting_card(self.subtitleEmbedModeCard)
+
         self._indent_setting_card(self.subtitleFormatCard)
 
         layout.addWidget(self.subtitleGroup)
@@ -2257,12 +2260,6 @@ class SettingsPage(QWidget):
         self.subtitleEmbedTypeCard.set_value(subtitle_config.embed_type)
         self.subtitleEmbedTypeCard.comboBox.blockSignals(False)
 
-        # Subtitle: embed mode
-        embed_mode = str(config_manager.get("subtitle_embed_mode", "always"))
-        embed_mode_map = {"always": 0, "never": 1, "ask": 2}
-        self.subtitleEmbedModeCard.comboBox.blockSignals(True)
-        self.subtitleEmbedModeCard.comboBox.setCurrentIndex(embed_mode_map.get(embed_mode, 0))
-        self.subtitleEmbedModeCard.comboBox.blockSignals(False)
 
         # Subtitle: output format
         output_format = str(config_manager.get("subtitle_output_format", "vtt"))
@@ -2338,6 +2335,21 @@ class SettingsPage(QWidget):
 
         # Immediately apply new limit to pending queue
         download_manager.pump()
+
+    def _on_playlist_extract_concurrency_changed(self, index: int) -> None:
+        vals = [1, 2, 3, 5, 8, 12, 16]
+        if 0 <= index < len(vals):
+            new_val = vals[index]
+            config_manager.set("playlist_extract_concurrency", new_val)
+            from ...download.extract_manager import extract_manager
+            extract_manager.set_concurrency(new_val)
+            # update tooltip / warning text
+            if new_val > 5:
+                self.playlistExtractConcurrencyCard.setContent(f"⚠️ 当前: {new_val} (高风险! 极易导致 429 请求过多)")
+                self.playlistExtractConcurrencyCard.setTitle("播放列表解析并发 (慎用)")
+            else:
+                self.playlistExtractConcurrencyCard.setContent(f"当前: {new_val}")
+                self.playlistExtractConcurrencyCard.setTitle("播放列表解析并发")
 
     def _on_update_source_changed(self, index: int) -> None:
         source = "ghproxy" if index == 1 else "github"
@@ -3671,22 +3683,9 @@ class SettingsPage(QWidget):
             duration=3000,
             parent=self,
         )
-        # 嵌入类型变更时联动可见性
-        self._update_keep_separate_visibility()
 
-    def _on_subtitle_keep_separate_changed(self, checked: bool) -> None:
-        """保留外置字幕文件开关改变"""
-        config_manager.set("subtitle_write_separate_file", checked)
-        status = "保留" if checked else "不保留"
-        InfoBar.info("字幕文件", f"嵌入后{status}外置字幕文件", duration=3000, parent=self)
 
-    def _on_subtitle_embed_mode_changed(self, index: int) -> None:
-        mode_map = {0: "always", 1: "never", 2: "ask"}
-        mode = mode_map.get(index, "always")
-        config_manager.set("subtitle_embed_mode", mode)
-        display_map = {"always": "总是嵌入", "never": "从不嵌入", "ask": "每次询问"}
-        display_text = display_map.get(mode, mode)
-        InfoBar.info("嵌入模式", f"字幕嵌入策略: {display_text}", duration=3000, parent=self)
+
 
     def _on_subtitle_format_changed(self, index: int) -> None:
         format_map = {0: "srt", 1: "ass", 2: "vtt"}
@@ -3694,12 +3693,6 @@ class SettingsPage(QWidget):
         config_manager.set("subtitle_output_format", fmt)
         InfoBar.info("格式设置", f"字幕输出格式: {fmt.upper()}", duration=3000, parent=self)
 
-    def _update_keep_separate_visibility(self) -> None:
-        """根据嵌入类型更新「保留外置字幕文件」开关的可见性"""
-        # enabled = self.subtitleEnabledCard.switchButton.isChecked() # No longer check enabled
-        embed_type = self.subtitleEmbedTypeCard.get_value()
-        # 仅软嵌入/硬嵌入时显示此选项（外置模式下字幕文件本身就是产物）
-        self.subtitleKeepSeparateCard.setVisible(embed_type == "soft")
 
     def _update_vr_hardware_status(self) -> None:
         """更新 VR 硬件状态 Banner"""
@@ -3793,7 +3786,3 @@ class SettingsPage(QWidget):
         # 这样即使全局关闭，用户在单次下载中想开启时，配置已经是预期的
         self.subtitleLanguagesCard.setVisible(True)
         self.subtitleEmbedTypeCard.setVisible(True)
-        self.subtitleEmbedModeCard.setVisible(True)
-
-        embed_type = self.subtitleEmbedTypeCard.get_value()
-        self.subtitleEmbedModeCard.setEnabled(embed_type == "soft")
