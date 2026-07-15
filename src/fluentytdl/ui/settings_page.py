@@ -3062,7 +3062,7 @@ class SettingsPage(QWidget):
         # 非 Edge/Chrome 或已是管理员，正常刷新
         self._do_cookie_refresh()
 
-    def _do_cookie_refresh(self):
+    def _do_cookie_refresh(self, platform: str | None = None):
         """实际执行Cookie刷新（已确认权限或非Edge/Chrome）"""
         # 禁用按钮
         self.refreshCookieCard.setEnabled(False)
@@ -3076,7 +3076,7 @@ class SettingsPage(QWidget):
             self._cookie_worker.deleteLater()
 
         # 创建Qt工作线程
-        self._cookie_worker = CookieRefreshWorker(self)
+        self._cookie_worker = CookieRefreshWorker(self, platform=platform)
 
         # 连接信号（自动在主线程执行）
         def on_finished(success: bool, message: str, need_admin: bool = False):
