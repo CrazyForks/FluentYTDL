@@ -287,7 +287,7 @@ def main() -> None:
             self.ring.setFixedSize(50, 50)
             panel_layout.addWidget(self.ring, 0, Qt.AlignmentFlag.AlignHCenter)
 
-            self.lbl = SubtitleLabel("正在预热 YouTube 验证引擎 ...", self.panel)
+            self.lbl = SubtitleLabel("正在预热 Web 验证引擎 ...", self.panel)
             panel_layout.addWidget(self.lbl, 0, Qt.AlignmentFlag.AlignHCenter)
 
             self.ring.start()

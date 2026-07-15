@@ -189,7 +189,7 @@ def _webview_subprocess(
                 elapsed = int(time.time() - start_time)
                 time.sleep(POLL_INTERVAL)
 
-                           if platform == "twitter":
+                if platform == "twitter":
                     if "x.com" not in current_url and "twitter.com" not in current_url:
                         _log(f"[{elapsed}s] 等待跳回 X... (当前: {current_url[:80]})")
                         continue
