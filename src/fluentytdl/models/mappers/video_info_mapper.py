@@ -86,6 +86,9 @@ class VideoInfoMapper:
 
         vid = str(raw.get("id") or url).strip()
         if vid:
+            extractor = str(raw.get("extractor") or raw.get("extractor_key") or "").lower()
+            if "twitter" in extractor:
+                return f"https://x.com/i/status/{vid}"
             return f"https://www.youtube.com/watch?v={vid}"
         return url
 

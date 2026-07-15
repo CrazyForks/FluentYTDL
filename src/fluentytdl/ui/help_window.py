@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QT_TRANSLATE_NOOP, QCoreApplication
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QFrame,
@@ -197,9 +197,10 @@ class ExpandHelpCard(ExpandSettingCard):
         super().__init__(icon, title, content, parent)
         self._browser = _AutoHeightTextBrowser(self.view, is_expand_card=True)
         self._browser.setOpenExternalLinks(True)
-        self._html_body = html_body
+        from PySide6.QtCore import QCoreApplication
+        self._html_body = QCoreApplication.translate("HelpWindow", html_body)
         self._browser.document().setDefaultStyleSheet(get_markdown_css() + _EXPAND_CSS_OVERRIDE)
-        self._browser.setHtml(html_body)
+        self._browser.setHtml(self._html_body)
         self.viewLayout.addWidget(self._browser)
 
         from qfluentwidgets import qconfig
@@ -216,7 +217,7 @@ class ExpandHelpCard(ExpandSettingCard):
 # Wizard step HTML content
 _WIZARD_LOGO_URI = r"e:\YouTube\FluentYTDL\assets\logo.png"
 
-_WIZARD_STEP1_HTML = """
+_WIZARD_STEP1_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <div style="text-align:center; padding:40px 0 20px 0;">
   <img src="file:///e:/YouTube/FluentYTDL/assets/logo.png" width="112" height="112" style="margin-bottom:16px;">
   <h1 style="margin:0 0 8px 0; font-size:28px; font-weight:700;">FluentYTDL Pro</h1>
@@ -224,9 +225,9 @@ _WIZARD_STEP1_HTML = """
   <p style="font-size:15px; margin:0 0 8px 0; line-height:1.6;">欢迎使用 FluentYTDL Pro。</p>
   <p style="font-size:13px; color:#767676; margin:0;">本向导将协助您快速熟悉系统的基础工作流、模块分布与核心特性。</p>
 </div>
-"""
+""")
 
-_WIZARD_STEP2_HTML = """
+_WIZARD_STEP2_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <div style="text-align:left; padding:0 20px;">
   <p style="font-size:16px; font-weight:600; margin-bottom:8px;">👉 快捷工作流（推荐）</p>
   <p>您可以在 <strong>设置 → 自动化</strong> 中开启「剪贴板自动识别」。</p>
@@ -239,15 +240,15 @@ _WIZARD_STEP2_HTML = """
 
   <p style="margin-top:20px; font-size:13px; color:#3A8FB7;">✅ 提示：核心解析与合并管线（yt-dlp、FFmpeg）已在系统内预置，无需额外配置环境。</p>
 </div>
-"""
+""")
 
-_WIZARD_STEP3_HTML = """
+_WIZARD_STEP3_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <div style="text-align:left; padding:0 20px;">
   <p style="color:#767676; font-size:13px; margin-bottom:16px;">当需要下载具备年龄限制、会员专属的视频，或遭遇服务端机器人检测拦截时，系统需要身份凭证支持。</p>
   
   <p style="font-size:16px; font-weight:600; margin-bottom:12px;">身份验证接入方案</p>
   <table style="width:100%; margin:0;">
-    <tr><th style="width:25%;">接入方式</th><th style="width:15%;">推荐等级</th><th>说明</th></tr>
+    <tr><th style="width:25%;self.tr(">接入方式</th><th style=")width:15%;">推荐等级</th><th>说明</th></tr>
     <tr><td><strong>WebView2 登录</strong></td><td>⭐⭐⭐</td><td>通过隔离的安全沙盒环境授权账号，稳定性最高，为官方推荐首选。</td></tr>
     <tr><td><strong>本机浏览器提取</strong></td><td>⭐⭐</td><td>通过接口自动提取 Firefox 等浏览器的凭证，部分浏览器因安全策略受限。</td></tr>
     <tr><td><strong>外部文件导入</strong></td><td>⭐</td><td>通过浏览器扩展导出标准的 Netscape 格式文件，并在系统内导入。</td></tr>
@@ -255,9 +256,9 @@ _WIZARD_STEP3_HTML = """
 
   <p style="margin-top:20px; font-size:13px; color:#3A8FB7;">🛡️ 隐私合规：系统仅保留维持下载会话所需的验证令牌，自动过滤其他追踪性数据。</p>
 </div>
-"""
+""")
 
-_WIZARD_STEP4_HTML = """
+_WIZARD_STEP4_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <div style="text-align:left; padding:0 10px;">
   <p style="font-size:16px; font-weight:600; margin-bottom:16px; margin-left:10px;">系统核心特性</p>
   <table style="width:100%; margin:0;">
@@ -293,9 +294,9 @@ _WIZARD_STEP4_HTML = """
     </tr>
   </table>
 </div>
-"""
+""")
 
-_WIZARD_STEP5_HTML = """
+_WIZARD_STEP5_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <div style="text-align:left; padding:0 10px;">
   <p style="font-size:16px; font-weight:600; margin-bottom:16px; margin-left:10px;">侧边栏功能导航</p>
   <table style="width:100%; margin:0;">
@@ -331,9 +332,9 @@ _WIZARD_STEP5_HTML = """
     </tr>
   </table>
 </div>
-"""
+""")
 
-_WIZARD_STEP6_HTML = """
+_WIZARD_STEP6_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <div style="text-align:center; padding:30px 0 10px 0;">
   <div style="font-size:64px; margin-bottom:16px;">🚀</div>
   <h2 style="margin:0 0 12px 0; font-size:28px; font-weight:700;">一切准备就绪</h2>
@@ -345,7 +346,7 @@ _WIZARD_STEP6_HTML = """
     <p style="font-size:13px; margin:0; line-height:1.6;">👉 <strong>排障第一步：</strong>请立即前往 <strong>「设置 → 更新」</strong> 页面，将内部核心组件升级至最新版本，99% 的解析问题都能由此解决。</p>
   </div>
 </div>
-"""
+""")
 
 
 class WelcomeGuideWidget(QWidget):
@@ -365,7 +366,7 @@ class WelcomeGuideWidget(QWidget):
         self.v_layout.setContentsMargins(40, 20, 40, 20)
 
         # Step progress label
-        self.step_label = BodyLabel("第 1 步 / 共 6 步", self)
+        self.step_label = BodyLabel(self.tr("第 {0} 步 / 共 {1} 步").format(1, 6), self)
         self.step_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.step_label.setTextColor(QColor(140, 140, 140), QColor(160, 160, 160))
         self.v_layout.addWidget(self.step_label)
@@ -380,23 +381,33 @@ class WelcomeGuideWidget(QWidget):
         except Exception:
             _ver = "?"
         self._ver = _ver
-        _step1_html = _WIZARD_STEP1_HTML.replace("__version__", _ver)
+        from PySide6.QtCore import QCoreApplication
+        _step1_html = QCoreApplication.translate("HelpWindow", _WIZARD_STEP1_HTML).replace("__version__", _ver)
 
         # Create step browsers
         self.step_browsers = []
-        for html in [
+        for i, html in enumerate([
             _step1_html,
             _WIZARD_STEP2_HTML,
             _WIZARD_STEP3_HTML,
             _WIZARD_STEP4_HTML,
             _WIZARD_STEP5_HTML,
             _WIZARD_STEP6_HTML,
-        ]:
+        ]):
+            if i > 0:
+                html = QCoreApplication.translate("HelpWindow", html)
+            
+            if i == 0:
+                from fluentytdl.utils.paths import resource_path
+                logo_uri = f"file:///{resource_path('assets', 'logo.png').as_posix()}"
+                html = html.replace("file:///e:/YouTube/FluentYTDL/assets/logo.png", logo_uri)
+            
             browser = _AutoHeightTextBrowser(self, is_wizard=True)
             browser.document().setDefaultStyleSheet(get_markdown_css() + _WIZARD_CSS_OVERRIDE)
             browser.setHtml(f'<div style="text-align:center">{html}</div>')
             self.step_browsers.append(browser)
             self.stack.addWidget(browser)
+            setattr(self, f"step{i+1}_browser", browser)
 
         self.v_layout.addWidget(self.stack, 1)
 
@@ -404,14 +415,14 @@ class WelcomeGuideWidget(QWidget):
 
         # Navigation Buttons
         btn_layout = QHBoxLayout()
-        self.skip_btn = PrimaryPushButton("跳过引导", self)
+        self.skip_btn = PrimaryPushButton(self.tr("跳过引导"), self)
         self.skip_btn.clicked.connect(self.finished)
 
-        self.prev_btn = PrimaryPushButton("上一步", self)
+        self.prev_btn = PrimaryPushButton(self.tr("上一步"), self)
         self.prev_btn.setEnabled(False)
         self.prev_btn.clicked.connect(self._prev_step)
 
-        self.next_btn = PrimaryPushButton("下一步", self)
+        self.next_btn = PrimaryPushButton(self.tr("下一步"), self)
         self.next_btn.clicked.connect(self._next_step)
 
         btn_layout.addWidget(self.skip_btn)
@@ -440,12 +451,12 @@ class WelcomeGuideWidget(QWidget):
         total = self.stack.count()
 
         self.prev_btn.setEnabled(idx > 0)
-        self.step_label.setText(f"第 {idx + 1} 步 / 共 {total} 步")
+        self.step_label.setText(self.tr("第 {0} 步 / 共 {1} 步").format(idx + 1, total))
 
         if idx == total - 1:
-            self.next_btn.setText("开始使用")
+            self.next_btn.setText(self.tr("开始使用"))
         else:
-            self.next_btn.setText("下一步")
+            self.next_btn.setText(self.tr("下一步"))
 
     def onThemeChanged(self, theme):
         from qfluentwidgets import Theme
@@ -453,40 +464,47 @@ class WelcomeGuideWidget(QWidget):
         bg_color = "#202020" if theme == Theme.DARK else "#F9F9F9"
         self.setStyleSheet(f"WelcomeGuideWidget {{ background-color: {bg_color}; border: none; }}")
 
+        from PySide6.QtCore import QCoreApplication
+        tr = lambda x: QCoreApplication.translate("HelpWindow", x)
+        
         if hasattr(self, "step1_browser"):
+            from fluentytdl.utils.paths import resource_path
+            logo_uri = f"file:///{resource_path('assets', 'logo.png').as_posix()}"
+            step1_html = tr(_WIZARD_STEP1_HTML).replace("__version__", getattr(self, "_ver", "?")).replace("file:///e:/YouTube/FluentYTDL/assets/logo.png", logo_uri)
             self.step1_browser.document().setDefaultStyleSheet(
                 get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
             )
-            self.step1_browser.setHtml(
-                _WIZARD_STEP1_HTML.replace("__version__", getattr(self, "_ver", "?"))
-            )
+            self.step1_browser.setHtml(f'<div style="text-align:center">{step1_html}</div>')
         if hasattr(self, "step2_browser"):
             self.step2_browser.document().setDefaultStyleSheet(
                 get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
             )
-            self.step2_browser.setHtml(_WIZARD_STEP2_HTML)
+            self.step2_browser.setHtml(f'<div style="text-align:center">{tr(_WIZARD_STEP2_HTML)}</div>')
         if hasattr(self, "step3_browser"):
             self.step3_browser.document().setDefaultStyleSheet(
                 get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
             )
-            self.step3_browser.setHtml(_WIZARD_STEP3_HTML)
+            self.step3_browser.setHtml(f'<div style="text-align:center">{tr(_WIZARD_STEP3_HTML)}</div>')
         if hasattr(self, "step4_browser"):
             self.step4_browser.document().setDefaultStyleSheet(
                 get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
             )
-            self.step4_browser.setHtml(_WIZARD_STEP4_HTML)
+            self.step4_browser.setHtml(f'<div style="text-align:center">{tr(_WIZARD_STEP4_HTML)}</div>')
         if hasattr(self, "step5_browser"):
             self.step5_browser.document().setDefaultStyleSheet(
                 get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
             )
-            self.step5_browser.setHtml(_WIZARD_STEP5_HTML)
-
-
+            self.step5_browser.setHtml(f'<div style="text-align:center">{tr(_WIZARD_STEP5_HTML)}</div>')
+        if hasattr(self, "step6_browser"):
+            self.step6_browser.document().setDefaultStyleSheet(
+                get_markdown_css(theme) + _WIZARD_CSS_OVERRIDE
+            )
+            self.step6_browser.setHtml(f'<div style="text-align:center">{tr(_WIZARD_STEP6_HTML)}</div>')
 # ============================================================================
 # ManualReaderWidget — Help content HTML bodies
 # ============================================================================
 
-_QUICK_DOWNLOAD_HTML = """
+_QUICK_DOWNLOAD_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>基本操作</h3>
 <p>复制任意 YouTube 链接，在主页按 <code>Ctrl+V</code> 或点击粘贴按钮，按回车即可开始解析。</p>
 
@@ -500,9 +518,9 @@ _QUICK_DOWNLOAD_HTML = """
 </table>
 
 <p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>支持 B 站、Patreon 等数百个网站（底层引擎 yt-dlp 支持），但 FluentYTDL 的 UI 优化专为 YouTube 定制。</p>
-"""
+""")
 
-_FORMAT_QUALITY_HTML = """
+_FORMAT_QUALITY_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>自动模式（默认）</h3>
 <p>软件默认智能选择最佳画质，优先下载 1080p/4K 高清格式。大多数场景无需手动干预。</p>
 
@@ -521,9 +539,9 @@ _FORMAT_QUALITY_HTML = """
 <li>缺少 Deno JS 运行时：前往「设置 → 核心组件」检查安装</li>
 <li>yt-dlp 过期：更新组件</li>
 </ul>
-"""
+""")
 
-_LAZY_MODE_HTML = """
+_LAZY_MODE_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>开启方式</h3>
 <p>进入 <strong>设置 → 自动化</strong>，开启「剪贴板自动识别」开关。</p>
 
@@ -531,9 +549,9 @@ _LAZY_MODE_HTML = """
 <p>开启后，软件在后台监听剪贴板。只要复制了 YouTube 链接，就会自动弹出下载确认窗口，无需手动粘贴。点击「下载」即开始。</p>
 
 <p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>推荐：</strong>这是最高效的使用方式，尤其适合日常频繁下载的用户。</p>
-"""
+""")
 
-_BATCH_MANAGE_HTML = """
+_BATCH_MANAGE_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>批量操作</h3>
 <p>在下载列表中，使用工具栏上的「批量选择」按钮，可一次性暂停、恢复或删除多个任务。</p>
 
@@ -547,9 +565,9 @@ _BATCH_MANAGE_HTML = """
 <tr><td>大播放列表（500+）</td><td>分批解析，避免触发风控</td></tr>
 <tr><td>网络不稳定</td><td>降低并发分片数</td></tr>
 </table>
-"""
+""")
 
-_COOKIE_COMPARE_HTML = """
+_COOKIE_COMPARE_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>三种获取方式对比</h3>
 <table>
 <tr><th>方式</th><th>推荐度</th><th>说明</th></tr>
@@ -575,11 +593,11 @@ _COOKIE_COMPARE_HTML = """
 </table>
 
 <p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>重要：</strong>Chrome 自动提取极不稳定。如果你使用 Chrome 且频繁失败，请切换到 WebView2 或 Firefox。</p>
-"""
+""")
 
-_POTOKEN_HTML = """
+_POTOKEN_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>什么是 PO Token？</h3>
-<p><strong>PO Token（Proof of Origin Token）</strong>是 YouTube 用于验证请求来源合法性的数字令牌，向 YouTube 证明"这个请求来自真实客户端"。</p>
+<p><strong>PO Token（Proof of Origin Token）</strong>是 YouTube 用于验证请求来源合法性的数字令牌，向 YouTube 证明self.tr("这个请求来自真实客户端")。</p>
 
 <h3>没有 PO Token 时可能遇到</h3>
 <ul>
@@ -600,9 +618,9 @@ _POTOKEN_HTML = """
 
 <h3>POT Provider 预热</h3>
 <p>应用启动时，POT Provider 需要 5-15 秒初始化 BotGuard 环境。预热期间日志显示「正在初始化」，完成后显示「已激活」。如果一直无法激活，请检查 Deno 是否已安装。</p>
-"""
+""")
 
-_NETWORK_PROXY_HTML = """
+_NETWORK_PROXY_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>默认行为</h3>
 <p>FluentYTDL 默认「跟随系统代理」。只要系统或代理软件开启了系统代理，软件即可自动使用。</p>
 
@@ -611,7 +629,7 @@ _NETWORK_PROXY_HTML = """
 <tr><th>软件</th><th>操作</th></tr>
 <tr><td>V2RayN</td><td>底部切换为「系统代理」，或开启 TUN</td></tr>
 <tr><td>Clash Verge / CFW</td><td>启用「System Proxy」开关，不行就开 TUN</td></tr>
-<tr><td>其他</td><td>确保开启"系统代理"/"全局模式"，非仅"规则/PAC 模式"</td></tr>
+<tr><td>其他</td><td>确保开启self.tr("系统代理")/self.tr("全局模式")，非仅self.tr("规则/PAC 模式")</td></tr>
 </table>
 
 <h3>手动配置代理</h3>
@@ -625,9 +643,9 @@ _NETWORK_PROXY_HTML = """
 <li><strong>节点被封锁</strong>：更换其他国家/地区的节点</li>
 <li><strong>TUN 模式</strong>：开启后软件直接接管系统网络流量，无需配置端口</li>
 </ul>
-"""
+""")
 
-_LOGIN_ERROR_HTML = """
+_LOGIN_ERROR_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>遇到 "Sign in to confirm you're not a bot"</h3>
 <p>按优先级依次尝试：</p>
 <ol>
@@ -650,9 +668,9 @@ _LOGIN_ERROR_HTML = """
 
 <h3>修改账号资料后出现验证错误</h3>
 <p>修改用户名/头像触发了 Google 安全风控。解决：浏览器退出 YouTube → 重新登录 → 播放一个视频确认正常 → 重新获取 Cookie。</p>
-"""
+""")
 
-_SPONSORBLOCK_HTML = """
+_SPONSORBLOCK_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>工作原理</h3>
 <p>SponsorBlock 社区维护了一个众包标注数据库，记录了数百万视频中的赞助广告时间段。yt-dlp 下载时自动查询并处理。</p>
 
@@ -671,9 +689,9 @@ _SPONSORBLOCK_HTML = """
 </ul>
 
 <p>在 <strong>设置 → 下载选项 → SponsorBlock</strong> 中启用并选择类别和处理方式。</p>
-"""
+""")
 
-_VR_VIDEO_HTML = """
+_VR_VIDEO_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>自动检测机制</h3>
 <p>FluentYTDL 解析视频时自动检测 VR 内容（关键词、格式元数据、分辨率异常），检测到后自动使用 <code>android_vr</code> 客户端获取 VR 专属高分辨率格式（最高 8K）。</p>
 
@@ -689,9 +707,9 @@ _VR_VIDEO_HTML = """
 <p>VR 视频在普通播放器中呈畸变是正常的，需用 VR 头显或全景播放器（Skybox、PotPlayer 全景模式）。</p>
 
 <p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>注意：</strong>EAC 格式的 8K 转码极度消耗资源（建议 32GB+ 内存），没有高性能硬件时建议限制在 4K/6K。</p>
-"""
+""")
 
-_FORMAT_COMPAT_HTML = """
+_FORMAT_COMPAT_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>三个核心概念</h3>
 <p>视频文件 = <strong>容器</strong>（MP4/MKV/WebM）+ <strong>视频编码</strong>（H.264/VP9/AV1）+ <strong>音频编码</strong>（AAC/Opus）</p>
 
@@ -719,9 +737,9 @@ _FORMAT_COMPAT_HTML = """
 </ul>
 
 <p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>什么是 remux？</strong>重封装是把音视频数据从一个容器搬到另一个容器，不重新编码，速度极快且画质零损失。</p>
-"""
+""")
 
-_CRASH_RECOVERY_HTML = """
+_CRASH_RECOVERY_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>任务持久化</h3>
 <p>FluentYTDL 使用 SQLite 数据库（WAL 模式）存储所有下载任务。任务的每个状态变化（加入队列、开始、进度、完成、错误）都会实时写入数据库。</p>
 
@@ -735,9 +753,9 @@ _CRASH_RECOVERY_HTML = """
 </ul>
 
 <p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>这意味着您可以放心地在下载过程中关闭软件，下次打开时任务不会丢失。</p>
-"""
+""")
 
-_COMPONENTS_HTML = """
+_COMPONENTS_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>核心组件一览</h3>
 <table>
 <tr><th>组件</th><th>用途</th></tr>
@@ -750,9 +768,9 @@ _COMPONENTS_HTML = """
 
 <h3>管理方式</h3>
 <p>在 <strong>设置 → 核心组件</strong> 页面可查看安装状态、当前版本，并一键检查更新。所有组件首次启动时自动下载安装，开箱即用。</p>
-"""
+""")
 
-_UPDATE_CHANNELS_HTML = """
+_UPDATE_CHANNELS_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>yt-dlp 更新渠道</h3>
 <table>
 <tr><th>渠道</th><th>更新频率</th><th>稳定性</th><th>适用场景</th></tr>
@@ -771,9 +789,9 @@ _UPDATE_CHANNELS_HTML = """
 
 <h3>镜像源配置</h3>
 <p>中国大陆用户在「设置 → 核心组件」中可切换为 ghproxy 镜像加速 GitHub 下载。组件更新也会使用「设置 → 网络连接」中配置的代理。</p>
-"""
+""")
 
-_PERFORMANCE_HTML = """
+_PERFORMANCE_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>并发分片数</h3>
 <table>
 <tr><th>设置值</th><th>适用场景</th><th>风险</th></tr>
@@ -792,9 +810,9 @@ _PERFORMANCE_HTML = """
 <li>降低被风控检测的概率</li>
 <li>后台长时间挂机下载</li>
 </ul>
-"""
+""")
 
-_ERROR_TABLE_HTML = """
+_ERROR_TABLE_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>错误代码速查表</h3>
 <table>
 <tr><th>关键词</th><th>错误类型</th><th>核心原因</th><th>解决方案</th></tr>
@@ -815,9 +833,9 @@ _ERROR_TABLE_HTML = """
 </ol>
 
 <p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>403 的 IP 封锁通常需要等 12-24 小时解封。更换节点是最快的解决方案。</p>
-"""
+""")
 
-_LOG_REPORT_HTML = """
+_LOG_REPORT_HTML = QT_TRANSLATE_NOOP("HelpWindow", """
 <h3>获取运行日志</h3>
 <ol>
 <li>进入 <strong>设置页 → 系统 → 日志管理</strong></li>
@@ -831,7 +849,7 @@ _LOG_REPORT_HTML = """
 <p>遇到未知的解析异常或下载中断时，点击报错卡片处弹出的「反馈此错误」图标按钮，会自动预填错误信息提报给开发者。</p>
 
 <p style="color:#808080; font-size:13px; margin-top:12px;">💡 <strong>提示：</strong>附上日志文件能让开发者更快定位问题。在 GitHub Issue 中粘贴日志内容即可。</p>
-"""
+""")
 
 
 class ManualReaderWidget(ScrollArea):
@@ -869,8 +887,8 @@ class ManualReaderWidget(ScrollArea):
 
     def _initUI(self):
         # ========== Hero Section ==========
-        self.titleLabel = SubtitleLabel("FluentYTDL Pro 全能手册", self.view)
-        self.subtitleLabel = BodyLabel("集操作指导、设置详解与错误查询于一体的完整指南", self.view)
+        self.titleLabel = SubtitleLabel(self.tr("FluentYTDL Pro 全能手册"), self.view)
+        self.subtitleLabel = BodyLabel(self.tr("集操作指导、设置详解与错误查询于一体的完整指南"), self.view)
         self.subtitleLabel.setTextColor(QColor(118, 118, 118), QColor(150, 150, 150))
 
         self.vBoxLayout.addWidget(self.titleLabel)
@@ -878,33 +896,33 @@ class ManualReaderWidget(ScrollArea):
         self.vBoxLayout.addSpacing(10)
 
         # ========== Section 1: Core Operations ==========
-        self.usageGroup = SettingCardGroup("📘 核心操作指南", self.view)
+        self.usageGroup = SettingCardGroup(self.tr("📘 核心操作指南"), self.view)
 
         self.quickDownloadCard = ExpandHelpCard(
             FluentIcon.PASTE,
-            "快速下载",
-            "视频、播放列表、频道链接解析",
+            self.tr("快速下载"),
+            self.tr("视频、播放列表、频道链接解析"),
             _QUICK_DOWNLOAD_HTML,
             self.usageGroup,
         )
         self.formatCard = ExpandHelpCard(
             FluentIcon.VIDEO,
-            "画质与格式选择",
-            "智能自动选择 vs A+B 专业模式",
+            self.tr("画质与格式选择"),
+            self.tr("智能自动选择 vs A+B 专业模式"),
             _FORMAT_QUALITY_HTML,
             self.usageGroup,
         )
         self.lazyCard = ExpandHelpCard(
             FluentIcon.CHAT,
-            "懒人模式",
-            "复制链接即弹下载窗口",
+            self.tr("懒人模式"),
+            self.tr("复制链接即弹下载窗口"),
             _LAZY_MODE_HTML,
             self.usageGroup,
         )
         self.batchCard = ExpandHelpCard(
             FluentIcon.ACCEPT,
-            "批量任务管理",
-            "多选、暂停、恢复、删除任务",
+            self.tr("批量任务管理"),
+            self.tr("多选、暂停、恢复、删除任务"),
             _BATCH_MANAGE_HTML,
             self.usageGroup,
         )
@@ -916,32 +934,32 @@ class ManualReaderWidget(ScrollArea):
         self.vBoxLayout.addWidget(self.usageGroup)
 
         # ========== Section 2: Identity & Network ==========
-        self.identityGroup = SettingCardGroup("🔐 身份验证与网络", self.view)
+        self.identityGroup = SettingCardGroup(self.tr("🔐 身份验证与网络"), self.view)
 
         self.cookieCard = ExpandHelpCard(
             FluentIcon.PEOPLE,
-            "Cookie 获取方式对比",
-            "WebView2 / Firefox / 手动导入 — 如何选择？",
+            self.tr("Cookie 获取方式对比"),
+            self.tr("WebView2 / Firefox / 手动导入 — 如何选择？"),
             _COOKIE_COMPARE_HTML,
             self.identityGroup,
         )
         self.potokenCard = ExpandHelpCard(
             FluentIcon.DEVELOPER_TOOLS,
-            "PO Token 与反机器人检测",
-            "FluentYTDL 如何绕过 YouTube 机器人检测",
+            self.tr("PO Token 与反机器人检测"),
+            self.tr("FluentYTDL 如何绕过 YouTube 机器人检测"),
             _POTOKEN_HTML,
             self.identityGroup,
         )
         self.networkCard = ExpandHelpCard(
             FluentIcon.WIFI,
-            "网络与代理配置",
-            "系统代理、TUN 模式、手动代理",
+            self.tr("网络与代理配置"),
+            self.tr("系统代理、TUN 模式、手动代理"),
             _NETWORK_PROXY_HTML,
             self.identityGroup,
         )
         self.loginErrorCard = ExpandHelpCard(
             FluentIcon.CANCEL,
-            "需要登录 / 机器人检测错误",
+            self.tr("需要登录 / 机器人检测错误"),
             "Sign in to confirm you’re not a bot",
             _LOGIN_ERROR_HTML,
             self.identityGroup,
@@ -954,33 +972,33 @@ class ManualReaderWidget(ScrollArea):
         self.vBoxLayout.addWidget(self.identityGroup)
 
         # ========== Section 3: Advanced Features ==========
-        self.advancedGroup = SettingCardGroup("🚀 进阶功能", self.view)
+        self.advancedGroup = SettingCardGroup(self.tr("🚀 进阶功能"), self.view)
 
         self.sponsorblockCard = ExpandHelpCard(
             FluentIcon.MUSIC,
-            "SponsorBlock 广告跳过",
-            "自动移除视频中的赞助片段",
+            self.tr("SponsorBlock 广告跳过"),
+            self.tr("自动移除视频中的赞助片段"),
             _SPONSORBLOCK_HTML,
             self.advancedGroup,
         )
         self.vrCard = ExpandHelpCard(
             FluentIcon.VIDEO,
-            "VR 视频下载",
-            "最高 8K VR，android_vr 客户端",
+            self.tr("VR 视频下载"),
+            self.tr("最高 8K VR，android_vr 客户端"),
             _VR_VIDEO_HTML,
             self.advancedGroup,
         )
         self.formatCompatCard = ExpandHelpCard(
             FluentIcon.PEOPLE,
-            "视频格式与编码兼容性",
-            "为什么有些视频在手机/电视上无法播放",
+            self.tr("视频格式与编码兼容性"),
+            self.tr("为什么有些视频在手机/电视上无法播放"),
             _FORMAT_COMPAT_HTML,
             self.advancedGroup,
         )
         self.crashRecoveryCard = ExpandHelpCard(
             FluentIcon.SAVE,
-            "崩溃恢复与任务持久化",
-            "任务在崩溃/断电后依然保留",
+            self.tr("崩溃恢复与任务持久化"),
+            self.tr("任务在崩溃/断电后依然保留"),
             _CRASH_RECOVERY_HTML,
             self.advancedGroup,
         )
@@ -992,26 +1010,26 @@ class ManualReaderWidget(ScrollArea):
         self.vBoxLayout.addWidget(self.advancedGroup)
 
         # ========== Section 4: Components & Updates ==========
-        self.componentsGroup = SettingCardGroup("🔧 组件与更新", self.view)
+        self.componentsGroup = SettingCardGroup(self.tr("🔧 组件与更新"), self.view)
 
         self.componentsCard = ExpandHelpCard(
             FluentIcon.DOWNLOAD,
-            "核心组件一览",
+            self.tr("核心组件一览"),
             "yt-dlp、FFmpeg、Deno、POT Provider、AtomicParsley",
             _COMPONENTS_HTML,
             self.componentsGroup,
         )
         self.updateCard = ExpandHelpCard(
             FluentIcon.UPDATE,
-            "更新渠道与紧急自救",
+            self.tr("更新渠道与紧急自救"),
             "stable / nightly / master",
             _UPDATE_CHANNELS_HTML,
             self.componentsGroup,
         )
         self.performanceCard = ExpandHelpCard(
             FluentIcon.SPEED_HIGH,
-            "性能调优",
-            "并发分片、限速、下载优化",
+            self.tr("性能调优"),
+            self.tr("并发分片、限速、下载优化"),
             _PERFORMANCE_HTML,
             self.componentsGroup,
         )
@@ -1022,19 +1040,19 @@ class ManualReaderWidget(ScrollArea):
         self.vBoxLayout.addWidget(self.componentsGroup)
 
         # ========== Section 5: Troubleshooting ==========
-        self.errorGroup = SettingCardGroup("❌ 故障排查", self.view)
+        self.errorGroup = SettingCardGroup(self.tr("❌ 故障排查"), self.view)
 
         self.errorTableCard = ExpandHelpCard(
             FluentIcon.INFO,
-            "错误代码速查表",
-            "HTTP 403、超时、FFmpeg 缺失等",
+            self.tr("错误代码速查表"),
+            self.tr("HTTP 403、超时、FFmpeg 缺失等"),
             _ERROR_TABLE_HTML,
             self.errorGroup,
         )
         self.logCard = ExpandHelpCard(
             FluentIcon.GITHUB,
-            "日志收集与 Bug 上报",
-            "如何获取日志并有效反馈",
+            self.tr("日志收集与 Bug 上报"),
+            self.tr("如何获取日志并有效反馈"),
             _LOG_REPORT_HTML,
             self.errorGroup,
         )
@@ -1052,7 +1070,7 @@ class HelpWindow(FluentWindow):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("帮助中心")
+        self.setWindowTitle(self.tr("帮助中心"))
         self.resize(900, 650)
 
         desktop = self.screen().availableGeometry()
@@ -1069,14 +1087,14 @@ class HelpWindow(FluentWindow):
         self.addSubInterface(
             self.guide_interface,
             FluentIcon.COMPLETED,
-            "快速入门",
+            self.tr("快速入门"),
             position=NavigationItemPosition.TOP,
         )
 
         self.addSubInterface(
             self.manual_interface,
             FluentIcon.BOOK_SHELF,
-            "用户手册",
+            self.tr("用户手册"),
             position=NavigationItemPosition.TOP,
         )
 

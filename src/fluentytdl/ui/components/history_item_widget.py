@@ -39,27 +39,27 @@ def _format_bytes(b: int | float) -> str:
     return f"{size:.1f} TB"
 
 
-def _format_time_ago(ts: float) -> str:
+def _format_time_ago(ts: float, parent: QWidget) -> str:
     """时间戳 → '3 分钟前' 之类"""
     import time
 
     diff = time.time() - ts
     if diff < 60:
-        return "刚刚"
+        return parent.tr("刚刚")
     elif diff < 3600:
-        return f"{int(diff // 60)} 分钟前"
+        return parent.tr("{} 分钟前").format(int(diff // 60))
     elif diff < 86400:
-        return f"{int(diff // 3600)} 小时前"
+        return parent.tr("{} 小时前").format(int(diff // 3600))
+    
+    days = int(diff // 86400)
+    if days == 1:
+        return parent.tr("昨天")
+    elif days < 30:
+        return parent.tr("{} 天前").format(days)
     else:
-        days = int(diff // 86400)
-        if days == 1:
-            return "昨天"
-        elif days < 30:
-            return f"{days} 天前"
-        else:
-            from datetime import datetime
+        from datetime import datetime
 
-            return datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
+        return datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
 
 
 class HistoryItemWidget(CardWidget):
@@ -104,7 +104,18 @@ class HistoryItemWidget(CardWidget):
         # 标题
         from PySide6.QtWidgets import QSizePolicy
 
-        self.title_label = StrongBodyLabel(record.title or "未知标题", self)
+        title = record.title or self.tr("未知标题")
+        if title.startswith("[封面] "):
+            title = title.replace("[封面]", self.tr("[封面]"))
+        if title.startswith("[字幕"):
+            # Format: [字幕 (en, zh-Hans)] Title
+            idx = title.find("]")
+            if idx != -1:
+                prefix = title[:idx+1]
+                translated_prefix = prefix.replace("字幕", self.tr("字幕"))
+                title = translated_prefix + title[idx+1:]
+
+        self.title_label = StrongBodyLabel(title, self)
         self.title_label.setWordWrap(False)
         self.title_label.setMinimumWidth(10)
         self.title_label.setSizePolicy(
@@ -116,12 +127,12 @@ class HistoryItemWidget(CardWidget):
         if record.file_size > 0:
             meta_parts.append(_format_bytes(record.file_size))
         if record.format_note:
-            meta_parts.append(record.format_note)
-        meta_parts.append(_format_time_ago(record.download_time))
+            meta_parts.append(self.tr(record.format_note))
+        meta_parts.append(_format_time_ago(record.download_time, self))
 
         # 文件状态
         if not record.file_exists:
-            meta_parts.append("⚠ 文件丢失")
+            meta_parts.append(self.tr("⚠ 文件丢失"))
 
         if record.quality_deviation:
             meta_parts.append(f"⚠️ {record.quality_deviation}")
@@ -143,7 +154,7 @@ class HistoryItemWidget(CardWidget):
 
         # 重新解析
         self.reparse_btn = TransparentToolButton(FluentIcon.LINK, self)
-        self.reparse_btn.setToolTip("重新解析")
+        self.reparse_btn.setToolTip(self.tr("重新解析"))
         self.reparse_btn.installEventFilter(
             ToolTipFilter(self.reparse_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -151,7 +162,7 @@ class HistoryItemWidget(CardWidget):
 
         # 打开文件夹
         self.folder_btn = TransparentToolButton(FluentIcon.FOLDER, self)
-        self.folder_btn.setToolTip("打开文件位置")
+        self.folder_btn.setToolTip(self.tr("打开文件位置"))
         self.folder_btn.installEventFilter(
             ToolTipFilter(self.folder_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -160,7 +171,7 @@ class HistoryItemWidget(CardWidget):
 
         # 播放按钮
         self.play_btn = TransparentToolButton(FluentIcon.PLAY, self)
-        self.play_btn.setToolTip("播放文件")
+        self.play_btn.setToolTip(self.tr("播放文件"))
         self.play_btn.installEventFilter(
             ToolTipFilter(self.play_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -169,7 +180,7 @@ class HistoryItemWidget(CardWidget):
 
         # 删除记录
         self.del_btn = TransparentToolButton(FluentIcon.DELETE, self)
-        self.del_btn.setToolTip("删除记录")
+        self.del_btn.setToolTip(self.tr("删除记录"))
         self.del_btn.installEventFilter(
             ToolTipFilter(self.del_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )

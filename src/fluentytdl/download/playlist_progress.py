@@ -97,7 +97,8 @@ class PlaylistProgressTracker:
     def build_status_text(self) -> str:
         """生成给 CleanLogger / DownloadItemDelegate 使用的进度文本。"""
         if self.total_items == 0:
-            return "正在解析播放列表..."
+            from PySide6.QtCore import QCoreApplication
+            return QCoreApplication.translate("PlaylistProgress", "正在解析播放列表...")
 
         title_part = self.current_title or "..."
         # 截断过长标题

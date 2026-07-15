@@ -187,7 +187,7 @@ class HistoryItemDelegate(QStyledItemDelegate):
             time_str = record.get_local_time_str()
             meta_str = f"{f_size}  •  {f_dur}  •  下载于 {time_str}"
         else:
-            meta_str = "⚠️ 文件已被移动或删除"
+            meta_str = self.tr("⚠️ 文件已被移动或删除")
 
         painter.drawText(
             QRect(text_left, rect.top() + 44, text_width, 20),

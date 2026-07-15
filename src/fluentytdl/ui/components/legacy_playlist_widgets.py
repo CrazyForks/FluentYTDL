@@ -98,15 +98,15 @@ class SimplePresetWidget(QWidget):
             # === 推荐选项 ===
             (
                 "best_mp4",
-                "🎬 最佳画质 (MP4)",
-                "推荐。自动选择最佳画质并封装为 MP4，兼容性最好。",
+                self.tr("🎬 最佳画质 (MP4)"),
+                self.tr("推荐。自动选择最佳画质并封装为 MP4，兼容性最好。"),
                 "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4] / bv*+ba/b",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "best_raw",
-                "🎯 最佳画质 (原盘)",
-                "追求极致画质。通常为 WebM/MKV 格式，适合本地播放。",
+                self.tr("🎯 最佳画质 (原盘)"),
+                self.tr("追求极致画质。通常为 WebM/MKV 格式，适合本地播放。"),
                 "bestvideo+bestaudio/best",
                 {},
             ),
@@ -114,50 +114,50 @@ class SimplePresetWidget(QWidget):
             (
                 "2160p",
                 "📺 2160p 4K (MP4)",
-                "限制最高分辨率为 4K，超高清画质。",
+                self.tr("限制最高分辨率为 4K，超高清画质。"),
                 "bv*[height<=2160][ext=mp4]+ba[ext=m4a]/b[height<=2160][ext=mp4] / bv*[height<=2160]+ba/b[height<=2160]",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "1440p",
                 "📺 1440p 2K (MP4)",
-                "限制最高分辨率为 2K，高清画质。",
+                self.tr("限制最高分辨率为 2K，高清画质。"),
                 "bv*[height<=1440][ext=mp4]+ba[ext=m4a]/b[height<=1440][ext=mp4] / bv*[height<=1440]+ba/b[height<=1440]",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "1080p",
-                "📺 1080p 高清 (MP4)",
-                "限制最高分辨率为 1080p，平衡画质与体积。",
+                self.tr("📺 1080p 高清 (MP4)"),
+                self.tr("限制最高分辨率为 1080p，平衡画质与体积。"),
                 "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4] / bv*[height<=1080]+ba/b[height<=1080]",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "720p",
-                "📺 720p 标清 (MP4)",
-                "限制最高分辨率为 720p，适合移动设备。",
+                self.tr("📺 720p 标清 (MP4)"),
+                self.tr("限制最高分辨率为 720p，适合移动设备。"),
                 "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720][ext=mp4] / bv*[height<=720]+ba/b[height<=720]",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "480p",
                 "📺 480p (MP4)",
-                "限制最高分辨率为 480p，节省空间。",
+                self.tr("限制最高分辨率为 480p，节省空间。"),
                 "bv*[height<=480][ext=mp4]+ba[ext=m4a]/b[height<=480][ext=mp4] / bv*[height<=480]+ba/b[height<=480]",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "360p",
                 "📺 360p (MP4)",
-                "限制最高分辨率为 360p，最小体积。",
+                self.tr("限制最高分辨率为 360p，最小体积。"),
                 "bv*[height<=360][ext=mp4]+ba[ext=m4a]/b[height<=360][ext=mp4] / bv*[height<=360]+ba/b[height<=360]",
                 {"merge_output_format": "mp4"},
             ),
             # === 纯音频 ===
             (
                 "audio_mp3",
-                "🎵 纯音频 (MP3 - 320k)",
-                "仅下载音频并转码为 MP3。",
+                self.tr("🎵 纯音频 (MP3 - 320k)"),
+                self.tr("仅下载音频并转码为 MP3。"),
                 "bestaudio/best",
                 {"extract_audio": True, "audio_format": "mp3", "audio_quality": "320K"},
             ),
@@ -330,8 +330,8 @@ class PlaylistActionWidget(QWidget):
         self.loadingRing.setFixedSize(14, 14)
         self.loadingRing.hide()
 
-        self.qualityButton = PushButton("待加载", self)
-        self.qualityButton.setToolTip("点击获取信息/选择格式")
+        self.qualityButton = PushButton(self.tr("待加载"), self)
+        self.qualityButton.setToolTip(self.tr("点击获取信息/选择格式"))
         self.qualityButton.installEventFilter(
             ToolTipFilter(self.qualityButton, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -551,14 +551,14 @@ class PlaylistFormatDialog(MessageBoxBase):
         self.widget.setMinimumSize(700, 500)
         self._mode = mode
 
-        self.titleLabel = SubtitleLabel("选择格式", self)
+        self.titleLabel = SubtitleLabel(self.tr("选择格式"), self)
         self.viewLayout.addWidget(self.titleLabel)
 
         if self._mode == "subtitle":
-            self.titleLabel.setText("选择字幕")
+            self.titleLabel.setText(self.tr("选择字幕"))
             self.selector = SubtitleSelectorWidget(info, self)
         elif self._mode == "cover":
-            self.titleLabel.setText("选择封面")
+            self.titleLabel.setText(self.tr("选择封面"))
             self.selector = CoverSelectorWidget(info, self)
         elif vr_mode:
             self.selector = VRFormatSelectorWidget(info, self)
@@ -573,8 +573,8 @@ class PlaylistFormatDialog(MessageBoxBase):
             self._setup_subtitle_override_section(info)
 
         # Override buttons
-        self.yesButton.setText("应用")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("应用"))
+        self.cancelButton.setText(self.tr("取消"))
 
     def _setup_subtitle_override_section(self, info: dict[str, Any]):
         from PySide6.QtWidgets import QHBoxLayout
@@ -583,9 +583,9 @@ class PlaylistFormatDialog(MessageBoxBase):
         row = QHBoxLayout()
         row.setContentsMargins(0, 5, 0, 0)
 
-        self.sub_override_check = CheckBox("为此视频独立配置字幕", self)
+        self.sub_override_check = CheckBox(self.tr("为此视频独立配置字幕"), self)
 
-        self.sub_override_btn = PushButton("选择字幕...", self)
+        self.sub_override_btn = PushButton(self.tr("选择字幕..."), self)
         self.sub_override_btn.setEnabled(False)
         self.sub_override_result = None
 
@@ -618,7 +618,7 @@ class PlaylistFormatDialog(MessageBoxBase):
             if n > 0:
                 self.sub_override_btn.setText(f"已选 {n} 种字幕 ✓")
             else:
-                self.sub_override_btn.setText("选择字幕...")
+                self.sub_override_btn.setText(self.tr("选择字幕..."))
 
     def get_selection(self) -> dict:
         if self._mode == "subtitle":
@@ -635,7 +635,7 @@ class PlaylistFormatDialog(MessageBoxBase):
         if self._mode == "subtitle":
             selected = self.selector.get_selected_tracks()  # type: ignore[attr-defined]
             if not selected:
-                return "未选择字幕"
+                return self.tr("未选择字幕")
             return f"已选择 {len(selected)} 种语言"
         elif self._mode == "cover":
             ext = self.selector.get_selected_ext()  # type: ignore[attr-defined]

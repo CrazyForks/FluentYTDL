@@ -20,6 +20,9 @@ import json
 import threading
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Callable
+
+from PySide6.QtCore import QCoreApplication
 
 from ..utils.logger import logger
 from .auth_service import AuthSourceType, auth_service
@@ -72,14 +75,16 @@ class CookieSentinel:
                     from ..utils.paths import project_root
 
                     root = project_root()
-                self.cookie_path = root / "bin" / "cookies.txt"
+                self._base_dir = root / "bin"
             except Exception:
                 # Fallback: 使用临时目录
                 import tempfile
 
-                self.cookie_path = Path(tempfile.gettempdir()) / "fluentytdl_cookies.txt"
+                self._base_dir = Path(tempfile.gettempdir())
         else:
-            self.cookie_path = cookie_path
+            self._base_dir = cookie_path.parent
+            
+        self.cookie_path = self._base_dir / "cookies.txt"
 
         # 元数据文件路径（记录 Cookie 来源）
         self.meta_path = self.cookie_path.with_suffix(".txt.meta")
@@ -278,6 +283,15 @@ class CookieSentinel:
         """
         return str(self.cookie_path.absolute())
 
+    def get_cookie_path_for_platform(self, platform: str = "youtube") -> Path:
+        """获取特定平台的 Cookie 文件路径"""
+        filename = f"cookies_{platform}.txt" if platform != "youtube" else "cookies.txt"
+        return self._base_dir / filename
+
+    def get_meta_path_for_platform(self, platform: str = "youtube") -> Path:
+        """获取特定平台的元数据文件路径"""
+        return self.get_cookie_path_for_platform(platform).with_suffix(".txt.meta")
+
     def silent_refresh_on_startup(self) -> None:
         """
         启动时静默刷新 Cookie（Best-Effort）
@@ -459,17 +473,17 @@ class CookieSentinel:
                 self._save_meta(source_id, auth_service.last_status.cookie_count)
                 self._using_fallback = False
                 self._fallback_warning = None
-                msg = f"✅ Cookie 已更新（{auth_service.current_source_display}）"
+                msg = QCoreApplication.translate("CookieSentinel", "✅ Cookie 已更新（{}）").format(auth_service.current_source_display)
                 if auth_service.last_status.cookie_count > 0:
-                    msg += f"\n提取了 {auth_service.last_status.cookie_count} 个 Cookie"
+                    msg += QCoreApplication.translate("CookieSentinel", "\n提取了 {} 个 Cookie").format(auth_service.last_status.cookie_count)
                 return True, msg
             else:
                 # 提取失败，检查是否有旧 Cookie 可用作回退
                 if self.exists and actual_source:
                     self._using_fallback = True
-                    self._fallback_warning = (
-                        f"从 {auth_service.current_source_display} 提取失败，"
-                        f"继续使用 {self._get_source_display(actual_source)} 的 Cookie"
+                    self._fallback_warning = QCoreApplication.translate("CookieSentinel", "从 {} 提取失败，继续使用 {} 的 Cookie").format(
+                        auth_service.current_source_display,
+                        self._get_source_display(actual_source)
                     )
                     return (
                         False,
@@ -578,26 +592,26 @@ class CookieSentinel:
         if not source_id:
             return "未知"
         display_names = {
-            "edge": "Edge",
-            "chrome": "Chrome",
-            "chromium": "Chromium",
-            "brave": "Brave",
-            "opera": "Opera",
-            "opera_gx": "Opera GX",
-            "vivaldi": "Vivaldi",
-            "arc": "Arc",
-            "firefox": "Firefox",
-            "librewolf": "LibreWolf",
-            "webview2": "登录获取 (WebView2)",
-            "file": "手动导入",
+            "edge": QCoreApplication.translate("CookieSentinel", "Edge"),
+            "chrome": QCoreApplication.translate("CookieSentinel", "Chrome"),
+            "chromium": QCoreApplication.translate("CookieSentinel", "Chromium"),
+            "brave": QCoreApplication.translate("CookieSentinel", "Brave"),
+            "opera": QCoreApplication.translate("CookieSentinel", "Opera"),
+            "opera_gx": QCoreApplication.translate("CookieSentinel", "Opera GX"),
+            "vivaldi": QCoreApplication.translate("CookieSentinel", "Vivaldi"),
+            "arc": QCoreApplication.translate("CookieSentinel", "Arc"),
+            "firefox": QCoreApplication.translate("CookieSentinel", "Firefox"),
+            "librewolf": QCoreApplication.translate("CookieSentinel", "LibreWolf"),
+            "webview2": QCoreApplication.translate("CookieSentinel", "登录获取 (WebView2)"),
+            "file": QCoreApplication.translate("CookieSentinel", "手动导入"),
         }
 
         if source_id.startswith("webview2:"):
             account_id = source_id.split(":", 1)[1]
             account = auth_service.current_webview2_account
             if account and account.account_id == account_id:
-                return f"登录获取 (WebView2 - {account.display_name})"
-            return f"登录获取 (WebView2 - {account_id[:8]})"
+                return QCoreApplication.translate("CookieSentinel", "登录获取 (WebView2 - {})").format(account.localized_name)
+            return QCoreApplication.translate("CookieSentinel", "登录获取 (WebView2 - {})").format(account_id[:8])
 
         return display_names.get(source_id, source_id)
 
@@ -605,74 +619,71 @@ class CookieSentinel:
 
     def _update_from_browser(self, silent: bool = False, force: bool = False) -> bool:
         """
-        从浏览器更新 Cookie
+        从浏览器更新支持平台 (YouTube, X) 的 Cookie
 
         Args:
             silent: 静默模式（失败不抛出异常）
             force: 强制刷新（允许 UAC）
 
         Returns:
-            更新是否成功
+            更新是否成功 (只要任一平台成功即为 True)
         """
-        try:
-            # 通过 AuthService 获取 Cookie 文件
-            # force=True 时会触发 UAC（如果需要）
-            auth_cookie_file = auth_service.get_cookie_file_for_ytdlp(
-                platform="youtube", force_refresh=force
-            )
+        success_any = False
+        platforms = ["youtube", "twitter"]
+        for platform in platforms:
+            try:
+                # 通过 AuthService 获取 Cookie 文件
+                # force=True 时会触发 UAC（如果需要）
+                auth_cookie_file = auth_service.get_cookie_file_for_ytdlp(
+                    platform=platform, force_refresh=force
+                )
 
-            if not auth_cookie_file or not Path(auth_cookie_file).exists():
-                if not silent:
-                    raise RuntimeError("AuthService 未能生成 Cookie 文件")
-                return False
+                if auth_cookie_file and Path(auth_cookie_file).exists():
+                    import shutil
+                    dest_path = self.get_cookie_path_for_platform(platform)
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(auth_cookie_file, dest_path)
+                    success_any = True
+                    logger.info(f"[CookieSentinel] {platform} Cookie 已更新: {dest_path}")
+            except Exception as e:
+                if silent:
+                    logger.debug(f"[CookieSentinel] {platform} 静默更新失败: {e}")
+                else:
+                    logger.warning(f"[CookieSentinel] {platform} 更新失败: {e}")
 
-            # 复制到统一路径
-            import shutil
-
-            shutil.copy2(auth_cookie_file, self.cookie_path)
-
+        if success_any:
             self._last_update = datetime.now()
-            logger.info(f"[CookieSentinel] Cookie 已更新: {self.cookie_path}")
-
-            return True
-
-        except Exception as e:
-            if silent:
-                logger.debug(f"[CookieSentinel] 静默更新失败: {e}")
-                return False
-            else:
-                logger.error(f"[CookieSentinel] 更新失败: {e}")
-                raise
+        elif not silent:
+            raise RuntimeError("AuthService 未能生成任何有效的 Cookie 文件")
+            
+        return success_any
 
     def _copy_from_auth_service(self) -> bool:
         """
-        从 AuthService 当前文件复制到 bin/cookies.txt
+        从 AuthService 当前文件复制到各个平台的 cookies.txt
 
         Returns:
-            复制是否成功
+            复制是否成功 (只要任一平台成功即为 True)
         """
-        try:
-            auth_cookie_file = auth_service.get_cookie_file_for_ytdlp(platform="youtube")
+        success_any = False
+        platforms = ["youtube", "twitter"]
+        for platform in platforms:
+            try:
+                auth_cookie_file = auth_service.get_cookie_file_for_ytdlp(platform=platform)
+                if auth_cookie_file and Path(auth_cookie_file).exists():
+                    import shutil
+                    dest_path = self.get_cookie_path_for_platform(platform)
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(Path(auth_cookie_file), dest_path)
+                    success_any = True
+                    logger.info(f"[CookieSentinel] 已从 AuthService 复制 {platform} Cookie: {dest_path}")
+            except Exception as e:
+                logger.error(f"[CookieSentinel] 复制 {platform} 失败: {e}")
 
-            if not auth_cookie_file:
-                return False
-
-            source_path = Path(auth_cookie_file)
-            if not source_path.exists():
-                return False
-
-            import shutil
-
-            shutil.copy2(source_path, self.cookie_path)
-
+        if success_any:
             self._last_update = datetime.now()
-            logger.info(f"[CookieSentinel] 已从 AuthService 复制 Cookie: {self.cookie_path}")
-
-            return True
-
-        except Exception as e:
-            logger.error(f"[CookieSentinel] 复制失败: {e}")
-            return False
+            
+        return success_any
 
 
 # 全局单例

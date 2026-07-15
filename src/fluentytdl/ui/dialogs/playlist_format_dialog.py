@@ -13,7 +13,7 @@ class PlaylistFormatConfigDialog(MessageBoxBase):
 
     def __init__(self, current_override: PlaylistGlobalFormatOverride | None = None, parent=None):
         super().__init__(parent)
-        self.titleLabel = SubtitleLabel("高级格式设置", self)
+        self.titleLabel = SubtitleLabel(self.tr("高级格式设置"), self)
         self.viewLayout.addWidget(self.titleLabel)
 
         self.widget.setMinimumWidth(480)
@@ -69,8 +69,8 @@ class PlaylistFormatConfigDialog(MessageBoxBase):
                 if idx >= 0:
                     self.format_bar.audio_combo.setCurrentIndex(idx)
 
-        self.yesButton.setText("应用至全体")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("应用至全体"))
+        self.cancelButton.setText(self.tr("取消"))
 
     def get_override(self) -> PlaylistGlobalFormatOverride:
         sel = self.preset_widget.get_current_selection()

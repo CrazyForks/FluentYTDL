@@ -13,7 +13,7 @@ PlaylistScheduler — 播放列表详情抓取调度器
 下游通过信号接收结果：
   - detail_finished(row, info_dict)
   - detail_error(row, error_msg)
-  - row_started(row)             — 行真正开始执行时（用于延迟"解析中"指示器）
+  - row_started(row)             — 行真正开始执行时（用于延迟self.tr("解析中")指示器）
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ class PlaylistScheduler(QObject):
     完全封装了 DownloadConfigWindow 原有的 7 个队列/集合变量和 10+ 个调度方法。
 
     任务 ID 采用条目 URL（而非行号字符串），搭配 _url_to_row 反向映射实现
-    行号无关的稳健调度，彻底规避"行号偏移"导致的数据错乱问题。
+    行号无关的稳健调度，彻底规避self.tr("行号偏移")导致的数据错乱问题。
     """
 
     # ── 对外信号 ───────────────────────────────────────────────────────────
@@ -304,7 +304,7 @@ class PlaylistScheduler(QObject):
             self._row_to_url[row] = task_id
             self._running.add(row)
 
-            self.row_started.emit(row)  # 触发延迟"解析中"指示器
+            self.row_started.emit(row)  # 触发延迟self.tr("解析中")指示器
             self._mgr.enqueue(task_id, url, self._options, self._vr_mode)
             self._fill_exec_queue()
 

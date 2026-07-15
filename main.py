@@ -162,6 +162,10 @@ def main() -> None:
     # 1. 创建应用
     app = QApplication(sys.argv)
 
+    # === 初始化国际化 (i18n) ===
+    from fluentytdl.core.i18n import I18nManager
+    I18nManager.setup_language()
+
     # === 避免强制写死浅色模式，跟随用户配置动态调整 ===
     import qfluentwidgets
 

@@ -36,7 +36,7 @@ class SubtitlePickerDialog(MessageBoxBase):
     ):
         super().__init__(parent)
         # 标题
-        self.titleLabel = SubtitleLabel("选择字幕", self)
+        self.titleLabel = SubtitleLabel(self.tr("选择字幕"), self)
         self.viewLayout.addWidget(self.titleLabel)
 
         # 内嵌 SubtitleSelectorWidget
@@ -51,14 +51,14 @@ class SubtitlePickerDialog(MessageBoxBase):
         # 嵌入模式选项（继承全局设置，允许本次覆盖）
         config = config_manager.get_subtitle_config()
         self._embed_combo = ComboBox(self)
-        self._embed_combo.addItems(["软嵌入到视频", "外置字幕文件"])
+        self._embed_combo.addItems([self.tr("软嵌入到视频"), self.tr("外置字幕文件")])
 
         if initial_result:
             self._embed_combo.setCurrentIndex(0 if initial_result.embed_subtitles else 1)
         elif config.embed_type == "external":
             self._embed_combo.setCurrentIndex(1)
 
-        self._embed_row.addWidget(CaptionLabel("嵌入方式:", self))
+        self._embed_row.addWidget(CaptionLabel(self.tr("嵌入方式:"), self))
         self._embed_row.addWidget(self._embed_combo)
 
         # 输出格式选项
@@ -75,7 +75,7 @@ class SubtitlePickerDialog(MessageBoxBase):
             fmt_index = {"srt": 0, "ass": 1, "vtt": 2, "lrc": 3}.get(config.output_format, 0)
             self._format_combo.setCurrentIndex(fmt_index)
 
-        self._embed_row.addWidget(CaptionLabel("字幕格式:", self))
+        self._embed_row.addWidget(CaptionLabel(self.tr("字幕格式:"), self))
         self._embed_row.addWidget(self._format_combo)
         self._embed_row.addStretch(1)
 
@@ -99,8 +99,8 @@ class SubtitlePickerDialog(MessageBoxBase):
         self._update_compat_hint()
 
         # 按钮文本
-        self.yesButton.setText("确认")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("确认"))
+        self.cancelButton.setText(self.tr("取消"))
         self.widget.setMinimumWidth(600)  # 保证表格有足够宽度
 
     def _update_compat_hint(self):
@@ -116,7 +116,7 @@ class SubtitlePickerDialog(MessageBoxBase):
             if container == "webm":
                 # WebM → 自动切换嵌入为外挂 + 显示警告
                 self._compat_label.setText(
-                    "⚠ WebM 容器本身不支持软嵌入字幕，必须使用外置字幕文件。"
+                    self.tr("⚠ WebM 容器本身不支持软嵌入字幕，必须使用外置字幕文件。")
                 )
                 self._compat_label.setStyleSheet("color: #E2C08D;")
                 self._compat_label.show()
@@ -124,13 +124,13 @@ class SubtitlePickerDialog(MessageBoxBase):
                     self._embed_combo.setCurrentIndex(1)
             elif container == "mp4" and lang_count > 1:
                 self._compat_label.setText(
-                    "⚠ MP4 容器使用 mov_text 编码，部分播放器对多轨字幕支持不佳，建议同时使用外置字幕或选择 MKV 容器。"
+                    self.tr("⚠ MP4 容器使用 mov_text 编码，部分播放器对多轨字幕支持不佳，建议同时使用外置字幕或选择 MKV 容器。")
                 )
                 self._compat_label.setStyleSheet("color: #E2C08D;")
                 self._compat_label.show()
         else:
             if not self._container:
-                self._compat_label.setText("💡 将根据字幕需求自动选择最佳容器 (MKV/MP4/WebM)。")
+                self._compat_label.setText(self.tr("💡 将根据字幕需求自动选择最佳容器 (MKV/MP4/WebM)。"))
                 self._compat_label.setStyleSheet("color: #8D9BE2;")
                 self._compat_label.show()
             else:

@@ -72,12 +72,12 @@ class SponsorBlockCategoriesDialog(MessageBoxBase):
         self.viewLayout.setSpacing(16)
 
         # 标题
-        self.titleLabel = SubtitleLabel("选择要跳过的片段类型", self)
+        self.titleLabel = SubtitleLabel(self.tr("选择要跳过的片段类型"), self)
         self.viewLayout.addWidget(self.titleLabel)
 
         # 说明文字
         self.infoLabel = BodyLabel(
-            "勾选下方要自动跳过的广告片段类型，这些片段将在下载时自动移除或标记为章节。", self
+            self.tr("勾选下方要自动跳过的广告片段类型，这些片段将在下载时自动移除或标记为章节。"), self
         )
         self.infoLabel.setWordWrap(True)
         from qfluentwidgets import isDarkTheme
@@ -102,17 +102,17 @@ class SponsorBlockCategoriesDialog(MessageBoxBase):
 
         # 类别定义（分为常用和其他）
         common_categories = [
-            ("sponsor", "赞助广告", "视频中的付费推广内容"),
-            ("selfpromo", "自我推广", "频道推广、社交媒体链接等"),
-            ("interaction", "互动提醒", "订阅、点赞、评论提醒"),
+            ("sponsor", self.tr("赞助广告"), self.tr("视频中的付费推广内容")),
+            ("selfpromo", self.tr("自我推广"), self.tr("频道推广、社交媒体链接等")),
+            ("interaction", self.tr("互动提醒"), self.tr("订阅、点赞、评论提醒")),
         ]
 
         other_categories = [
-            ("intro", "片头", "视频开头的固定片头"),
-            ("outro", "片尾", "视频结尾的固定片尾"),
-            ("preview", "预告", "视频中的预告片段"),
-            ("filler", "填充内容", "与主题无关的闲聊内容"),
-            ("music_offtopic", "非音乐部分", "音乐视频中的非音乐内容"),
+            ("intro", self.tr("片头"), self.tr("视频开头的固定片头")),
+            ("outro", self.tr("片尾"), self.tr("视频结尾的固定片尾")),
+            ("preview", self.tr("预告"), self.tr("视频中的预告片段")),
+            ("filler", self.tr("填充内容"), self.tr("与主题无关的闲聊内容")),
+            ("music_offtopic", self.tr("非音乐部分"), self.tr("音乐视频中的非音乐内容")),
         ]
 
         # 创建复选框
@@ -120,7 +120,7 @@ class SponsorBlockCategoriesDialog(MessageBoxBase):
         current_set = set(current_categories)
 
         # 常用类别
-        common_label = BodyLabel("常用类别", self)
+        common_label = BodyLabel(self.tr("常用类别"), self)
         common_label.setStyleSheet("font-weight: 600; margin-top: 8px;")
         self.categoriesLayout.addWidget(common_label)
 
@@ -132,7 +132,7 @@ class SponsorBlockCategoriesDialog(MessageBoxBase):
             self.checkboxes[cat_id] = category_widget
 
         # 其他类别
-        other_label = BodyLabel("其他类别", self)
+        other_label = BodyLabel(self.tr("其他类别"), self)
         other_label.setStyleSheet("font-weight: 600; margin-top: 12px;")
         self.categoriesLayout.addWidget(other_label)
 
@@ -150,8 +150,8 @@ class SponsorBlockCategoriesDialog(MessageBoxBase):
         self.viewLayout.addWidget(self.scrollArea)
 
         # 设置按钮文本
-        self.yesButton.setText("确认")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("确认"))
+        self.cancelButton.setText(self.tr("取消"))
 
         # 设置对话框最小宽度
         try:

@@ -137,7 +137,7 @@ def _analyze_format_tags(r: dict) -> list[tuple[str, str]]:
         track_type = str(r.get("audio_track_type") or "").lower()
         # Original track usually marked by youtube or has language="original" in yt-dlp
         if track_type == "original" or lang.lower() == "orig" or lang.lower() == "original":
-            tags.append(("原音", "green"))
+            tags.append((self.tr("原音"), "green"))
         else:
             tags.append((f"[{lang.upper()}]", "blue"))
 
@@ -178,15 +178,15 @@ class SimplePresetWidget(QWidget):
 
         # 下载类型选择
         type_layout = QHBoxLayout()
-        type_layout.addWidget(CaptionLabel("下载类型:", self))
+        type_layout.addWidget(CaptionLabel(self.tr("下载类型:"), self))
         self._type_combo = ComboBox(self)
-        self._type_combo.addItems(["视频 + 音频", "仅视频", "仅音频"])
+        self._type_combo.addItems([self.tr("视频 + 音频"), self.tr("仅视频"), self.tr("仅音频")])
         self._type_combo.currentIndexChanged.connect(self._on_type_changed)
         type_layout.addWidget(self._type_combo, 1)
 
         # 音轨精选按钮（仅在多语言音轨时显示）
         self._audio_pick_result = None
-        self.audio_pick_btn = PushButton("选择音轨…", self)
+        self.audio_pick_btn = PushButton(self.tr("选择音轨…"), self)
         self.audio_pick_btn.clicked.connect(self._on_audio_pick_clicked)
         self.audio_pick_btn.setVisible(False)
         try:
@@ -224,84 +224,84 @@ class SimplePresetWidget(QWidget):
             "video_audio": [
                 (
                     "best_mp4",
-                    "🎬 最佳画质",
-                    "推荐。自动选择最佳画质并封装为选定容器，兼容性最好。",
+                    self.tr("🎬 最佳画质"),
+                    self.tr("推荐。自动选择最佳画质并封装为选定容器，兼容性最好。"),
                     {"type": "video", "max_height": None},
                 ),
                 (
                     "best_raw",
-                    "🎯 最佳画质 (原盘)",
-                    "追求极致画质。通常为 WebM/MKV 格式，适合本地播放。",
+                    self.tr("🎯 最佳画质 (原盘)"),
+                    self.tr("追求极致画质。通常为 WebM/MKV 格式，适合本地播放。"),
                     {"type": "video", "max_height": None},
                 ),
                 (
                     "2160p",
                     "📺 2160p 4K",
-                    "限制最高分辨率为 4K，超高清画质。",
+                    self.tr("限制最高分辨率为 4K，超高清画质。"),
                     {"type": "video", "max_height": 2160},
                 ),
                 (
                     "1440p",
                     "📺 1440p 2K",
-                    "限制最高分辨率为 2K，高清画质。",
+                    self.tr("限制最高分辨率为 2K，高清画质。"),
                     {"type": "video", "max_height": 1440},
                 ),
                 (
                     "1080p",
-                    "📺 1080p 高清",
-                    "限制最高分辨率为 1080p，平衡画质与体积。",
+                    self.tr("📺 1080p 高清"),
+                    self.tr("限制最高分辨率为 1080p，平衡画质与体积。"),
                     {"type": "video", "max_height": 1080},
                 ),
                 (
                     "720p",
-                    "📺 720p 标清",
-                    "限制最高分辨率为 720p，适合移动设备。",
+                    self.tr("📺 720p 标清"),
+                    self.tr("限制最高分辨率为 720p，适合移动设备。"),
                     {"type": "video", "max_height": 720},
                 ),
                 (
                     "480p",
                     "📺 480p",
-                    "限制最高分辨率为 480p，节省空间。",
+                    self.tr("限制最高分辨率为 480p，节省空间。"),
                     {"type": "video", "max_height": 480},
                 ),
                 (
                     "360p",
                     "📺 360p",
-                    "限制最高分辨率为 360p，最小体积。",
+                    self.tr("限制最高分辨率为 360p，最小体积。"),
                     {"type": "video", "max_height": 360},
                 ),
             ],
             "video_only": [
                 (
                     "best_video",
-                    "🎬 最佳画质 (无音频)",
-                    "仅下载视频轨，最高画质。",
+                    self.tr("🎬 最佳画质 (无音频)"),
+                    self.tr("仅下载视频轨，最高画质。"),
                     {"type": "video_only", "max_height": None},
                 ),
                 (
                     "1080p_video",
-                    "📺 1080p视频 (无音频)",
-                    "仅下载1080p视频轨。",
+                    self.tr("📺 1080p视频 (无音频)"),
+                    self.tr("仅下载1080p视频轨。"),
                     {"type": "video_only", "max_height": 1080},
                 ),
             ],
             "audio_only": [
                 (
                     "audio_best",
-                    "🎵 最佳音质",
-                    "下载最高品质的音频流并转码。",
+                    self.tr("🎵 最佳音质"),
+                    self.tr("下载最高品质的音频流并转码。"),
                     {"type": "audio_only", "quality": "best"},
                 ),
                 (
                     "audio_high",
-                    "🎵 高品质 (320kbps)",
-                    "高品质音频压缩。",
+                    self.tr("🎵 高品质 (320kbps)"),
+                    self.tr("高品质音频压缩。"),
                     {"type": "audio_only", "quality": "320K"},
                 ),
                 (
                     "audio_std",
-                    "🎵 标准品质 (192kbps)",
-                    "体积与音质平衡。",
+                    self.tr("🎵 标准品质 (192kbps)"),
+                    self.tr("体积与音质平衡。"),
                     {"type": "audio_only", "quality": "192K"},
                 ),
             ],
@@ -393,9 +393,9 @@ class SimplePresetWidget(QWidget):
             if n > 1:
                 self.audio_pick_btn.setText(f"已选 {n} 条音轨 ✓")
             elif n == 1:
-                self.audio_pick_btn.setText("已选 1 条音轨")
+                self.audio_pick_btn.setText(self.tr("已选 1 条音轨"))
             else:
-                self.audio_pick_btn.setText("选择音轨…")
+                self.audio_pick_btn.setText(self.tr("选择音轨…"))
 
     def get_audio_pick_result(self) -> Any | None:
         return self._audio_pick_result
@@ -423,24 +423,24 @@ class _ContainerFormatBar(QFrame):
         row_layout = QHBoxLayout()
         row_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.container_label = CaptionLabel("输出容器:", self)
+        self.container_label = CaptionLabel(self.tr("输出容器:"), self)
         self.container_combo = ComboBox(self)
-        self.container_combo.addItems(["自动推断", "MP4", "MKV", "WebM"])
+        self.container_combo.addItems([self.tr("自动推断"), "MP4", "MKV", "WebM"])
 
-        self.audio_label = CaptionLabel("输出格式:", self)
+        self.audio_label = CaptionLabel(self.tr("输出格式:"), self)
         self.audio_combo = ComboBox(self)
-        self.audio_combo.addItems(["自动推断", "MP3", "FLAC", "M4A", "WAV", "Opus", "AAC"])
+        self.audio_combo.addItems([self.tr("自动推断"), "MP3", "FLAC", "M4A", "WAV", "Opus", "AAC"])
 
         # 加载记忆偏好
         if self.config_prefix:
             from ...core.config_manager import config_manager
 
-            c_val = config_manager.get(f"{self.config_prefix}_container_override", "自动推断")
+            c_val = config_manager.get(f"{self.config_prefix}_container_override", self.tr("自动推断"))
             idx = self.container_combo.findText(c_val)
             if idx >= 0:
                 self.container_combo.setCurrentIndex(idx)
 
-            a_val = config_manager.get(f"{self.config_prefix}_audio_override", "自动推断")
+            a_val = config_manager.get(f"{self.config_prefix}_audio_override", self.tr("自动推断"))
             idx = self.audio_combo.findText(a_val)
             if idx >= 0:
                 self.audio_combo.setCurrentIndex(idx)
@@ -531,7 +531,7 @@ class FormatExpandCard(CardWidget):
         self.icon_widget.setFixedSize(18, 18)
 
         self.title_label = StrongBodyLabel(title, self)
-        self.summary_label = CaptionLabel("未选择", self)
+        self.summary_label = CaptionLabel(self.tr("未选择"), self)
         self.summary_label.setStyleSheet("color: #808080;")
 
         self.toggle_btn = TransparentToolButton(FluentIcon.DOWN, self)
@@ -628,8 +628,8 @@ class VideoFormatSelectorWidget(QWidget):
 
         # Mode Switcher
         self.view_switcher = SegmentedWidget(self)
-        self.view_switcher.addItem("simple", "简易模式")
-        self.view_switcher.addItem("advanced", "专业模式")
+        self.view_switcher.addItem("simple", self.tr("简易模式"))
+        self.view_switcher.addItem("advanced", self.tr("专业模式"))
         self.view_switcher.setCurrentItem("simple")
         self.view_switcher.currentItemChanged.connect(self._on_mode_changed)
         layout.addWidget(self.view_switcher)
@@ -651,15 +651,15 @@ class VideoFormatSelectorWidget(QWidget):
 
         # Mode Combo
         form_layout = QHBoxLayout()
-        form_layout.addWidget(CaptionLabel("下载模式:", self.advanced_widget))
+        form_layout.addWidget(CaptionLabel(self.tr("下载模式:"), self.advanced_widget))
         self.mode_combo = ComboBox(self.advanced_widget)
-        self.mode_combo.addItems(["音视频（可组装）", "音视频（整合流）", "仅视频", "仅音频"])
+        self.mode_combo.addItems([self.tr("音视频（可组装）"), self.tr("音视频（整合流）"), self.tr("仅视频"), self.tr("仅音频")])
         self.mode_combo.currentIndexChanged.connect(self._refresh_table)
         form_layout.addWidget(self.mode_combo, 1)
         adv_layout.addLayout(form_layout)
 
         self.hint_label = CaptionLabel(
-            "提示：可组装模式仅显示分离流，分别点选“视频”和“音频”即可组装。", self.advanced_widget
+            self.tr("提示：可组装模式仅显示分离流，分别点选“视频”和“音频”即可组装。"), self.advanced_widget
         )
         adv_layout.addWidget(self.hint_label)
 
@@ -677,7 +677,7 @@ class VideoFormatSelectorWidget(QWidget):
         split_layout.setSpacing(10)
 
         # Video Section
-        self.video_card = FormatExpandCard(FluentIcon.VIDEO, "视频流", self.split_container)
+        self.video_card = FormatExpandCard(FluentIcon.VIDEO, self.tr("视频流"), self.split_container)
         self.video_table = self._create_table()
         self.video_table.setMinimumHeight(120)
         self.video_table.setMaximumHeight(280)  # 适当放开高度限制以显示更多元素
@@ -688,7 +688,7 @@ class VideoFormatSelectorWidget(QWidget):
 
         # Audio Section
         self.audio_card = FormatExpandCard(
-            FluentIcon.MUSIC, "音频流 (可多选)", self.split_container
+            FluentIcon.MUSIC, self.tr("音频流 (可多选)"), self.split_container
         )
         self.audio_table = self._create_table(multi_select=True)
         self.audio_table.setMinimumHeight(120)
@@ -701,7 +701,7 @@ class VideoFormatSelectorWidget(QWidget):
 
         adv_layout.addWidget(self.split_container)
 
-        self.selection_label = CaptionLabel("未选择", self.advanced_widget)
+        self.selection_label = CaptionLabel(self.tr("未选择"), self.advanced_widget)
         adv_layout.addWidget(self.selection_label)
 
         self.stack.addWidget(self.advanced_widget)
@@ -717,7 +717,7 @@ class VideoFormatSelectorWidget(QWidget):
         t = TableWidget(self.advanced_widget)
         t.setStyleSheet(_get_table_selection_qss())
         t.setColumnCount(3)
-        t.setHorizontalHeaderLabels(["类型", "质量", "详情"])
+        t.setHorizontalHeaderLabels([self.tr("类型"), self.tr("质量"), self.tr("详情")])
         t.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         t.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         if multi_select:
@@ -1142,8 +1142,8 @@ class VideoFormatSelectorWidget(QWidget):
         label = self.selection_label
 
         if mode == 0:
-            v_sum = "未选择"
-            a_sum = "未选择"
+            v_sum = self.tr("未选择")
+            a_sum = self.tr("未选择")
             if self._selected_video_id:
                 r = next(
                     (
@@ -1190,11 +1190,11 @@ class VideoFormatSelectorWidget(QWidget):
             self.audio_card.set_summary(a_sum)
 
         if mode == 1:
-            label.setText("已选：整合流" if self._selected_muxed_id else "请选择：整合流")
+            label.setText(self.tr("已选：整合流") if self._selected_muxed_id else self.tr("请选择：整合流"))
         elif mode == 2:
-            label.setText("已选：视频流" if self._selected_video_id else "请选择：视频流")
+            label.setText(self.tr("已选：视频流") if self._selected_video_id else self.tr("请选择：视频流"))
         elif mode == 3:
-            label.setText("已选：音频流" if self._selected_audio_id else "请选择：音频流")
+            label.setText(self.tr("已选：音频流") if self._selected_audio_id else self.tr("请选择：音频流"))
         else:
             sel_a = (
                 self._selected_audio_ids
@@ -1206,16 +1206,16 @@ class VideoFormatSelectorWidget(QWidget):
                 if len(sel_a) > 1:
                     label.setText(f"已选：视频流 + {len(sel_a)} 条音轨")
                 else:
-                    label.setText("已选：视频流 + 音频流")
+                    label.setText(self.tr("已选：视频流 + 音频流"))
             elif self._selected_video_id:
-                label.setText("已选：视频流（将自动匹配最佳音频）")
+                label.setText(self.tr("已选：视频流（将自动匹配最佳音频）"))
             elif sel_a:
                 if len(sel_a) > 1:
                     label.setText(f"已选：{len(sel_a)} 条音轨（请再选择一个视频流）")
                 else:
-                    label.setText("已选：音频流（请再选择一个视频流）")
+                    label.setText(self.tr("已选：音频流（请再选择一个视频流）"))
             else:
-                label.setText("未选择")
+                label.setText(self.tr("未选择"))
 
     def get_selection_result(self) -> dict:
         """Returns {format: str, extra_opts: dict} or {} if invalid."""
@@ -1284,7 +1284,7 @@ class VideoFormatSelectorWidget(QWidget):
                     target_h = intent["max_height"]
                     if actual_h > 0 and target_h > 0 and actual_h <= target_h * 0.5:
                         logger.warning(
-                            "打分引擎选出 {}p (format_id={}), 目标 {}p, 偏差过大",
+                            self.tr("打分引擎选出 {}p (format_id={}), 目标 {}p, 偏差过大"),
                             actual_h,
                             best_vid,
                             target_h,
@@ -1380,10 +1380,10 @@ class VideoFormatSelectorWidget(QWidget):
         if getattr(self, "_current_mode", "simple") == "simple":
             # Simple mode: use the checked radio button text
             btn = self.simple_widget.btn_group.checkedButton()
-            return btn.text() if btn else "未选择"
+            return btn.text() if btn else self.tr("未选择")
         else:
             # Advanced mode: use the label text
-            return self.selection_label.text().replace("已选：", "")
+            return self.selection_label.text().replace(self.tr("已选："), "")
 
 
 # ==============================================================================

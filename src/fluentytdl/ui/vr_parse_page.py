@@ -45,7 +45,7 @@ class VRParsePage(QWidget):
         self.vBoxLayout.addStretch(1)
 
         # 1. 顶部标题
-        self.titleLabel = SubtitleLabel("🥽  VR 视频下载", self)
+        self.titleLabel = SubtitleLabel(self.tr("🥽  VR 视频下载"), self)
         self.centerLayout.addWidget(self.titleLabel)
 
         # 2. VR 说明卡片
@@ -56,17 +56,17 @@ class VRParsePage(QWidget):
         infoLayout.setContentsMargins(20, 16, 20, 16)
         infoLayout.setSpacing(8)
 
-        infoTitle = BodyLabel("为什么需要 VR 模式？", self.infoCard)
+        infoTitle = BodyLabel(self.tr("为什么需要 VR 模式？"), self.infoCard)
         font = infoTitle.font()
         font.setBold(True)
         infoTitle.setFont(font)
         infoLayout.addWidget(infoTitle)
 
         infoText = CaptionLabel(
-            "VR180/360 \u89c6\u9891\u5728\u666e\u901a\u6a21\u5f0f\u4e0b\u53ea\u80fd\u83b7\u53d6\u5c55\u5e73\u7684\u5355\u89c6\u89d2\u753b\u9762\uff0c\u4e14\u6700\u9ad8\u4ec5 1440p\u3002\n"
-            "VR \u6a21\u5f0f\u4f7f\u7528 android_vr \u5ba2\u6237\u7aef\uff0c\u53ef\u83b7\u53d6\u5b8c\u6574 VR \u6295\u5f71\u548c\u6700\u9ad8 8K \u5206\u8fa8\u7387\u3002\n"
-            "\u89e3\u6790\u540e\u4f1a\u81ea\u52a8\u8bc6\u522b\u6295\u5f71\u7c7b\u578b\uff08Equi / Mesh / EAC\uff09\u548c\u7acb\u4f53\u6a21\u5f0f\uff083D / 2D\uff09\u3002\n"
-            "\u6ce8\u610f\uff1aVR \u6a21\u5f0f\u4e0d\u652f\u6301 Cookies\uff0c\u90e8\u5206\u5e74\u9f84\u9650\u5236\u89c6\u9891\u53ef\u80fd\u65e0\u6cd5\u4e0b\u8f7d\u3002",
+            self.tr("VR180/360 视频在普通模式下只能获取平的单视角画面，且最高仅 1440p。\n") +
+            self.tr("VR 模式使用 android_vr 客户端，可获取完整 VR 投影和最高 8K 分辨率。\n") +
+            self.tr("解析后会自动识别投影类型（Equi / Mesh / EAC）和立体模式（3D / 2D）。\n") +
+            self.tr("注意：VR 模式不支持 Cookies，部分年龄限制视频可能无法下载。"),
             self.infoCard,
         )
         infoText.setWordWrap(True)
@@ -82,7 +82,7 @@ class VRParsePage(QWidget):
         self.cardLayout.setContentsMargins(20, 20, 20, 20)
         self.cardLayout.setSpacing(15)
 
-        self.instructionLabel = BodyLabel("粘贴 YouTube VR 视频链接", self)
+        self.instructionLabel = BodyLabel(self.tr("粘贴 YouTube VR 视频链接"), self)
         self.cardLayout.addWidget(self.instructionLabel)
 
         # 输入框行
@@ -96,7 +96,7 @@ class VRParsePage(QWidget):
 
         self.inputLayout.addWidget(self.urlInput)
 
-        self.pasteBtn = PushButton("粘贴", self)
+        self.pasteBtn = PushButton(self.tr("粘贴"), self)
         self.pasteBtn.setMinimumWidth(72)
         self.pasteBtn.clicked.connect(self.on_paste_clicked)
         self.inputLayout.addWidget(self.pasteBtn)
@@ -106,7 +106,7 @@ class VRParsePage(QWidget):
         self.btnLayout = QHBoxLayout()
         self.btnLayout.addStretch(1)
 
-        self.parseBtn = PrimaryPushButton(FluentIcon.SEARCH, "开始 VR 解析", self)
+        self.parseBtn = PrimaryPushButton(FluentIcon.SEARCH, self.tr("开始 VR 解析"), self)
         self.parseBtn.setMinimumWidth(140)
         self.parseBtn.clicked.connect(self.on_parse_clicked)
 
@@ -117,10 +117,10 @@ class VRParsePage(QWidget):
 
         # 4. 底部提示
         self.tipsLabel = CaptionLabel(
-            "适用场景：\n"
-            "- VR180 / VR360 视频，需要完整 SBS/OU 数据\n"
-            "- 需要超过 1440p 分辨率的 VR 视频（4K/5K/8K）\n"
-            "- 普通视频请使用左侧「新建任务」页面",
+            self.tr("适用场景：\n") +
+            self.tr("- VR180 / VR360 视频，需要完整 SBS/OU 数据\n") +
+            self.tr("- 需要超过 1440p 分辨率的 VR 视频（4K/5K/8K）\n") +
+            self.tr("- 普通视频请使用左侧「新建任务」页面"),
             self,
         )
         self.tipsLabel.setWordWrap(True)

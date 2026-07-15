@@ -1,0 +1,51 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from PySide6.QtCore import QCoreApplication, QLocale, QTranslator
+from qfluentwidgets import FluentTranslator
+
+from .config_manager import config_manager
+
+
+class I18nManager:
+    """国际化 (i18n) 管理器"""
+    
+    _app_translator: QTranslator | None = None
+    _fluent_translator: FluentTranslator | None = None
+
+    @classmethod
+    def setup_language(cls):
+        """初始化全局语言并挂载翻译器，需要在 QApplication 创建后尽早调用"""
+        app = QCoreApplication.instance()
+        if not app:
+            return
+
+        lang_cfg = str(config_manager.get("app_language", "auto")).strip()
+
+        if lang_cfg == "auto" or not lang_cfg:
+            locale = QLocale.system()
+        else:
+            locale = QLocale(lang_cfg)
+        
+        QLocale.setDefault(locale)
+
+        # 1. 挂载 qfluentwidgets 自带的翻译器
+        if cls._fluent_translator is not None:
+            app.removeTranslator(cls._fluent_translator)
+            
+        cls._fluent_translator = FluentTranslator(locale)
+        app.installTranslator(cls._fluent_translator)
+
+        # 2. 挂载应用自身的翻译器
+        if cls._app_translator is not None:
+            app.removeTranslator(cls._app_translator)
+            
+        cls._app_translator = QTranslator()
+        
+        # 本地翻译文件存放路径: FluentYTDL/assets/locales/
+        locales_dir = Path(__file__).parent.parent.parent.parent / "assets" / "locales"
+        
+        # load 规则：前缀为 "fluentytdl"，加上 "_"，加上 locale.name() (如 zh_CN)
+        if cls._app_translator.load(locale, "fluentytdl", "_", str(locales_dir)):
+            app.installTranslator(cls._app_translator)

@@ -29,12 +29,15 @@ class SmartSettingCard(SettingCard):
         validator: Validator | None = None,
         fixer: Fixer | None = None,
         prefer_multiline: bool = False,
-        empty_text: str = "未设置",
+        empty_text: str | None = None,
         dialog_content: str | None = None,
         pick_file: bool = False,
         file_filter: str | None = None,
     ) -> None:
         super().__init__(icon, title, content, parent)
+
+        if empty_text is None:
+            empty_text = self.tr("未设置")
 
         self._config_key = config_key
         self._validator = validator
@@ -48,8 +51,8 @@ class SmartSettingCard(SettingCard):
         self.valueLabel = CaptionLabel("", self)
         self.valueLabel.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
-        # Button text: '选择文件' for file-picker cards, otherwise '编辑'
-        btn_text = "选择文件" if self._pick_file else "编辑"
+        # Button text: self.tr('选择文件') for file-picker cards, otherwise self.tr('编辑')
+        btn_text = self.tr("选择文件") if self._pick_file else self.tr("编辑")
         self.editBtn = PushButton(btn_text, self)
         self.editBtn.setFixedWidth(84)
         self.editBtn.clicked.connect(self._show_edit_dialog)
@@ -105,7 +108,7 @@ class SmartSettingCard(SettingCard):
                     # Show a simple rejection Info (do not import qfluentwidgets here to avoid cycles)
                     from qfluentwidgets import InfoBar
 
-                    InfoBar.error(self.window(), "无效的文件", msg)
+                    InfoBar.error(self.window(), self.tr("无效的文件"), msg)
                     return
             self._set_value(candidate)
             self._update_display(candidate)
@@ -114,7 +117,7 @@ class SmartSettingCard(SettingCard):
 
         dialog = ValidatedEditDialog(
             title=f"编辑 {self.titleLabel.text()}",
-            content=self._dialog_content or "请输入新的值，系统将自动进行格式检查。",
+            content=self._dialog_content or self.tr("请输入新的值，系统将自动进行格式检查。"),
             initial_value=current,
             validator=self._validator,
             fixer=self._fixer,

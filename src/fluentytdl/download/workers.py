@@ -101,11 +101,15 @@ class ChannelExtractWorker(QThread):
                 if self._cancel_event.is_set():
                     return
 
-                # Format progress message
-                tab_display = {"videos": "常规视频", "shorts": "Shorts", "streams": "直播回放"}.get(
-                    tab, tab
-                )
-                self.progress.emit(f"正在解析 {tab_display} ({i}/{total})...")
+                from PySide6.QtCore import QCoreApplication
+                tab_display = {
+                    "videos": QCoreApplication.translate("PlaylistWorker", "常规视频"), 
+                    "shorts": "Shorts", 
+                    "streams": QCoreApplication.translate("PlaylistWorker", "直播回放")
+                }.get(tab, tab)
+                
+                progress_msg = QCoreApplication.translate("PlaylistWorker", "正在解析 {} ({}/{})...").format(tab_display, i, total)
+                self.progress.emit(progress_msg)
 
                 url = f"{self.base_url}/{tab}"
 

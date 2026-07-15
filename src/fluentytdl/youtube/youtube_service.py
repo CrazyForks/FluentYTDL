@@ -131,10 +131,17 @@ class YoutubeService:
             self._emit_log("warning", f"自动刷新 WebView2 Cookie 异常: {e}")
             return False
 
-    def build_ydl_options(self, options: YoutubeServiceOptions | None = None) -> dict[str, Any]:
+    def build_ydl_options(
+        self, options: YoutubeServiceOptions | None = None, *, url: str = ""
+    ) -> dict[str, Any]:
         """Construct yt-dlp options with anti-blocking and auth."""
 
         options = options or YoutubeServiceOptions()
+
+        # 平台检测
+        from ..utils.url_router import UrlRouter
+        _platform = UrlRouter.detect_platform(url) if url else "youtube"
+        _is_twitter = _platform == "twitter"
 
         # --- Global config (SettingsPage) ---
         download_dir = str(config_manager.get("download_dir"))
@@ -208,7 +215,8 @@ class YoutubeService:
         # 组装最终 Sort 字符串列表
         ydl_opts["format_sort"] = deduped + ["res", "br", "fps", "acodec"]
 
-        self._maybe_configure_youtube_js_runtime(ydl_opts)
+        if not _is_twitter:
+            self._maybe_configure_youtube_js_runtime(ydl_opts)
 
         # User-Agent: 不再自定义，让 yt-dlp 根据客户端类型自动处理
         # yt-dlp 会根据 extractor_args 中的 player_client 自动匹配合适的 UA
@@ -277,10 +285,16 @@ class YoutubeService:
             try:
                 from ..auth.cookie_sentinel import cookie_sentinel
 
-                sentinel_cookie_file = cookie_sentinel.get_cookie_file_path()
+                cookie_target = "twitter" if _is_twitter else "youtube"
+                sentinel_path = cookie_sentinel.get_cookie_path_for_platform(cookie_target)
+                sentinel_cookie_file = str(sentinel_path)
 
-                if cookie_sentinel.exists:
-                    yt_cookie_count = self._count_youtube_related_cookies(sentinel_cookie_file)
+                if sentinel_path.exists():
+                    if _is_twitter:
+                        yt_cookie_count = self._count_platform_cookies(sentinel_cookie_file, "twitter")
+                    else:
+                        yt_cookie_count = self._count_youtube_related_cookies(sentinel_cookie_file)
+
                     if yt_cookie_count > 0:
                         cookiefile = sentinel_cookie_file
                         has_valid_cookie = True
@@ -293,7 +307,7 @@ class YoutubeService:
                         self._emit_log(
                             "info",
                             f"{status_emoji} Cookie Sentinel: {cookie_sentinel.get_status_info()['source']} "
-                            f"(更新于 {age_str}, {yt_cookie_count} 个 YouTube Cookie)",
+                            f"(更新于 {age_str}, {yt_cookie_count} 个 {cookie_target.title()} Cookie)",
                         )
                     else:
                         self._emit_log(
@@ -334,7 +348,7 @@ class YoutubeService:
         # POT (Proof of Origin Token) Provider 提供动态 PO Token 生成服务
         # 类似 Cookie Sentinel 的策略：检测服务状态，自动注入 extractor_args
         pot_injected = False
-        if config_manager.get("pot_provider_enabled", False):
+        if not _is_twitter and config_manager.get("pot_provider_enabled", False):
             try:
                 from .pot_manager import pot_manager
 
@@ -689,6 +703,26 @@ class YoutubeService:
             return False
         except Exception:
             return False
+
+    @staticmethod
+    def _count_platform_cookies(path: str, platform: str) -> int:
+        """Count cookies for a specific platform."""
+        PLATFORM_DOMAINS = {
+            "youtube": ("youtube", "google"),
+            "twitter": ("twitter.com", "x.com"),
+        }
+        domains = PLATFORM_DOMAINS.get(platform, ())
+        try:
+            jar = http.cookiejar.MozillaCookieJar()
+            jar.load(path, ignore_discard=True, ignore_expires=True)
+            count = 0
+            for c in jar:
+                domain = (c.domain or "").lower()
+                if any(d in domain for d in domains):
+                    count += 1
+            return count
+        except Exception:
+            return 0
 
     @staticmethod
     def _count_youtube_related_cookies(path: str) -> int:
@@ -1073,7 +1107,7 @@ class YoutubeService:
     ) -> dict[str, Any]:
         """Blocking metadata extraction (call from worker thread)."""
 
-        ydl_opts = self.build_ydl_options(options)
+        ydl_opts = self.build_ydl_options(options, url=url)
 
         try:
             _ = locate_runtime_tool("yt-dlp.exe", "yt-dlp/yt-dlp.exe", "yt_dlp/yt-dlp.exe")
@@ -1116,14 +1150,19 @@ class YoutubeService:
                 if proxy_mode in {"http", "socks5"} and proxy_url:
                     msg = (
                         msg
-                        + "\n\n提示: 检测到已启用代理，部分代理/出口 IP 会显著增加 YouTube 风控概率。"
+                        + "\n\n提示: 检测到已启用代理，部分代理/出口 IP 会显著增加平台风控概率。"
                         + "建议在设置中临时关闭代理后重试解析。"
                     )
-                msg = (
-                    msg
-                    + "\n\n提示: YouTube 会在浏览器标签页中频繁轮换账号 cookies。官方建议用无痕/隐私窗口登录后导出 youtube.com cookies，并立即关闭无痕窗口，以避免 cookies 被轮换。"
-                    + "\n提示: YouTube 正在逐步强制 PO Token。若仅靠 cookies 仍触发验证，可在设置中填写 PO Token，并让 yt-dlp 走 mweb 客户端（官方推荐路径）。"
-                )
+                
+                from ..utils.url_router import UrlRouter
+                if UrlRouter.detect_platform(url) == "twitter":
+                    msg += "\n\n提示: X 平台需要登录才能下载部分内容。请在设置中登录 X 平台获取 Cookie。"
+                else:
+                    msg = (
+                        msg
+                        + "\n\n提示: YouTube 会在浏览器标签页中频繁轮换账号 cookies。官方建议用无痕/隐私窗口登录后导出 youtube.com cookies，并立即关闭无痕窗口，以避免 cookies 被轮换。"
+                        + "\n提示: YouTube 正在逐步强制 PO Token。若仅靠 cookies 仍触发验证，可在设置中填写 PO Token，并让 yt-dlp 走 mweb 客户端（官方推荐路径）。"
+                    )
 
             self._emit_log("error", f"解析失败: {msg}")
             raise RuntimeError(msg) from exc
@@ -1142,7 +1181,7 @@ class YoutubeService:
         - playlist: enumerate entries fast without per-entry deep extraction
         """
 
-        ydl_opts = self.build_ydl_options(options)
+        ydl_opts = self.build_ydl_options(options, url=url)
         tuned = dict(ydl_opts)
 
         tuned.update(

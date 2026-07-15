@@ -231,15 +231,15 @@ class SimplePresetWidget(QWidget):
             # === 推荐选项 ===
             (
                 "best_mp4",
-                "🎬 最佳画质 (MP4)",
-                "推荐。自动选择最佳画质并封装为 MP4，兼容性最好。",
+                self.tr("🎬 最佳画质 (MP4)"),
+                self.tr("推荐。自动选择最佳画质并封装为 MP4，兼容性最好。"),
                 "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4] / bv*+ba/best",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "best_raw",
-                "🎯 最佳画质 (原盘)",
-                "追求极致画质。通常为 WebM/MKV 格式，适合本地播放。",
+                self.tr("🎯 最佳画质 (原盘)"),
+                self.tr("追求极致画质。通常为 WebM/MKV 格式，适合本地播放。"),
                 "bestvideo+bestaudio/best",
                 {},
             ),
@@ -247,50 +247,50 @@ class SimplePresetWidget(QWidget):
             (
                 "2160p",
                 "📺 2160p 4K (MP4)",
-                "限制最高分辨率为 4K，超高清画质。",
+                self.tr("限制最高分辨率为 4K，超高清画质。"),
                 "bv*[height<=?2160][ext=mp4]+ba[ext=m4a]/b[height<=?2160][ext=mp4] / bv*[height<=?2160]+ba/best",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "1440p",
                 "📺 1440p 2K (MP4)",
-                "限制最高分辨率为 2K，高清画质。",
+                self.tr("限制最高分辨率为 2K，高清画质。"),
                 "bv*[height<=?1440][ext=mp4]+ba[ext=m4a]/b[height<=?1440][ext=mp4] / bv*[height<=?1440]+ba/best",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "1080p",
-                "📺 1080p 高清 (MP4)",
-                "限制最高分辨率为 1080p，平衡画质与体积。",
+                self.tr("📺 1080p 高清 (MP4)"),
+                self.tr("限制最高分辨率为 1080p，平衡画质与体积。"),
                 "bv*[height<=?1080][ext=mp4]+ba[ext=m4a]/b[height<=?1080][ext=mp4] / bv*[height<=?1080]+ba/best",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "720p",
-                "📺 720p 标清 (MP4)",
-                "限制最高分辨率为 720p，适合移动设备。",
+                self.tr("📺 720p 标清 (MP4)"),
+                self.tr("限制最高分辨率为 720p，适合移动设备。"),
                 "bv*[height<=?720][ext=mp4]+ba[ext=m4a]/b[height<=?720][ext=mp4] / bv*[height<=?720]+ba/best",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "480p",
                 "📺 480p (MP4)",
-                "限制最高分辨率为 480p，节省空间。",
+                self.tr("限制最高分辨率为 480p，节省空间。"),
                 "bv*[height<=?480][ext=mp4]+ba[ext=m4a]/b[height<=?480][ext=mp4] / bv*[height<=?480]+ba/best",
                 {"merge_output_format": "mp4"},
             ),
             (
                 "360p",
                 "📺 360p (MP4)",
-                "限制最高分辨率为 360p，最小体积。",
+                self.tr("限制最高分辨率为 360p，最小体积。"),
                 "bv*[height<=?360][ext=mp4]+ba[ext=m4a]/b[height<=?360][ext=mp4] / bv*[height<=?360]+ba/best",
                 {"merge_output_format": "mp4"},
             ),
             # === 纯音频 ===
             (
                 "audio_mp3",
-                "🎵 纯音频 (MP3 - 320k)",
-                "仅下载音频并转码为 MP3。",
+                self.tr("🎵 纯音频 (MP3 - 320k)"),
+                self.tr("仅下载音频并转码为 MP3。"),
                 "bestaudio/best",
                 {"extract_audio": True, "audio_format": "mp3", "audio_quality": "320K"},
             ),
@@ -462,8 +462,8 @@ class PlaylistActionWidget(QWidget):
         self.loadingRing.setFixedSize(14, 14)
         self.loadingRing.hide()
 
-        self.qualityButton = PushButton("待加载", self)
-        self.qualityButton.setToolTip("点击获取信息/选择格式")
+        self.qualityButton = PushButton(self.tr("待加载"), self)
+        self.qualityButton.setToolTip(self.tr("点击获取信息/选择格式"))
         self.qualityButton.installEventFilter(
             ToolTipFilter(self.qualityButton, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -667,14 +667,14 @@ class PlaylistFormatDialog(MessageBoxBase):
         self.widget.setMinimumSize(700, 500)
         self._mode = mode
 
-        self.titleLabel = SubtitleLabel("选择格式", self)
+        self.titleLabel = SubtitleLabel(self.tr("选择格式"), self)
         self.viewLayout.addWidget(self.titleLabel)
 
         if self._mode == "subtitle":
-            self.titleLabel.setText("选择字幕")
+            self.titleLabel.setText(self.tr("选择字幕"))
             self.selector = SubtitleSelectorWidget(info, self)
         elif self._mode == "cover":
-            self.titleLabel.setText("选择封面")
+            self.titleLabel.setText(self.tr("选择封面"))
             self.selector = CoverSelectorWidget(info, self)
         elif vr_mode:
             self.selector = VRFormatSelectorWidget(info, self)
@@ -689,8 +689,8 @@ class PlaylistFormatDialog(MessageBoxBase):
             self._setup_subtitle_override_section(info)
 
         # Override buttons
-        self.yesButton.setText("应用")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("应用"))
+        self.cancelButton.setText(self.tr("取消"))
 
     def _setup_subtitle_override_section(self, info: dict[str, Any]):
         from PySide6.QtWidgets import QHBoxLayout
@@ -699,9 +699,9 @@ class PlaylistFormatDialog(MessageBoxBase):
         row = QHBoxLayout()
         row.setContentsMargins(0, 5, 0, 0)
 
-        self.sub_override_check = CheckBox("为此视频独立配置字幕", self)
+        self.sub_override_check = CheckBox(self.tr("为此视频独立配置字幕"), self)
 
-        self.sub_override_btn = PushButton("选择字幕...", self)
+        self.sub_override_btn = PushButton(self.tr("选择字幕..."), self)
         self.sub_override_btn.setEnabled(False)
         self.sub_override_result = None
 
@@ -734,7 +734,7 @@ class PlaylistFormatDialog(MessageBoxBase):
             if n > 0:
                 self.sub_override_btn.setText(f"已选 {n} 种字幕 ✓")
             else:
-                self.sub_override_btn.setText("选择字幕...")
+                self.sub_override_btn.setText(self.tr("选择字幕..."))
 
     def get_selection(self) -> dict:
         if self._mode == "subtitle":
@@ -751,7 +751,7 @@ class PlaylistFormatDialog(MessageBoxBase):
         if self._mode == "subtitle":
             selected = self.selector.get_selected_tracks()  # type: ignore[attr-defined]
             if not selected:
-                return "未选择字幕"
+                return self.tr("未选择字幕")
             return f"已选择 {len(selected)} 种语言"
         elif self._mode == "cover":
             ext = self.selector.get_selected_ext()  # type: ignore[attr-defined]
@@ -880,7 +880,7 @@ class SelectionDialog(MessageBoxBase):
         self.loadingLayout.addStretch(1)
 
         self.loadingTitleLabel = SubtitleLabel(
-            "正在使用 VR 模式解析..." if self._vr_mode else "正在解析链接...",
+            self.tr("正在使用 VR 模式解析...") if self._vr_mode else self.tr("正在解析链接..."),
             self.loadingWidget,
         )
         self.loadingTitleLabel.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -908,7 +908,7 @@ class SelectionDialog(MessageBoxBase):
         self.viewLayout.addWidget(self.contentWidget)
         self.contentWidget.hide()
 
-        # 失败重试区（默认隐藏）：用于"需要 Cookies / 不是机器人验证"场景
+        # 失败重试区（默认隐藏）：用于self.tr("需要 Cookies / 不是机器人验证")场景
         self.retryWidget = QWidget(self)
         self.retryWidget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
 
@@ -919,18 +919,18 @@ class SelectionDialog(MessageBoxBase):
         self.retryLayout.setSpacing(8)
 
         self.retryHint = CaptionLabel(
-            "检测到需要身份验证时，可选择从浏览器注入 Cookies 后重试解析。",
+            self.tr("检测到需要身份验证时，可选择从浏览器注入 Cookies 后重试解析。"),
             self.retryWidget,
         )
         self.retryLayout.addWidget(self.retryHint)
 
         self.cookies_combo = ComboBox(self.retryWidget)
         self.cookies_combo.addItems(
-            ["不使用 Cookies", "Edge Cookies", "Chrome Cookies", "Firefox Cookies"]
+            [self.tr("不使用 Cookies"), "Edge Cookies", "Chrome Cookies", "Firefox Cookies"]
         )
         self.retryLayout.addWidget(self.cookies_combo)
 
-        self.retryBtn = PrimaryPushButton("重试解析", self.retryWidget)
+        self.retryBtn = PrimaryPushButton(self.tr("重试解析"), self.retryWidget)
         self.retryBtn.clicked.connect(self._on_retry_clicked)
         self.retryLayout.addWidget(self.retryBtn)
 
@@ -952,8 +952,8 @@ class SelectionDialog(MessageBoxBase):
         self.start_extraction()
 
         # 按钮设置
-        self.yesButton.setText("下载")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("下载"))
+        self.cancelButton.setText(self.tr("取消"))
         self.yesButton.setDisabled(True)
 
         try:
@@ -974,7 +974,7 @@ class SelectionDialog(MessageBoxBase):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(10)
 
-        label = CaptionLabel("下载位置", wrap)
+        label = CaptionLabel(self.tr("下载位置"), wrap)
         edit = LineEdit(wrap)
         edit.setText(self._download_dir)
         try:
@@ -987,7 +987,7 @@ class SelectionDialog(MessageBoxBase):
 
         edit.textChanged.connect(_on_text_changed)
 
-        pick_btn = PushButton("选择...", wrap)
+        pick_btn = PushButton(self.tr("选择..."), wrap)
         pick_btn.clicked.connect(self._on_pick_download_dir)
 
         row.addWidget(label)
@@ -999,7 +999,7 @@ class SelectionDialog(MessageBoxBase):
 
     def _on_pick_download_dir(self) -> None:
         start_dir = self._download_dir or ""
-        folder = QFileDialog.getExistingDirectory(self, "选择下载目录", start_dir)
+        folder = QFileDialog.getExistingDirectory(self, self.tr("选择下载目录"), start_dir)
         if not folder:
             return
         self._download_dir = str(folder).strip()
@@ -1020,6 +1020,8 @@ class SelectionDialog(MessageBoxBase):
     def _apply_dialog_size_for_mode(self) -> None:
         if self._is_playlist:
             size = (980, 620)
+        elif self._vr_mode:
+            size = (800, 1100)
         else:
             size = (760, 480)
 
@@ -1073,7 +1075,7 @@ class SelectionDialog(MessageBoxBase):
             pass
 
         self._set_loading_ui(
-            "正在使用 VR 模式解析..." if self._vr_mode else "正在解析链接...",
+            self.tr("正在使用 VR 模式解析...") if self._vr_mode else self.tr("正在解析链接..."),
             show_ring=True,
         )
         # Start with no cookies; user can retry with cookies.
@@ -1102,8 +1104,8 @@ class SelectionDialog(MessageBoxBase):
         if not info_dict:
             self.on_parse_error(
                 {
-                    "title": "解析失败",
-                    "content": "返回了无法识别的视频信息类型",
+                    "title": self.tr("解析失败"),
+                    "content": self.tr("返回了无法识别的视频信息类型"),
                     "raw_error": f"unexpected payload type: {type(info)!r}",
                 }
             )
@@ -1137,7 +1139,7 @@ class SelectionDialog(MessageBoxBase):
         # shows a white gap that Qt hasn't painted yet.
         self._apply_dialog_size_for_mode()
         if self._is_playlist:
-            self.loadingTitleLabel.setText("正在构建列表…")
+            self.loadingTitleLabel.setText(self.tr("正在构建列表…"))
 
         # Step 2 – Flush pending paint events so the resize paints the spinner
         # at the new window size before we start any heavy layout work.
@@ -1150,14 +1152,14 @@ class SelectionDialog(MessageBoxBase):
         if self._is_playlist:
             self.on_parse_error(
                 {
-                    "title": "不支持的操作",
-                    "content": "此对话框仅用于单视频备选格式挑选，不再支持播放列表。请通过主页重新解析。",
+                    "title": self.tr("不支持的操作"),
+                    "content": self.tr("此对话框仅用于单视频备选格式挑选，不再支持播放列表。请通过主页重新解析。"),
                     "raw_error": "Playlist not supported in fallback dialog.",
                 }
             )
             return
         else:
-            # 单视频：不占用额外纵向空间显示"解析成功"，用顶部信息区承载
+            # 单视频：不占用额外纵向空间显示self.tr("解析成功")，用顶部信息区承载
             self.titleLabel.hide()
             self.yesButton.setEnabled(True)
             self.setup_content_ui(info_dict)
@@ -1187,12 +1189,12 @@ class SelectionDialog(MessageBoxBase):
         if self._is_closing:
             return
         self.loadingWidget.hide()
-        self.titleLabel.setText("解析失败")
+        self.titleLabel.setText(self.tr("解析失败"))
         self.titleLabel.show()
         if self._error_label is not None:
             self._error_label.deleteLater()
 
-        title = str(err_data.get("title") or "解析失败")
+        title = str(err_data.get("title") or self.tr("解析失败"))
         content = str(err_data.get("content") or "")
         suggestion = str(err_data.get("suggestion") or "")
         raw_error = str(err_data.get("raw_error") or "")
@@ -1210,7 +1212,7 @@ class SelectionDialog(MessageBoxBase):
 
         # === 根据分类决定显示哪个面板 ===
         if category in (ErrorCode.LOGIN_REQUIRED, ErrorCode.COOKIE_EXPIRED):
-            self.titleLabel.setText("身份验证失败")
+            self.titleLabel.setText(self.tr("身份验证失败"))
             # 不用长文显示 _error_label，避免视觉打断
             self.retryWidget.hide()
 
@@ -1229,11 +1231,11 @@ class SelectionDialog(MessageBoxBase):
             )
 
             if current_source == AuthSourceType.WEBVIEW2:
-                dialog.setWindowTitle("需要重新登录 YouTube")
-                dialog.repair_btn.setText("重新登录")
+                dialog.setWindowTitle(self.tr("需要重新登录 YouTube"))
+                dialog.repair_btn.setText(self.tr("重新登录"))
             elif current_source == AuthSourceType.FILE:
-                dialog.setWindowTitle("Cookie 文件需要更新")
-                dialog.repair_btn.setText("重新导入")
+                dialog.setWindowTitle(self.tr("Cookie 文件需要更新"))
+                dialog.repair_btn.setText(self.tr("重新导入"))
 
             def on_auto_repair():
                 if current_source == AuthSourceType.WEBVIEW2:
@@ -1331,7 +1333,7 @@ class SelectionDialog(MessageBoxBase):
         self.yesButton.setDisabled(True)
         self.video_info = None
         self.video_info_dto = None
-        self._set_loading_ui("正在解析链接...", show_ring=True)
+        self._set_loading_ui(self.tr("正在解析链接..."), show_ring=True)
 
         if self._error_label is not None:
             self._error_label.deleteLater()
@@ -1464,7 +1466,7 @@ class SelectionDialog(MessageBoxBase):
 
         # 3. Format Selector / Mode Specific UI
         if self._mode == "subtitle":
-            self.yesButton.setText("下载字幕")
+            self.yesButton.setText(self.tr("下载字幕"))
             self._subtitle_selector = SubtitleSelectorWidget(info, self.contentWidget)
             # 隐藏不需要的选项（如嵌入，因为这是纯字幕下载）
             self._subtitle_selector.embedCheck.setChecked(False)
@@ -1472,7 +1474,7 @@ class SelectionDialog(MessageBoxBase):
             self.contentLayout.addWidget(self._subtitle_selector)
 
         elif self._mode == "cover":
-            self.yesButton.setText("下载封面")
+            self.yesButton.setText(self.tr("下载封面"))
 
             self._cover_selector = CoverSelectorWidget(info, self.contentWidget)
             self.contentLayout.addWidget(self._cover_selector)
@@ -1491,7 +1493,7 @@ class SelectionDialog(MessageBoxBase):
     # Playlist UI
     # =========================
     def setup_playlist_ui(self, info: dict[str, Any]) -> None:
-        title = str(info.get("title") or "播放列表")
+        title = str(info.get("title") or self.tr("播放列表"))
         count = 0
         entries = info.get("entries") or []
         if isinstance(entries, list):
@@ -1511,7 +1513,7 @@ class SelectionDialog(MessageBoxBase):
         self.progressRing.setFixedSize(16, 16)
         self.progressRing.hide()
 
-        self.progressLabel = CaptionLabel("详情补全：0/0", self.contentWidget)
+        self.progressLabel = CaptionLabel(self.tr("详情补全：0/0"), self.contentWidget)
         header_row.addStretch(1)
         header_row.addWidget(self.progressRing)
         header_row.addWidget(self.progressLabel)
@@ -1522,15 +1524,15 @@ class SelectionDialog(MessageBoxBase):
         toolbar.setContentsMargins(0, 0, 0, 0)
         toolbar.setSpacing(8)
 
-        self.selectAllBtn = PushButton("全选", self.contentWidget)
-        self.unselectAllBtn = PushButton("取消", self.contentWidget)
-        self.invertSelectBtn = PushButton("反选", self.contentWidget)
+        self.selectAllBtn = PushButton(self.tr("全选"), self.contentWidget)
+        self.unselectAllBtn = PushButton(self.tr("取消"), self.contentWidget)
+        self.invertSelectBtn = PushButton(self.tr("反选"), self.contentWidget)
 
-        self.applyPresetBtn = PrimaryPushButton("重新套用预设", self.contentWidget)
+        self.applyPresetBtn = PrimaryPushButton(self.tr("重新套用预设"), self.contentWidget)
 
         self.type_combo = ComboBox(self.contentWidget)
         # 0=音视频，1=仅视频，2=仅音频
-        self.type_combo.addItems(["音视频", "仅视频", "仅音频"])
+        self.type_combo.addItems([self.tr("音视频"), self.tr("仅视频"), self.tr("仅音频")])
         self.type_combo.currentIndexChanged.connect(self._on_playlist_type_changed)
 
         self.preset_combo = ComboBox(self.contentWidget)
@@ -1542,13 +1544,13 @@ class SelectionDialog(MessageBoxBase):
             # 普通模式使用分辨率预设
             self.preset_combo.addItems(
                 [
-                    "最高质量(自动)",
-                    "2160p(严格)",
-                    "1440p(严格)",
-                    "1080p(严格)",
-                    "720p(严格)",
-                    "480p(严格)",
-                    "360p(严格)",
+                    self.tr("最高质量(自动)"),
+                    self.tr("2160p(严格)"),
+                    self.tr("1440p(严格)"),
+                    self.tr("1080p(严格)"),
+                    self.tr("720p(严格)"),
+                    self.tr("480p(严格)"),
+                    self.tr("360p(严格)"),
                 ]
             )
         self.preset_combo.currentIndexChanged.connect(self._on_playlist_preset_changed)
@@ -1557,9 +1559,9 @@ class SelectionDialog(MessageBoxBase):
         toolbar.addWidget(self.unselectAllBtn)
         toolbar.addWidget(self.invertSelectBtn)
         toolbar.addSpacing(10)
-        toolbar.addWidget(CaptionLabel("下载类型:", self.contentWidget))
+        toolbar.addWidget(CaptionLabel(self.tr("下载类型:"), self.contentWidget))
         toolbar.addWidget(self.type_combo)
-        toolbar.addWidget(CaptionLabel("质量预设:", self.contentWidget))
+        toolbar.addWidget(CaptionLabel(self.tr("质量预设:"), self.contentWidget))
         toolbar.addWidget(self.preset_combo)
         toolbar.addWidget(self.applyPresetBtn)
         toolbar.addStretch(1)
@@ -1695,7 +1697,7 @@ class SelectionDialog(MessageBoxBase):
                     "id": vid,
                     "thumbnail": thumb,
                     "selected": False,
-                    "status": "未选择",
+                    "status": self.tr("未选择"),
                     "detail": None,
                     "video_formats": [],
                     "audio_formats": [],
@@ -1715,7 +1717,7 @@ class SelectionDialog(MessageBoxBase):
                 self._thumb_url_to_rows.setdefault(thumb, set()).add(row)
 
             # Lightweight VideoTask stub – enriched later by AsyncExtractManager.
-            # is_parsing=False so the row shows "待加载" until it enters the queue.
+            # is_parsing=False so the row shows self.tr("待加载") until it enters the queue.
             task = VideoTask(
                 url=url,
                 title=title,
@@ -1771,7 +1773,7 @@ class SelectionDialog(MessageBoxBase):
         if not (0 <= row < len(self._playlist_rows)):
             return
         self._playlist_rows[row]["selected"] = bool(checked)
-        self._playlist_rows[row]["status"] = "已选择" if checked else "未选择"
+        self._playlist_rows[row]["status"] = self.tr("已选择") if checked else self.tr("未选择")
         self._update_download_btn_state()
 
     def _on_playlist_quality_clicked(self, row: int) -> None:
@@ -1781,7 +1783,7 @@ class SelectionDialog(MessageBoxBase):
             # Re-enqueue with high priority so it runs next
             aw = self._action_widget_by_row.get(row)
             if aw is not None:
-                aw.set_loading(True, "获取中...")
+                aw.set_loading(True, self.tr("获取中..."))
             if self._extract_manager is not None:
                 url = str(self._playlist_rows[row].get("url") or "")
                 if url:
@@ -1797,15 +1799,15 @@ class SelectionDialog(MessageBoxBase):
 
     def _current_playlist_preset_height(self) -> int | None:
         preset_text = (
-            self.preset_combo.currentText() if self.preset_combo is not None else "最高质量(自动)"
+            self.preset_combo.currentText() if self.preset_combo is not None else self.tr("最高质量(自动)")
         )
         height_map = {
-            "2160p(严格)": 2160,
-            "1440p(严格)": 1440,
-            "1080p(严格)": 1080,
-            "720p(严格)": 720,
-            "480p(严格)": 480,
-            "360p(严格)": 360,
+            self.tr("2160p(严格)"): 2160,
+            self.tr("1440p(严格)"): 1440,
+            self.tr("1080p(严格)"): 1080,
+            self.tr("720p(严格)"): 720,
+            self.tr("480p(严格)"): 480,
+            self.tr("360p(严格)"): 360,
         }
         return height_map.get(str(preset_text))
 
@@ -1840,12 +1842,12 @@ class SelectionDialog(MessageBoxBase):
 
         def _format_audio_brief(a: dict[str, Any] | None) -> str:
             if not a:
-                return "音频-"
+                return self.tr("音频-")
             try:
                 abr_int = int(a.get("abr") or 0)
             except Exception:
                 abr_int = 0
-            return f"音频{abr_int}k" if abr_int > 0 else "音频-"
+            return f"音频{abr_int}k" if abr_int > 0 else self.tr("音频-")
 
         def _format_info_line(prefix: str, size_val: Any, ext_val: Any) -> str:
             size_str = _format_size(size_val)
@@ -1862,10 +1864,10 @@ class SelectionDialog(MessageBoxBase):
         if row not in self._detail_loaded:
             if mode == 2:
                 # 音频模式允许不等详情，先给占位
-                aw.set_loading(False, btn_text="⚡ 自动选定", info_text="纯音频模式 (待解析)")
+                aw.set_loading(False, btn_text=self.tr("⚡ 自动选定"), info_text=self.tr("纯音频模式 (待解析)"))
                 return
             # Row not yet extracted – leave is_parsing unchanged so the delegate
-            # correctly shows "解析中…" for queued rows and "待加载" for others.
+            # correctly shows self.tr("解析中…") for queued rows and self.tr("待加载") for others.
             # The correct format text will be applied once extraction finishes.
             return
 
@@ -1873,8 +1875,8 @@ class SelectionDialog(MessageBoxBase):
         if data.get("custom_selection_data"):
             aw.set_loading(
                 False,
-                btn_text="🎛 自定义选定",
-                info_text=str(data.get("custom_summary") or "已使用自定义配置"),
+                btn_text=self.tr("🎛 自定义选定"),
+                info_text=str(data.get("custom_summary") or self.tr("已使用自定义配置")),
             )
             return
 
@@ -1939,9 +1941,9 @@ class SelectionDialog(MessageBoxBase):
             audio_text = str(
                 data.get("audio_override_text")
                 if is_manual
-                else (data.get("audio_best_text") or "音频(自动)")
+                else (data.get("audio_best_text") or self.tr("音频(自动)"))
             )
-            btn_state = "🎛 自定义选定" if is_manual else "⚡ 自动选定"
+            btn_state = self.tr("🎛 自定义选定") if is_manual else self.tr("⚡ 自动选定")
 
             if chosen_audio is not None:
                 info_text = f"{audio_text} — " + _format_info_line(
@@ -1961,7 +1963,7 @@ class SelectionDialog(MessageBoxBase):
                 audio_brief = (
                     data.get("audio_override_text")
                     if bool(data.get("audio_manual_override"))
-                    else (data.get("audio_best_text") or "音频-")
+                    else (data.get("audio_best_text") or self.tr("音频-"))
                 )
                 chosen_fmt = None
                 override_id = str(data.get("override_format_id") or "")
@@ -1971,7 +1973,7 @@ class SelectionDialog(MessageBoxBase):
                         chosen_fmt = f
                         break
                 v_line = _format_info_line(
-                    f"{chosen or '视频'}",
+                    f"{chosen or self.tr('视频')}",
                     (chosen_fmt or {}).get("filesize"),
                     (chosen_fmt or {}).get("ext"),
                 )
@@ -1980,23 +1982,23 @@ class SelectionDialog(MessageBoxBase):
                     (chosen_audio or {}).get("filesize"),
                     (chosen_audio or {}).get("ext"),
                 )
-                aw.set_loading(False, btn_text="🎛 自定义选定", info_text=v_line + "\n" + a_line)
+                aw.set_loading(False, btn_text=self.tr("🎛 自定义选定"), info_text=v_line + "\n" + a_line)
                 return
 
             # 仅视频
             v_line = _format_info_line(
-                f"{chosen or '已手动选择'}",
+                f"{chosen or self.tr('已手动选择')}",
                 (chosen_fmt or {}).get("filesize") if "chosen_fmt" in locals() else None,
                 None,
             )
-            aw.set_loading(False, btn_text="🎛 自定义选定", info_text=v_line)
+            aw.set_loading(False, btn_text=self.tr("🎛 自定义选定"), info_text=v_line)
             return
 
         # VR 模式下的自动选择模拟（用于 UI 显示）
         if self._vr_mode:
             fmts = data.get("video_formats") or []
             if not fmts:
-                aw.set_loading(False, btn_text="❌ 无可用格式", info_text="解析失败或无 VR 流")
+                aw.set_loading(False, btn_text=self.tr("❌ 无可用格式"), info_text=self.tr("解析失败或无 VR 流"))
                 return
 
             # 获取当前预设 ID
@@ -2044,12 +2046,12 @@ class SelectionDialog(MessageBoxBase):
             sz = _format_size(raw.get("filesize") or raw.get("filesize_approx"))
             ext = raw.get("ext")
             format_desc = str(data["override_text"] or "")
-            aw.set_loading(False, btn_text="⚡ 自动选定", info_text=f"{format_desc}\n{sz} · {ext}")
+            aw.set_loading(False, btn_text=self.tr("⚡ 自动选定"), info_text=f"{format_desc}\n{sz} · {ext}")
             return
 
         fmts: list[dict[str, Any]] = data.get("video_formats") or []
         if not fmts:
-            aw.set_loading(False, btn_text="❌ 无可用格式", info_text="解析失败或无视频流")
+            aw.set_loading(False, btn_text=self.tr("❌ 无可用格式"), info_text=self.tr("解析失败或无视频流"))
             return
 
         preset_height = self._current_playlist_preset_height()
@@ -2064,11 +2066,11 @@ class SelectionDialog(MessageBoxBase):
                         (chosen_audio or {}).get("filesize"),
                         (chosen_audio or {}).get("ext"),
                     )
-                    info_text = "未匹配到指定分辨率，点左侧配置\n" + a_line
+                    info_text = self.tr("未匹配到指定分辨率，点左侧配置\n") + a_line
                 else:
-                    info_text = "未匹配到指定分辨率，可点左侧手动配置"
+                    info_text = self.tr("未匹配到指定分辨率，可点左侧手动配置")
 
-                aw.set_loading(False, btn_text="⚠️ 无匹配", info_text=info_text)
+                aw.set_loading(False, btn_text=self.tr("⚠️ 无匹配"), info_text=info_text)
                 data["override_format_id"] = None
                 data["override_text"] = None
                 return
@@ -2092,13 +2094,13 @@ class SelectionDialog(MessageBoxBase):
             info_text = f"{data['override_text']}\n" + _format_info_line(
                 "", best.get("filesize"), best.get("ext")
             )
-            aw.set_loading(False, btn_text="⚡ 自动选定", info_text=info_text)
+            aw.set_loading(False, btn_text=self.tr("⚡ 自动选定"), info_text=info_text)
             return
 
         audio_brief = (
             data.get("audio_override_text")
             if bool(data.get("audio_manual_override"))
-            else (data.get("audio_best_text") or "音频-")
+            else (data.get("audio_best_text") or self.tr("音频-"))
         )
 
         v_line = _format_info_line(
@@ -2109,7 +2111,7 @@ class SelectionDialog(MessageBoxBase):
             (chosen_audio or {}).get("filesize"),
             (chosen_audio or {}).get("ext"),
         )
-        aw.set_loading(False, btn_text="⚡ 自动选定", info_text=v_line + "\n" + a_line)
+        aw.set_loading(False, btn_text=self.tr("⚡ 自动选定"), info_text=v_line + "\n" + a_line)
 
     def _on_playlist_preset_changed(self, _index: int) -> None:
         for r in range(len(self._playlist_rows)):
@@ -2164,7 +2166,7 @@ class SelectionDialog(MessageBoxBase):
                 url = str(self._playlist_rows[row].get("url") or "")
                 if url:
                     # Mark as actively parsing before it enters the queue so
-                    # the delegate immediately switches from "待加载" to "解析中…"
+                    # the delegate immediately switches from self.tr("待加载") to self.tr("解析中…")
                     self._set_row_parsing(row, True)
                     logger.info(f"Viewport prioritizing row {row}")
                     self._extract_manager.enqueue(
@@ -2214,7 +2216,7 @@ class SelectionDialog(MessageBoxBase):
             if not url:
                 continue
 
-            # Mark as parsing so delegate shows "解析中…"
+            # Mark as parsing so delegate shows self.tr("解析中…")
             self._set_row_parsing(row, True)
             if row % 10 == 0:
                 logger.debug(f"BG Crawl enqueue row {row}")
@@ -2259,7 +2261,7 @@ class SelectionDialog(MessageBoxBase):
             return
         new_val = not bool(self._playlist_rows[row].get("selected"))
         self._playlist_rows[row]["selected"] = new_val
-        self._playlist_rows[row]["status"] = "已选择" if new_val else "未选择"
+        self._playlist_rows[row]["status"] = self.tr("已选择") if new_val else self.tr("未选择")
         if self._playlist_model is not None:
             idx = self._playlist_model.index(row, 0)
             task = self._playlist_model.get_task(idx)
@@ -2273,7 +2275,7 @@ class SelectionDialog(MessageBoxBase):
 
         Actual row enqueueing is deferred to the viewport scan so that only
         visible + nearby rows enter the queue initially.  This prevents all N
-        rows from showing "解析中…" and keeps the parse queue tight.
+        rows from showing self.tr("解析中…") and keeps the parse queue tight.
         """
         mgr = self._extract_manager
         if mgr is None:
@@ -2433,7 +2435,7 @@ class SelectionDialog(MessageBoxBase):
         for row, data in enumerate(self._playlist_rows):
             new_val = not bool(data.get("selected"))
             data["selected"] = new_val
-            data["status"] = "已选择" if new_val else "未选择"
+            data["status"] = self.tr("已选择") if new_val else self.tr("未选择")
             if model is not None:
                 idx = model.index(row, 0)
                 task = model.get_task(idx)
@@ -2452,7 +2454,7 @@ class SelectionDialog(MessageBoxBase):
         model = self._playlist_model
         for row, data in enumerate(self._playlist_rows):
             data["selected"] = bool(checked)
-            data["status"] = "已选择" if checked else "未选择"
+            data["status"] = self.tr("已选择") if checked else self.tr("未选择")
             if model is not None:
                 idx = model.index(row, 0)
                 task = model.get_task(idx)
@@ -2491,12 +2493,12 @@ class SelectionDialog(MessageBoxBase):
         self.yesButton.setEnabled(bool(any_selected))
 
         if not any_selected:
-            self.yesButton.setText("下载")
+            self.yesButton.setText(self.tr("下载"))
             return
 
         mode = int(self.type_combo.currentIndex()) if self.type_combo is not None else 0
         if mode == 2:
-            self.yesButton.setText("下载")
+            self.yesButton.setText(self.tr("下载"))
             return
 
         selected_rows = [i for i, r in enumerate(self._playlist_rows) if r.get("selected")]
@@ -2504,7 +2506,7 @@ class SelectionDialog(MessageBoxBase):
         if pending:
             self.yesButton.setText(f"下载（剩余 {len(pending)} 个解析中...）")
         else:
-            self.yesButton.setText("下载")
+            self.yesButton.setText(self.tr("下载"))
 
     def _refresh_progress_label(self) -> None:
         if hasattr(self, "progressLabel"):
@@ -2594,7 +2596,7 @@ class SelectionDialog(MessageBoxBase):
             return
         aw = self._action_widget_by_row.get(row)
         if aw is not None:
-            aw.set_loading(False, "获取失败(点重试)")
+            aw.set_loading(False, self.tr("获取失败(点重试)"))
             aw.qualityButton.setToolTip(msg)
         # Also mark the VideoTask as errored in model
         if self._playlist_model is not None:
@@ -2946,13 +2948,13 @@ class SelectionDialog(MessageBoxBase):
                 pending = [i for i in selected_rows if i not in self._detail_loaded]
                 if pending:
                     box = MessageBox(
-                        "仍在解析中",
-                        f"还有 {len(pending)} 个已勾选条目正在补全信息。\n\n"
-                        "你可以继续下载（将按当前预设策略执行），或等待补全完成后再下载。",
+                        self.tr("仍在解析中"),
+                        f"还有 {len(pending)} 个已勾选条目正在补全信息。\n\n" +
+                        self.tr("你可以继续下载（将按当前预设策略执行），或等待补全完成后再下载。"),
                         parent=self,
                     )
-                    box.yesButton.setText("继续下载")
-                    box.cancelButton.setText("等待补全")
+                    box.yesButton.setText(self.tr("继续下载"))
+                    box.cancelButton.setText(self.tr("等待补全"))
                     if not box.exec():
                         # User wants to wait – re-enqueue pending rows with high priority
                         if self._extract_manager is not None:
@@ -2996,7 +2998,7 @@ class SelectionDialog(MessageBoxBase):
                 title = (
                     self.video_info_dto.title
                     if self.video_info_dto is not None and self.video_info_dto.title
-                    else str(self.video_info.get("title") or "未命名任务")
+                    else str(self.video_info.get("title") or self.tr("未命名任务"))
                 )
                 thumb = (
                     str(self.video_info_dto.thumbnail_url).strip() or None
@@ -3004,7 +3006,7 @@ class SelectionDialog(MessageBoxBase):
                     else str(self.video_info.get("thumbnail") or "").strip() or None
                 )
             else:
-                title = "未命名任务"
+                title = self.tr("未命名任务")
                 thumb = None
             self.download_tasks = [
                 {
@@ -3025,7 +3027,7 @@ class SelectionDialog(MessageBoxBase):
 
         mode = int(self.type_combo.currentIndex()) if self.type_combo is not None else 0
         preset_text = (
-            self.preset_combo.currentText() if self.preset_combo is not None else "最高质量(自动)"
+            self.preset_combo.currentText() if self.preset_combo is not None else self.tr("最高质量(自动)")
         )
 
         # VR 模式预设解析
@@ -3043,12 +3045,12 @@ class SelectionDialog(MessageBoxBase):
                     break
 
         height_map = {
-            "2160p(严格)": 2160,
-            "1440p(严格)": 1440,
-            "1080p(严格)": 1080,
-            "720p(严格)": 720,
-            "480p(严格)": 480,
-            "360p(严格)": 360,
+            self.tr("2160p(严格)"): 2160,
+            self.tr("1440p(严格)"): 1440,
+            self.tr("1080p(严格)"): 1080,
+            self.tr("720p(严格)"): 720,
+            self.tr("480p(严格)"): 480,
+            self.tr("360p(严格)"): 360,
         }
         preset_height = height_map.get(preset_text)
 
@@ -3066,13 +3068,13 @@ class SelectionDialog(MessageBoxBase):
 
             if mismatched:
                 box = MessageBox(
-                    "预设质量不可用",
-                    f"有 {len(mismatched)} 个已获取格式的条目最高画质低于 {preset_height}p。\n\n"
-                    "可选择自动降低到该视频最高可用档位，或返回手动调整格式。",
+                    self.tr("预设质量不可用"),
+                    f"有 {len(mismatched)} 个已获取格式的条目最高画质低于 {preset_height}p。\n\n" +
+                    self.tr("可选择自动降低到该视频最高可用档位，或返回手动调整格式。"),
                     parent=self,
                 )
-                box.yesButton.setText("自动降到最高")
-                box.cancelButton.setText("手动调整")
+                box.yesButton.setText(self.tr("自动降到最高"))
+                box.cancelButton.setText(self.tr("手动调整"))
                 if box.exec():
                     for r in mismatched:
                         data = self._playlist_rows[r]
@@ -3121,7 +3123,7 @@ class SelectionDialog(MessageBoxBase):
                     tasks.append(
                         {
                             "url": url,
-                            "title": str(data.get("title") or "未命名任务"),
+                            "title": str(data.get("title") or self.tr("未命名任务")),
                             "thumbnail": str(data.get("thumbnail") or "").strip() or None,
                             "opts": opts,
                         }
@@ -3141,7 +3143,7 @@ class SelectionDialog(MessageBoxBase):
                 tasks.append(
                     {
                         "url": url,
-                        "title": str(data.get("title") or "未命名任务"),
+                        "title": str(data.get("title") or self.tr("未命名任务")),
                         "thumbnail": str(data.get("thumbnail") or "").strip() or None,
                         "opts": opts,
                     }
@@ -3238,7 +3240,7 @@ class SelectionDialog(MessageBoxBase):
             tasks.append(
                 {
                     "url": url,
-                    "title": str(data.get("title") or "未命名任务"),
+                    "title": str(data.get("title") or self.tr("未命名任务")),
                     "thumbnail": str(data.get("thumbnail") or "").strip() or None,
                     "opts": opts,
                 }
@@ -3378,7 +3380,7 @@ class SelectionDialog(MessageBoxBase):
                 if fps and fps > 30:
                     res_str += f" {int(fps)}fps"
 
-                # 去重：仅保留每个分辨率的一条入口（后续可扩展为"推荐/更多"）
+                # 去重：仅保留每个分辨率的一条入口（后续可扩展为self.tr("推荐/更多")）
                 if h not in seen_res:
                     ext = f.get("ext") or "?"
                     self.video_formats.append(
@@ -3407,7 +3409,7 @@ class SelectionDialog(MessageBoxBase):
             if self.format_combo.count() > 0:
                 self.format_combo.setCurrentIndex(0)
         else:  # Audio Only
-            self.format_combo.addItem("最佳质量 (原格式)", userData="bestaudio")
+            self.format_combo.addItem(self.tr("最佳质量 (原格式)"), userData="bestaudio")
 
     def get_download_options(self, embed_subtitles_override: bool | None = None) -> dict[str, Any]:
         """

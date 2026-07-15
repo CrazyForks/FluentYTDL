@@ -15,55 +15,56 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from PySide6.QtCore import QT_TRANSLATE_NOOP
 
 # 常见字幕语言代码映射
 LANGUAGE_NAMES = {
-    "zh-Hans": "中文(简体)",
-    "zh-Hant": "中文(繁体)",
-    "zh": "中文",
-    "en": "英语",
-    "ja": "日语",
-    "ko": "韩语",
-    "es": "西班牙语",
-    "fr": "法语",
-    "de": "德语",
-    "ru": "俄语",
-    "pt": "葡萄牙语",
-    "it": "意大利语",
-    "ar": "阿拉伯语",
-    "hi": "印地语",
-    "th": "泰语",
-    "vi": "越南语",
-    "id": "印尼语",
-    "auto": "自动生成",
+    "zh-Hans": QT_TRANSLATE_NOOP("SubtitleManager", "中文(简体)"),
+    "zh-Hant": QT_TRANSLATE_NOOP("SubtitleManager", "中文(繁体)"),
+    "zh": QT_TRANSLATE_NOOP("SubtitleManager", "中文"),
+    "en": QT_TRANSLATE_NOOP("SubtitleManager", "英语"),
+    "ja": QT_TRANSLATE_NOOP("SubtitleManager", "日语"),
+    "ko": QT_TRANSLATE_NOOP("SubtitleManager", "韩语"),
+    "es": QT_TRANSLATE_NOOP("SubtitleManager", "西班牙语"),
+    "fr": QT_TRANSLATE_NOOP("SubtitleManager", "法语"),
+    "de": QT_TRANSLATE_NOOP("SubtitleManager", "德语"),
+    "ru": QT_TRANSLATE_NOOP("SubtitleManager", "俄语"),
+    "pt": QT_TRANSLATE_NOOP("SubtitleManager", "葡萄牙语"),
+    "it": QT_TRANSLATE_NOOP("SubtitleManager", "意大利语"),
+    "ar": QT_TRANSLATE_NOOP("SubtitleManager", "阿拉伯语"),
+    "hi": QT_TRANSLATE_NOOP("SubtitleManager", "印地语"),
+    "th": QT_TRANSLATE_NOOP("SubtitleManager", "泰语"),
+    "vi": QT_TRANSLATE_NOOP("SubtitleManager", "越南语"),
+    "id": QT_TRANSLATE_NOOP("SubtitleManager", "印尼语"),
+    "auto": QT_TRANSLATE_NOOP("SubtitleManager", "自动生成"),
 }
 
 # UI显示用的常用语言列表（按使用频率和地区排序）
 COMMON_SUBTITLE_LANGUAGES = [
     # 东亚地区（高频）
-    ("zh-Hans", "中文(简体)"),
-    ("zh-Hant", "中文(繁体)"),
-    ("en", "英语"),
-    ("ja", "日语"),
-    ("ko", "韩语"),
+    ("zh-Hans", QT_TRANSLATE_NOOP("SubtitleManager", "中文(简体)")),
+    ("zh-Hant", QT_TRANSLATE_NOOP("SubtitleManager", "中文(繁体)")),
+    ("en", QT_TRANSLATE_NOOP("SubtitleManager", "英语")),
+    ("ja", QT_TRANSLATE_NOOP("SubtitleManager", "日语")),
+    ("ko", QT_TRANSLATE_NOOP("SubtitleManager", "韩语")),
     # 欧洲主要语言
-    ("fr", "法语"),
-    ("de", "德语"),
-    ("es", "西班牙语"),
-    ("pt", "葡萄牙语"),
-    ("it", "意大利语"),
-    ("ru", "俄语"),
+    ("fr", QT_TRANSLATE_NOOP("SubtitleManager", "法语")),
+    ("de", QT_TRANSLATE_NOOP("SubtitleManager", "德语")),
+    ("es", QT_TRANSLATE_NOOP("SubtitleManager", "西班牙语")),
+    ("pt", QT_TRANSLATE_NOOP("SubtitleManager", "葡萄牙语")),
+    ("it", QT_TRANSLATE_NOOP("SubtitleManager", "意大利语")),
+    ("ru", QT_TRANSLATE_NOOP("SubtitleManager", "俄语")),
     # 其他地区
-    ("ar", "阿拉伯语"),
-    ("hi", "印地语"),
-    ("th", "泰语"),
-    ("vi", "越南语"),
-    ("id", "印尼语"),
-    ("tr", "土耳其语"),
-    ("nl", "荷兰语"),
-    ("pl", "波兰语"),
-    ("sv", "瑞典语"),
-    ("no", "挪威语"),
+    ("ar", QT_TRANSLATE_NOOP("SubtitleManager", "阿拉伯语")),
+    ("hi", QT_TRANSLATE_NOOP("SubtitleManager", "印地语")),
+    ("th", QT_TRANSLATE_NOOP("SubtitleManager", "泰语")),
+    ("vi", QT_TRANSLATE_NOOP("SubtitleManager", "越南语")),
+    ("id", QT_TRANSLATE_NOOP("SubtitleManager", "印尼语")),
+    ("tr", QT_TRANSLATE_NOOP("SubtitleManager", "土耳其语")),
+    ("nl", QT_TRANSLATE_NOOP("SubtitleManager", "荷兰语")),
+    ("pl", QT_TRANSLATE_NOOP("SubtitleManager", "波兰语")),
+    ("sv", QT_TRANSLATE_NOOP("SubtitleManager", "瑞典语")),
+    ("no", QT_TRANSLATE_NOOP("SubtitleManager", "挪威语")),
 ]
 
 # 支持的字幕格式
@@ -105,12 +106,17 @@ class SubtitleTrack:
     @property
     def display_name(self) -> str:
         """获取显示名称"""
+        from PySide6.QtCore import QCoreApplication
         name = LANGUAGE_NAMES.get(self.lang_code, self.lang_name or self.lang_code)
+        
+        # Translate the base language name
+        translated_name = QCoreApplication.translate("SubtitleManager", name)
+        
         if self.source_type == SubtitleSourceType.AUTO_GENERATED:
-            name += " [自动生成]"
+            translated_name += QCoreApplication.translate("SubtitleManager", " [自动生成]")
         elif self.source_type == SubtitleSourceType.AUTO_TRANSLATED:
-            name += " [自动翻译]"
-        return name
+            translated_name += QCoreApplication.translate("SubtitleManager", " [自动翻译]")
+        return translated_name
 
 
 def _lang_matches(lang1: str, lang2: str) -> bool:

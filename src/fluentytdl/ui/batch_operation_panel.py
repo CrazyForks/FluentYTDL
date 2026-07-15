@@ -38,18 +38,18 @@ class BatchOperationPanel(QFrame):
         self.h_layout.setSpacing(12)
 
         # === 选中计数 ===
-        self.count_label = BodyLabel("已选择 0 项", self)
+        self.count_label = BodyLabel(self.tr("已选择 0 项"), self)
         self.count_label.setMinimumWidth(130)  # 防止字数多时挤压
         self.h_layout.addWidget(self.count_label)
 
         # === 全选按钮组 ===
         self.btn_select_all = TransparentToolButton(FluentIcon.ACCEPT, self)
-        self.btn_select_all.setToolTip("全选")
+        self.btn_select_all.setToolTip(self.tr("全选"))
         self.btn_select_all.clicked.connect(self.select_all_requested)
         self.h_layout.addWidget(self.btn_select_all)
 
         self.btn_deselect_all = TransparentToolButton(FluentIcon.CLEAR_SELECTION, self)
-        self.btn_deselect_all.setToolTip("取消全选")
+        self.btn_deselect_all.setToolTip(self.tr("取消全选"))
         self.btn_deselect_all.clicked.connect(self.deselect_all_requested)
         self.h_layout.addWidget(self.btn_deselect_all)
 
@@ -62,22 +62,22 @@ class BatchOperationPanel(QFrame):
 
         # === 动作按钮 ===
         self.btn_start = TransparentToolButton(FluentIcon.PLAY, self)
-        self.btn_start.setToolTip("开始选中")
+        self.btn_start.setToolTip(self.tr("开始选中"))
         self.btn_start.clicked.connect(self.batch_start_requested)
         self.h_layout.addWidget(self.btn_start)
 
         self.btn_pause = TransparentToolButton(FluentIcon.PAUSE, self)
-        self.btn_pause.setToolTip("暂停选中")
+        self.btn_pause.setToolTip(self.tr("暂停选中"))
         self.btn_pause.clicked.connect(self.batch_pause_requested)
         self.h_layout.addWidget(self.btn_pause)
 
         # === 删除下拉菜单 ===
         self.btn_delete = TransparentDropDownToolButton(FluentIcon.DELETE, self)
-        self.btn_delete.setToolTip("删除选中")
+        self.btn_delete.setToolTip(self.tr("删除选中"))
 
         menu = RoundMenu(parent=self)
-        self.action_del_record = Action(FluentIcon.DOCUMENT, "仅删记录", self)
-        self.action_del_all = Action(FluentIcon.DELETE, "连同文件一起删除", self)
+        self.action_del_record = Action(FluentIcon.DOCUMENT, self.tr("仅删记录"), self)
+        self.action_del_all = Action(FluentIcon.DELETE, self.tr("连同文件一起删除"), self)
 
         self.action_del_record.triggered.connect(lambda: self.batch_delete_requested.emit(False))
         self.action_del_all.triggered.connect(lambda: self.batch_delete_requested.emit(True))
@@ -97,7 +97,7 @@ class BatchOperationPanel(QFrame):
 
         # === 退出批量 ===
         self.btn_exit = TransparentToolButton(FluentIcon.CANCEL, self)
-        self.btn_exit.setToolTip("退出批量")
+        self.btn_exit.setToolTip(self.tr("退出批量"))
         self.btn_exit.clicked.connect(self.batch_exit_requested)
         self.h_layout.addWidget(self.btn_exit)
 

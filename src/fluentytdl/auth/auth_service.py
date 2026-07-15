@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from ..core.config_manager import config_manager
@@ -126,6 +126,9 @@ PLATFORM_DOMAINS = {
 # YouTube 登录验证所需的关键 Cookie
 YOUTUBE_REQUIRED_COOKIES = {"SID", "HSID", "SSID", "SAPISID", "APISID"}
 
+# X (Twitter) 登录验证关键 Cookie (仅做存在性检查)
+X_REQUIRED_COOKIES = {"auth_token", "ct0"}
+
 
 @dataclass
 class AuthStatus:
@@ -181,6 +184,13 @@ class WebView2Account:
     valid: bool = False
     is_default: bool = False
     notes: str | None = None
+
+    @property
+    def localized_name(self) -> str:
+        from PySide6.QtCore import QCoreApplication
+        if self.display_name in ("默认账号", "Default"):
+            return QCoreApplication.translate("WebView2Account", "默认账号")
+        return self.display_name
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -245,23 +255,24 @@ class AuthService:
     @property
     def current_source_display(self) -> str:
         """当前验证源的显示名称"""
+        from PySide6.QtCore import QCoreApplication
         names = {
-            AuthSourceType.NONE: "未启用",
-            AuthSourceType.EDGE: "Edge 浏览器",
-            AuthSourceType.CHROME: "Chrome 浏览器",
-            AuthSourceType.CHROMIUM: "Chromium 浏览器",
-            AuthSourceType.BRAVE: "Brave 浏览器",
-            AuthSourceType.OPERA: "Opera 浏览器",
-            AuthSourceType.OPERA_GX: "Opera GX 浏览器",
-            AuthSourceType.VIVALDI: "Vivaldi 浏览器",
-            AuthSourceType.ARC: "Arc 浏览器",
-            AuthSourceType.FIREFOX: "Firefox 浏览器",
-            AuthSourceType.LIBREWOLF: "LibreWolf 浏览器",
-            AuthSourceType.CENT: "百分浏览器 (Cent)",
-            AuthSourceType.WEBVIEW2: "登录获取 (推荐)",
-            AuthSourceType.FILE: "手动导入文件",
+            AuthSourceType.NONE: QCoreApplication.translate("AuthService", "未启用"),
+            AuthSourceType.EDGE: QCoreApplication.translate("AuthService", "Edge 浏览器"),
+            AuthSourceType.CHROME: QCoreApplication.translate("AuthService", "Chrome 浏览器"),
+            AuthSourceType.CHROMIUM: QCoreApplication.translate("AuthService", "Chromium 浏览器"),
+            AuthSourceType.BRAVE: QCoreApplication.translate("AuthService", "Brave 浏览器"),
+            AuthSourceType.OPERA: QCoreApplication.translate("AuthService", "Opera 浏览器"),
+            AuthSourceType.OPERA_GX: QCoreApplication.translate("AuthService", "Opera GX 浏览器"),
+            AuthSourceType.VIVALDI: QCoreApplication.translate("AuthService", "Vivaldi 浏览器"),
+            AuthSourceType.ARC: QCoreApplication.translate("AuthService", "Arc 浏览器"),
+            AuthSourceType.FIREFOX: QCoreApplication.translate("AuthService", "Firefox 浏览器"),
+            AuthSourceType.LIBREWOLF: QCoreApplication.translate("AuthService", "LibreWolf 浏览器"),
+            AuthSourceType.CENT: QCoreApplication.translate("AuthService", "百分浏览器 (Cent)"),
+            AuthSourceType.WEBVIEW2: QCoreApplication.translate("AuthService", "登录获取 (推荐)"),
+            AuthSourceType.FILE: QCoreApplication.translate("AuthService", "手动导入文件"),
         }
-        return names.get(self._current_source, "未知")
+        return names.get(self._current_source, QCoreApplication.translate("AuthService", "未知"))
 
     @property
     def auto_refresh(self) -> bool:
@@ -397,7 +408,7 @@ class AuthService:
 
                         account = self.current_webview2_account
                         profile_dir = account.profile_dir if account else None
-                        account_label = account.display_name if account else "default"
+                        account_label = account.localized_name if account else "default"
                         profile_has_data = False
                         if profile_dir:
                             try:
@@ -599,6 +610,39 @@ class AuthService:
             return AuthStatus(valid=False, message=f"导入底层异常: {e}")
 
     # ==================== 内部方法 ====================
+
+    def extract_browser_cookies_all_platforms(
+        self, callback: Callable[[str, str], None] | None = None
+    ) -> dict[str, str | None]:
+        """
+        一次性从当前浏览器提取所有平台的 Cookie
+        
+        Args:
+            callback: 进度回调 (platform_label, status_msg) 供 UI 显示进度
+        
+        Returns:
+            {"youtube": cookie_file_path_or_none, "twitter": cookie_file_path_or_none}
+        """
+        results = {}
+        
+        for platform, label in [("youtube", "YouTube"), ("twitter", "X (Twitter)")]:
+            if callback:
+                callback(label, "正在提取...")
+            try:
+                path = self._extract_and_cache(
+                    browser=self._current_source.value,
+                    platform=platform,
+                    force_refresh=True,
+                )
+                results[platform] = path
+                if callback:
+                    callback(label, f"✅ 提取成功 ({self._last_status.cookie_count} 个)")
+            except Exception as e:
+                results[platform] = None
+                if callback:
+                    callback(label, f"❌ 提取失败: {e}")
+        
+        return results
 
     def _extract_and_cache(
         self,
@@ -937,6 +981,19 @@ class AuthService:
                 "valid": True,
                 "message": "已验证 (检测到 YouTube 登录)",
             }
+        elif platform == "twitter":
+            required = X_REQUIRED_COOKIES
+            missing = required - found
+            
+            if missing:
+                return {
+                    "valid": False,
+                    "message": f"X 平台 Cookie 不完整，缺少关键字段: {', '.join(missing)}",
+                }
+            return {
+                "valid": True,
+                "message": "已验证 (检测到 X 平台登录)",
+            }
         else:
             if valid_cookies:
                 return {"valid": True, "message": f"找到 {len(valid_cookies)} 个有效 Cookie"}
@@ -952,12 +1009,12 @@ class AuthService:
                 return "YouTube Premium"
         return None
 
-    def _update_status_from_file(self, file_path: str) -> None:
+    def _update_status_from_file(self, file_path: str, platform: str = "youtube") -> None:
         """从文件更新状态"""
         try:
             content = Path(file_path).read_text(encoding="utf-8", errors="replace")
             cookies = self._parse_netscape_cookies(content)
-            validation = self._validate_cookies(cookies, "youtube")
+            validation = self._validate_cookies(cookies, platform)
 
             self._last_status = AuthStatus(
                 valid=validation["valid"],
@@ -1173,7 +1230,7 @@ class AuthService:
                 f"webview2:{account.account_id}", self._last_status.cookie_count
             )
             logger.info(
-                f"已切换到 WebView2 账号 {account.display_name}，并同步 Cookie 到 {cookie_sentinel.cookie_path}"
+                f"已切换到 WebView2 账号 {account.localized_name}，并同步 Cookie 到 {cookie_sentinel.cookie_path}"
             )
             return True
         except Exception as e:
@@ -1284,7 +1341,7 @@ class AuthService:
             account.last_extracted_at = datetime.now().isoformat()
             account.valid = True
             self._save_webview2_accounts()
-            logger.info(f"已将旧 WebView2 缓存迁移到账号 {account.display_name}: {target}")
+            logger.info(f"已将旧 WebView2 缓存迁移到账号 {account.localized_name}: {target}")
 
             # 若当前正在 WebView2 模式，迁移后同步到统一 cookiefile
             if self._current_source == AuthSourceType.WEBVIEW2:

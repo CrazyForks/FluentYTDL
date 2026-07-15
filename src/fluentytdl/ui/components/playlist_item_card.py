@@ -58,7 +58,7 @@ class PlaylistItemCard(QFrame):
         info_layout.setSpacing(6)
         info_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        self.title_label = StrongBodyLabel(task.title or "未知标题", self)
+        self.title_label = StrongBodyLabel(task.title or self.tr("未知标题"), self)
         self.title_label.setWordWrap(False)
         self.title_label.setSizePolicy(
             QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Preferred
@@ -71,13 +71,13 @@ class PlaylistItemCard(QFrame):
         else:
             duration = str(task.duration_str or "").strip()
             if duration:
-                meta_str = f"时长: {duration}"
+                meta_str = self.tr("时长: {}").format(duration)
             if task.upload_date and task.upload_date != "-":
                 meta_str += (
-                    f" · 日期: {task.upload_date}" if meta_str else f"日期: {task.upload_date}"
+                    self.tr(" · 日期: {}").format(task.upload_date) if meta_str else self.tr("日期: {}").format(task.upload_date)
                 )
             if not meta_str:
-                meta_str = "待加载..."
+                meta_str = self.tr("待加载...")
 
         self.meta_label = CaptionLabel(meta_str, self)
         if task.has_error:
@@ -119,15 +119,15 @@ class PlaylistItemCard(QFrame):
 
     def update_status(self, is_parsing: bool = False, error: bool = False, msg: str = "") -> None:
         if error:
-            self.status_label.setText(msg or "解析失败")
+            self.status_label.setText(msg or self.tr("解析失败"))
             self.status_label.setTextColor(QColor("#C42B1C"), QColor("#FF99A4"))
             self.title_label.setTextColor(QColor("#C42B1C"), QColor("#FF99A4"))
         elif is_parsing:
-            self.status_label.setText(msg or "解析中...")
+            self.status_label.setText(msg or self.tr("解析中..."))
             self.status_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
             self.title_label.setTextColor(QColor(0, 0, 0), QColor(255, 255, 255))
         else:
-            self.status_label.setText(msg or "待下载")
+            self.status_label.setText(msg or self.tr("待下载"))
             self.status_label.setTextColor(QColor(0, 120, 212), QColor(118, 185, 237))
             self.title_label.setTextColor(QColor(0, 0, 0), QColor(255, 255, 255))
 

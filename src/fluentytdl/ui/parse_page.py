@@ -51,7 +51,7 @@ class ParsePage(QWidget):
         self.standardLayout.addWidget(self.centerWidget, 0, Qt.AlignmentFlag.AlignHCenter)
         self.standardLayout.addStretch(1)
 
-        self.titleLabel = SubtitleLabel("精确解析", self.standardPage)
+        self.titleLabel = SubtitleLabel(self.tr("精确解析"), self.standardPage)
         self.centerLayout.addWidget(self.titleLabel)
 
         # 2. 核心操作区 (卡片风格)
@@ -64,11 +64,11 @@ class ParsePage(QWidget):
         self.cardLayout.setSpacing(15)
 
         self.instructionLabel = BodyLabel(
-            "在此处粘贴 YouTube 视频链接 (支持 Short/Live/Playlist/Channel)", self
+            self.tr("在此处粘贴 YouTube 视频链接 (支持 Short/Live/Playlist/Channel)"), self
         )
         self.cardLayout.addWidget(self.instructionLabel)
 
-        self.hintLabel = CaptionLabel("提示：如需自动识别剪贴板，请到“设置 → 体验”开启。", self)
+        self.hintLabel = CaptionLabel(self.tr("提示：如需自动识别剪贴板，请到“设置 → 体验”开启。"), self)
         self.cardLayout.addWidget(self.hintLabel)
 
         # 输入框行
@@ -82,7 +82,7 @@ class ParsePage(QWidget):
 
         self.inputLayout.addWidget(self.urlInput)
 
-        self.pasteBtn = PushButton("粘贴", self)
+        self.pasteBtn = PushButton(self.tr("粘贴"), self)
         self.pasteBtn.setMinimumWidth(72)
         self.pasteBtn.clicked.connect(self.on_paste_clicked)
         self.inputLayout.addWidget(self.pasteBtn)
@@ -92,7 +92,7 @@ class ParsePage(QWidget):
         self.btnLayout = QHBoxLayout()
         self.btnLayout.addStretch(1)
 
-        self.parseBtn = PrimaryPushButton(FluentIcon.SEARCH, "开始解析", self)
+        self.parseBtn = PrimaryPushButton(FluentIcon.SEARCH, self.tr("开始解析"), self)
         self.parseBtn.setMinimumWidth(120)
         self.parseBtn.clicked.connect(self.on_parse_clicked)
 
@@ -103,11 +103,11 @@ class ParsePage(QWidget):
 
         # Extra compact tips to reduce emptiness and guide users
         self.tipsLabel = CaptionLabel(
-            "支持格式示例：\n"
+            self.tr("支持格式示例：\n") +
             "- https://www.youtube.com/watch?v=...\n"
             "- https://youtu.be/...\n"
-            "- https://www.youtube.com/playlist?list=...\n"
-            "- https://www.youtube.com/@ChannelName（频道请使用「频道下载」页面）",
+            "- https://www.youtube.com/playlist?list=...\n" +
+            self.tr("- https://www.youtube.com/@ChannelName（频道请使用「频道下载」页面）"),
             self,
         )
         self.tipsLabel.setWordWrap(True)

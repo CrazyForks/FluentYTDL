@@ -58,7 +58,7 @@ class QuickAddPanel(QWidget):
         self.scrollLayout.addStretch(1)
 
         # 1. 顶部标题
-        self.titleLabel = SubtitleLabel("快速解析 (批量)", self)
+        self.titleLabel = SubtitleLabel(self.tr("快速解析 (批量)"), self)
         self.scrollLayout.addWidget(self.titleLabel)
 
         # 2. 核心操作区 (卡片风格)
@@ -69,7 +69,7 @@ class QuickAddPanel(QWidget):
         self.cardLayout.setSpacing(15)
 
         self.instructionLabel = BodyLabel(
-            "每行输入一个链接，可粘贴多个 YouTube 视频/频道/播放列表链接", self
+            self.tr("每行输入一个链接，可粘贴多个 YouTube 视频/频道/播放列表链接"), self
         )
         self.cardLayout.addWidget(self.instructionLabel)
 
@@ -89,25 +89,25 @@ class QuickAddPanel(QWidget):
         row1 = QHBoxLayout()
 
         self.typeCombo = ComboBox()
-        self.typeCombo.addItem("音视频", userData="video_audio")
-        self.typeCombo.addItem("仅视频", userData="video_only")
-        self.typeCombo.addItem("仅音频", userData="audio_only")
-        row1.addWidget(BodyLabel("类型:"), 0)
+        self.typeCombo.addItem(self.tr("音视频"), userData="video_audio")
+        self.typeCombo.addItem(self.tr("仅视频"), userData="video_only")
+        self.typeCombo.addItem(self.tr("仅音频"), userData="audio_only")
+        row1.addWidget(BodyLabel(self.tr("类型:")), 0)
         row1.addWidget(self.typeCombo, 1)
 
         self.qualityCombo = ComboBox()
-        self.qualityCombo.addItem("最佳 (自动)", userData=None)
+        self.qualityCombo.addItem(self.tr("最佳 (自动)"), userData=None)
         self.qualityCombo.addItem("4K (2160p)", userData=2160)
         self.qualityCombo.addItem("1080p", userData=1080)
         self.qualityCombo.addItem("720p", userData=720)
-        row1.addWidget(BodyLabel("画质上限:"), 0)
+        row1.addWidget(BodyLabel(self.tr("画质上限:")), 0)
         row1.addWidget(self.qualityCombo, 1)
 
         self.containerCombo = ComboBox()
-        self.containerCombo.addItem("最佳兼容 (自动)", userData=None)
+        self.containerCombo.addItem(self.tr("最佳兼容 (自动)"), userData=None)
         self.containerCombo.addItem("MP4", userData="mp4")
         self.containerCombo.addItem("MKV", userData="mkv")
-        row1.addWidget(BodyLabel("格式:"), 0)
+        row1.addWidget(BodyLabel(self.tr("格式:")), 0)
         row1.addWidget(self.containerCombo, 1)
 
         self.presetLayout.addLayout(row1)
@@ -116,21 +116,21 @@ class QuickAddPanel(QWidget):
         row_audio = QHBoxLayout()
 
         self.audioFormatCombo = ComboBox()
-        self.audioFormatCombo.addItem("自动推断", userData=None)
+        self.audioFormatCombo.addItem(self.tr("自动推断"), userData=None)
         self.audioFormatCombo.addItem("M4A", userData="m4a")
         self.audioFormatCombo.addItem("MP3", userData="mp3")
         self.audioFormatCombo.addItem("FLAC", userData="flac")
         self.audioFormatCombo.addItem("WAV", userData="wav")
-        row_audio.addWidget(BodyLabel("音频格式:"), 0)
+        row_audio.addWidget(BodyLabel(self.tr("音频格式:")), 0)
         row_audio.addWidget(self.audioFormatCombo, 1)
 
         self.audioQualityCombo = ComboBox()
-        self.audioQualityCombo.addItem("最佳 (自动)", userData=None)
+        self.audioQualityCombo.addItem(self.tr("最佳 (自动)"), userData=None)
         self.audioQualityCombo.addItem("320 kbps", userData=320)
         self.audioQualityCombo.addItem("256 kbps", userData=256)
         self.audioQualityCombo.addItem("192 kbps", userData=192)
         self.audioQualityCombo.addItem("128 kbps", userData=128)
-        row_audio.addWidget(BodyLabel("音频比特率:"), 0)
+        row_audio.addWidget(BodyLabel(self.tr("音频比特率:")), 0)
         row_audio.addWidget(self.audioQualityCombo, 1)
 
         self.presetLayout.addLayout(row_audio)
@@ -139,20 +139,20 @@ class QuickAddPanel(QWidget):
         row2 = QHBoxLayout()
 
         self.metaSwitch = SwitchButton()
-        self.metaSwitch.setOnText("嵌入元数据")
-        self.metaSwitch.setOffText("嵌入元数据")
+        self.metaSwitch.setOnText(self.tr("嵌入元数据"))
+        self.metaSwitch.setOffText(self.tr("嵌入元数据"))
         self.metaSwitch.setChecked(True)
         row2.addWidget(self.metaSwitch)
 
         self.thumbSwitch = SwitchButton()
-        self.thumbSwitch.setOnText("嵌入封面")
-        self.thumbSwitch.setOffText("嵌入封面")
+        self.thumbSwitch.setOnText(self.tr("嵌入封面"))
+        self.thumbSwitch.setOffText(self.tr("嵌入封面"))
         self.thumbSwitch.setChecked(True)
         row2.addWidget(self.thumbSwitch)
 
         self.subSwitch = SwitchButton()
-        self.subSwitch.setOnText("下载字幕")
-        self.subSwitch.setOffText("下载字幕")
+        self.subSwitch.setOnText(self.tr("下载字幕"))
+        self.subSwitch.setOffText(self.tr("下载字幕"))
         row2.addWidget(self.subSwitch)
 
         row2.addStretch(1)
@@ -162,15 +162,15 @@ class QuickAddPanel(QWidget):
         row3 = QHBoxLayout()
 
         self.strategyCombo = ComboBox()
-        self.strategyCombo.addItem("自动判断", userData="auto")
-        self.strategyCombo.addItem("单任务整包", userData="single_worker")
-        self.strategyCombo.addItem("强制展开", userData="expand_all")
-        row3.addWidget(BodyLabel("播放列表:"), 0)
+        self.strategyCombo.addItem(self.tr("自动判断"), userData="auto")
+        self.strategyCombo.addItem(self.tr("单任务整包"), userData="single_worker")
+        self.strategyCombo.addItem(self.tr("强制展开"), userData="expand_all")
+        row3.addWidget(BodyLabel(self.tr("播放列表:")), 0)
         row3.addWidget(self.strategyCombo, 1)
 
-        row3.addWidget(BodyLabel("保存到:"), 0)
+        row3.addWidget(BodyLabel(self.tr("保存到:")), 0)
         self.dirInput = LineEdit()
-        self.dirInput.setPlaceholderText("默认下载目录")
+        self.dirInput.setPlaceholderText(self.tr("默认下载目录"))
         self.dirInput.setMinimumWidth(200)
         row3.addWidget(self.dirInput, 2)
 
@@ -186,7 +186,7 @@ class QuickAddPanel(QWidget):
         self.btnLayout = QHBoxLayout()
         self.btnLayout.addStretch(1)
 
-        self.startBtn = PrimaryPushButton(FluentIcon.DOWNLOAD, "直接下载", self)
+        self.startBtn = PrimaryPushButton(FluentIcon.DOWNLOAD, self.tr("直接下载"), self)
         self.startBtn.setMinimumWidth(120)
         self.startBtn.clicked.connect(self.on_start_clicked)
 
@@ -206,7 +206,7 @@ class QuickAddPanel(QWidget):
         self._connect_signals_for_save()
 
     def _browse_dir(self):
-        folder = QFileDialog.getExistingDirectory(self, "选择下载目录", self.dirInput.text() or "")
+        folder = QFileDialog.getExistingDirectory(self, self.tr("选择下载目录"), self.dirInput.text() or "")
         if folder:
             self.dirInput.setText(folder)
 
@@ -280,8 +280,8 @@ class QuickAddPanel(QWidget):
         text = self.urlInput.toPlainText().strip()
         if not text:
             InfoBar.warning(
-                title="输入为空",
-                content="请先输入或粘贴需要下载的链接。",
+                title=self.tr("输入为空"),
+                content=self.tr("请先输入或粘贴需要下载的链接。"),
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
                 position=InfoBarPosition.TOP,
@@ -303,8 +303,8 @@ class QuickAddPanel(QWidget):
 
         if not urls:
             InfoBar.warning(
-                title="没有检测到有效链接",
-                content="请确保每行包含以 http:// 或 https:// 开头的有效网址。",
+                title=self.tr("没有检测到有效链接"),
+                content=self.tr("请确保每行包含以 http:// 或 https:// 开头的有效网址。"),
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
                 position=InfoBarPosition.TOP,

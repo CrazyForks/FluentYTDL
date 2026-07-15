@@ -61,5 +61,8 @@ def infer_entry_url(entry: dict[str, Any]) -> str:
         return url
     vid = str(entry.get("id") or url).strip()
     if vid:
+        extractor = str(entry.get("extractor") or entry.get("extractor_key") or "").lower()
+        if "twitter" in extractor:
+            return f"https://x.com/i/status/{vid}"
         return f"https://www.youtube.com/watch?v={vid}"
     return url

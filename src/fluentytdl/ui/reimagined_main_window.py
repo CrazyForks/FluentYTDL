@@ -176,7 +176,7 @@ class MainWindow(FluentWindow):
 
         title = f"FluentYTDL Pro {__version__}"
         if self._is_admin:
-            title += " (管理员)"
+            title += self.tr(" (管理员)")
         self.setWindowTitle(title)
 
         self.resize(1150, 780)
@@ -286,62 +286,64 @@ class MainWindow(FluentWindow):
         """主窗口顶部弹出 InfoBar，提示软件更新可用。"""
         version = info.get("version", "?")
         is_pre = info.get("is_prerelease", False)
-        prefix = "预发布版本" if is_pre else "新版本"
+        prefix = self.tr("预发布版本") if is_pre else self.tr("新版本")
         InfoBar.info(
-            "软件更新",
+            self.tr("软件更新"),
             f"{prefix} {version} 已可用，前往设置页面更新",
             duration=10000,
             parent=self,
         )
 
     def init_navigation(self):
+        # 减小侧边栏展开时的宽度，避免留白过多
+        self.navigationInterface.setExpandWidth(190)
         # 1. 新建任务
         self.addSubInterface(
-            self.parse_page, FluentIcon.ADD, "新建任务", position=NavigationItemPosition.TOP
+            self.parse_page, FluentIcon.ADD, self.tr("新建任务"), position=NavigationItemPosition.TOP
         )
 
         # 1.1 批量快速下载
         self.addSubInterface(
-            self.quick_parse_page, FluentIcon.ADD_TO, "批量快速下载", position=NavigationItemPosition.TOP
+            self.quick_parse_page, FluentIcon.ADD_TO, self.tr("批量快速下载"), position=NavigationItemPosition.TOP
         )
 
         # 2. VR 下载
         self.addSubInterface(
-            self.vr_parse_page, FluentIcon.GAME, "VR 下载", position=NavigationItemPosition.TOP
+            self.vr_parse_page, FluentIcon.GAME, self.tr("VR 下载"), position=NavigationItemPosition.TOP
         )
 
         # 2.1 频道下载
         self.addSubInterface(
             self.channel_parse_page,
             FluentIcon.VIDEO,
-            "频道下载",
+            self.tr("频道下载"),
             position=NavigationItemPosition.TOP,
         )
 
         # 2.2 字幕下载
         self.addSubInterface(
-            self.subtitle_page, FluentIcon.FONT, "字幕下载", position=NavigationItemPosition.TOP
+            self.subtitle_page, FluentIcon.FONT, self.tr("字幕下载"), position=NavigationItemPosition.TOP
         )
 
         # 2.2 封面下载
         self.addSubInterface(
-            self.cover_page, FluentIcon.PHOTO, "封面下载", position=NavigationItemPosition.TOP
+            self.cover_page, FluentIcon.PHOTO, self.tr("封面下载"), position=NavigationItemPosition.TOP
         )
 
         # 3. 任务列表（统一页面，内部使用 Pivot 过滤）
         self.addSubInterface(
-            self.task_page, FluentIcon.DOWNLOAD, "任务列表", position=NavigationItemPosition.TOP
+            self.task_page, FluentIcon.DOWNLOAD, self.tr("任务列表"), position=NavigationItemPosition.TOP
         )
 
         # 4. 下载历史
         self.addSubInterface(
-            self.history_page, FluentIcon.HISTORY, "下载历史", position=NavigationItemPosition.TOP
+            self.history_page, FluentIcon.HISTORY, self.tr("下载历史"), position=NavigationItemPosition.TOP
         )
 
         self.addSubInterface(
             self.settings_interface,
             FluentIcon.SETTING,
-            "设置",
+            self.tr("设置"),
             position=NavigationItemPosition.BOTTOM,
         )
 
@@ -351,14 +353,14 @@ class MainWindow(FluentWindow):
 
         # 全部开始/暂停按钮 (Secondary Actions)
         start_all = TransparentToolButton(FluentIcon.PLAY, self)
-        start_all.setToolTip("全部开始")
+        start_all.setToolTip(self.tr("全部开始"))
         start_all.installEventFilter(
             ToolTipFilter(start_all, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
         start_all.clicked.connect(self.on_start_all)
 
         pause_all = TransparentToolButton(FluentIcon.PAUSE, self)
-        pause_all.setToolTip("全部暂停")
+        pause_all.setToolTip(self.tr("全部暂停"))
         pause_all.installEventFilter(
             ToolTipFilter(pause_all, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -366,7 +368,7 @@ class MainWindow(FluentWindow):
 
         # 打开目录
         open_dir = TransparentToolButton(FluentIcon.FOLDER, self)
-        open_dir.setToolTip("打开下载目录")
+        open_dir.setToolTip(self.tr("打开下载目录"))
         open_dir.installEventFilter(
             ToolTipFilter(open_dir, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -374,7 +376,7 @@ class MainWindow(FluentWindow):
 
         # 清空已完成
         clear_completed = TransparentToolButton(FluentIcon.DELETE, self)
-        clear_completed.setToolTip("清空已完成/已失败记录")
+        clear_completed.setToolTip(self.tr("清空已完成/已失败记录"))
         clear_completed.installEventFilter(
             ToolTipFilter(clear_completed, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -382,7 +384,7 @@ class MainWindow(FluentWindow):
 
         # 清空全部
         clear_all = TransparentToolButton(FluentIcon.BROOM, self)
-        clear_all.setToolTip("清空全部任务")
+        clear_all.setToolTip(self.tr("清空全部任务"))
         clear_all.installEventFilter(
             ToolTipFilter(clear_all, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -391,8 +393,8 @@ class MainWindow(FluentWindow):
         # 批量操作按钮
         from qfluentwidgets import TransparentPushButton
 
-        batch_btn = TransparentPushButton(FluentIcon.CHECKBOX, "批量操作", page)
-        batch_btn.setToolTip("进入或退出批量模式")
+        batch_btn = TransparentPushButton(FluentIcon.CHECKBOX, self.tr("批量操作"), page)
+        batch_btn.setToolTip(self.tr("进入或退出批量模式"))
         batch_btn.installEventFilter(
             ToolTipFilter(batch_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -404,10 +406,10 @@ class MainWindow(FluentWindow):
         def _on_selection_mode_changed(is_batch: bool):
             if is_batch:
                 batch_btn.setIcon(FluentIcon.CANCEL)
-                batch_btn.setText("退出批量")
+                batch_btn.setText(self.tr("退出批量"))
             else:
                 batch_btn.setIcon(FluentIcon.CHECKBOX)
-                batch_btn.setText("批量操作")
+                batch_btn.setText(self.tr("批量操作"))
 
         batch_btn.clicked.connect(toggle_batch)
         page.selection_mode_changed.connect(_on_selection_mode_changed)
@@ -468,9 +470,9 @@ class MainWindow(FluentWindow):
 
         self.tray_icon.setIcon(chosen_icon)
         tray_menu = QMenu()
-        show_action = QAction("显示主界面", self)
+        show_action = QAction(self.tr("显示主界面"), self)
         show_action.triggered.connect(self.showNormal)
-        quit_action = QAction("退出", self)
+        quit_action = QAction(self.tr("退出"), self)
         quit_action.triggered.connect(self.quit_app)
         tray_menu.addAction(show_action)
         tray_menu.addSeparator()
@@ -523,8 +525,8 @@ class MainWindow(FluentWindow):
     def on_youtube_url_detected(self, url: str):
         if not self.isVisible():
             self.tray_icon.showMessage(
-                "检测到视频链接",
-                "点击处理",
+                self.tr("检测到视频链接"),
+                self.tr("点击处理"),
                 QSystemTrayIcon.MessageIcon.Information,
                 2000,
             )
@@ -586,7 +588,7 @@ class MainWindow(FluentWindow):
         except Exception as e:
             logger.error(f"Failed to open config window: {e}")
             InfoBar.error(
-                title="打开窗口失败",
+                title=self.tr("打开窗口失败"),
                 content=str(e),
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
@@ -678,7 +680,7 @@ class MainWindow(FluentWindow):
 
         from qfluentwidgets import StateToolTip
 
-        self._quick_add_tooltip = StateToolTip("解析中", "正在获取资源信息...", self.window())
+        self._quick_add_tooltip = StateToolTip(self.tr("解析中"), self.tr("正在获取资源信息..."), self.window())
         self._quick_add_tooltip.move(self._quick_add_tooltip.getSuitablePos())
         self._quick_add_tooltip.show()
 
@@ -688,12 +690,12 @@ class MainWindow(FluentWindow):
 
         def on_error(msg: str):
             if hasattr(self, "_quick_add_tooltip") and self._quick_add_tooltip:
-                self._quick_add_tooltip.setContent("解析失败")
+                self._quick_add_tooltip.setContent(self.tr("解析失败"))
                 self._quick_add_tooltip.setState(True)
                 self._quick_add_tooltip = None
 
             InfoBar.error(
-                title="快速下载失败",
+                title=self.tr("快速下载失败"),
                 content=msg,
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
@@ -756,14 +758,14 @@ class MainWindow(FluentWindow):
             raw_policy = config_manager.get("deletion_policy")
             policy = DeletionPolicy.from_config_str(raw_policy)
 
-            # ── 快速通道：策略为 "仅移除记录" 且非活跃任务 ──
+            # ── 快速通道：策略为 self.tr("仅移除记录") 且非活跃任务 ──
             if policy == DeletionPolicy.KEEP_FILES and not is_active:
                 if self.controller:
                     self.controller.handle_remove_task(worker, force_delete_files=False)
                 self.task_page.model.remove_task(row)
                 return
 
-            # ── 快速通道：策略为 "彻底删除" 且非活跃任务 ──
+            # ── 快速通道：策略为 self.tr("彻底删除") 且非活跃任务 ──
             if policy == DeletionPolicy.DELETE_FILES and not is_active:
                 if self.controller:
                     self.controller.handle_remove_task(worker, force_delete_files=True)
@@ -786,15 +788,15 @@ class MainWindow(FluentWindow):
                     return
 
                 # AlwaysAsk: 提示用户中途取消的双项选择
-                title = "取消下载任务"
-                content = "此任务正在下载中。确定要取消该任务吗？"
+                title = self.tr("取消下载任务")
+                content = self.tr("此任务正在下载中。确定要取消该任务吗？")
                 box = MessageBox(title, content, self)
-                box.yesButton.setText("确定取消")
-                box.cancelButton.setText("暂不取消")
+                box.yesButton.setText(self.tr("确定取消"))
+                box.cancelButton.setText(self.tr("暂不取消"))
 
                 from qfluentwidgets import CheckBox
 
-                chk = CheckBox("同时清理未完成的临时缓存文件", box)
+                chk = CheckBox(self.tr("同时清理未完成的临时缓存文件"), box)
                 chk.setChecked(True)
                 box.textLayout.addWidget(chk)
 
@@ -808,19 +810,19 @@ class MainWindow(FluentWindow):
                 return
 
             # ── 已完成/已出错任务：迅雷/IDM 风格双按钮弹窗 ──
-            title = task.get("title") or "删除任务"
+            title = task.get("title") or self.tr("删除任务")
             final_path = getattr(worker, "output_path", getattr(worker, "_final_filepath", ""))
             has_local_file = bool(final_path and os.path.exists(str(final_path)))
 
             if has_local_file:
-                content = "确定要从列表中移除此任务记录吗？"
+                content = self.tr("确定要从列表中移除此任务记录吗？")
                 box = MessageBox(title, content, self)
-                box.yesButton.setText("删除")
-                box.cancelButton.setText("取消")
+                box.yesButton.setText(self.tr("删除"))
+                box.cancelButton.setText(self.tr("取消"))
 
                 from qfluentwidgets import CheckBox
 
-                chk = CheckBox("同时删除已下载的本地文件", box)
+                chk = CheckBox(self.tr("同时删除已下载的本地文件"), box)
                 chk.setChecked(False)
                 box.textLayout.addWidget(chk)
 
@@ -830,10 +832,10 @@ class MainWindow(FluentWindow):
                 force_delete = chk.isChecked()
             else:
                 # 没有本地文件，直接确认删除记录
-                content = "确定要从列表中移除此任务记录吗？"
+                content = self.tr("确定要从列表中移除此任务记录吗？")
                 box = MessageBox(title, content, self)
-                box.yesButton.setText("删除记录")
-                box.cancelButton.setText("取消")
+                box.yesButton.setText(self.tr("删除记录"))
+                box.cancelButton.setText(self.tr("取消"))
                 if not box.exec():
                     return
                 force_delete = False
@@ -1100,7 +1102,7 @@ class MainWindow(FluentWindow):
             parts.append(f"{n_error} 个已失败/已取消")
 
         if MessageBox(
-            "清空记录", f"确定要清空 {'、'.join(parts)} 的任务记录吗？\n(不会删除本地文件)", self
+            self.tr("清空记录"), f"确定要清空 {'、'.join(parts)} 的任务记录吗？\n(不会删除本地文件)", self
         ).exec():
             workers_to_remove = []
             for row in clearable_rows:
@@ -1119,8 +1121,8 @@ class MainWindow(FluentWindow):
             return
 
         if MessageBox(
-            "清空全部任务",
-            "确定要清空所有任务记录吗？\n如果任务正在下载中，也会被一并取消。(不会删除本地文件)",
+            self.tr("清空全部任务"),
+            self.tr("确定要清空所有任务记录吗？\n如果任务正在下载中，也会被一并取消。(不会删除本地文件)"),
             self,
         ).exec():
             all_rows = list(range(self.task_page.model.rowCount()))
@@ -1153,7 +1155,7 @@ class MainWindow(FluentWindow):
         # 在标题栏添加帮助按钮
         # Parent MUST be titleBar to ensure correct z-order and event handling
         self.help_btn = TransparentToolButton(FluentIcon.HELP, self.titleBar)
-        self.help_btn.setToolTip("帮助中心")
+        self.help_btn.setToolTip(self.tr("帮助中心"))
         self.help_btn.installEventFilter(
             ToolTipFilter(self.help_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -1162,7 +1164,7 @@ class MainWindow(FluentWindow):
 
         # 在标题栏添加通知按钮
         self.notif_btn = TransparentToolButton(FluentIcon.RINGER, self.titleBar)
-        self.notif_btn.setToolTip("消息中心")
+        self.notif_btn.setToolTip(self.tr("消息中心"))
         self.notif_btn.installEventFilter(
             ToolTipFilter(self.notif_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -1266,15 +1268,15 @@ class MainWindow(FluentWindow):
 
         # 只在配置了浏览器来源时刷新
         if auth_service.current_source == AuthSourceType.NONE:
-            logger.info("[AdminMode] 未配置Cookie来源，跳过自动刷新")
+            logger.info(self.tr("[AdminMode] 未配置Cookie来源，跳过自动刷新"))
             return
 
         if auth_service.current_source == AuthSourceType.FILE:
-            logger.info("[AdminMode] 手动文件模式，跳过自动刷新")
+            logger.info(self.tr("[AdminMode] 手动文件模式，跳过自动刷新"))
             return
 
         if auth_service.current_source == AuthSourceType.WEBVIEW2:
-            logger.info("[AdminMode] 登录模式(WebView2)，跳过自动刷新（需要用户交互）")
+            logger.info(self.tr("[AdminMode] 登录模式(WebView2)，跳过自动刷新（需要用户交互）"))
             return
 
         browser_name = auth_service.current_source_display
@@ -1284,7 +1286,7 @@ class MainWindow(FluentWindow):
         from qfluentwidgets import InfoBar
 
         InfoBar.info(
-            "管理员模式",
+            self.tr("管理员模式"),
             f"正在以管理员权限提取 {browser_name} Cookie...",
             duration=3000,
             parent=self,
@@ -1296,7 +1298,7 @@ class MainWindow(FluentWindow):
 
             if success:
                 InfoBar.info(
-                    "Cookie提取成功",
+                    self.tr("Cookie提取成功"),
                     f"已从 {browser_name} 提取 Cookie（管理员权限）",
                     duration=5000,
                     parent=self,
@@ -1304,10 +1306,10 @@ class MainWindow(FluentWindow):
                 # 自动跳转到设置页显示结果
                 QTimer.singleShot(1000, lambda: self.switchTo(self.settings_interface))
             else:
-                InfoBar.warning("Cookie提取失败", message, duration=8000, parent=self)
+                InfoBar.warning(self.tr("Cookie提取失败"), message, duration=8000, parent=self)
         except Exception as e:
-            logger.exception("[AdminMode] Cookie刷新异常")
-            InfoBar.error("Cookie提取异常", str(e), duration=5000, parent=self)
+            logger.exception(self.tr("[AdminMode] Cookie刷新异常"))
+            InfoBar.error(self.tr("Cookie提取异常"), str(e), duration=5000, parent=self)
 
     def check_cookie_status(self, is_startup: bool = False):
         """
@@ -1344,14 +1346,14 @@ class MainWindow(FluentWindow):
             if not cookie_sentinel.exists:
                 is_invalid = True
                 if current_source == AuthSourceType.WEBVIEW2:
-                    reason = "尚未登录获取 Cookie"
+                    reason = self.tr("尚未登录获取 Cookie")
                 elif current_source == AuthSourceType.FILE:
-                    reason = "尚未导入 Cookie 文件"
+                    reason = self.tr("尚未导入 Cookie 文件")
                 else:
                     reason = f"尚未从 {source_name} 提取 Cookie"
             elif not auth_service.last_status.valid:
                 is_invalid = True
-                reason = auth_service.last_status.message or "Cookie 无效"
+                reason = auth_service.last_status.message or self.tr("Cookie 无效")
 
             if is_invalid:
                 logger.warning(f"[MainWindow] Cookie 无效 ({source_name}): {reason}")
@@ -1360,9 +1362,9 @@ class MainWindow(FluentWindow):
                     # 第一次运行不主动弹强打扰对话框，给个横幅引导即可
                     from qfluentwidgets import InfoBar, InfoBarPosition
 
-                    action = "登录" if current_source == AuthSourceType.WEBVIEW2 else "导入"
+                    action = self.tr("登录") if current_source == AuthSourceType.WEBVIEW2 else self.tr("导入")
                     InfoBar.warning(
-                        "Cookie 未准备就绪",
+                        self.tr("Cookie 未准备就绪"),
                         f"为了保证下载稳定，建议您先前往设置页进行{action}以获取 Cookie",
                         duration=10000,
                         position=InfoBarPosition.TOP_RIGHT,
@@ -1380,14 +1382,14 @@ class MainWindow(FluentWindow):
                         f"{source_name} 需要管理员权限",
                         f"检测到您使用 {source_name} 作为 Cookie 来源。\n\n"
                         f"Chromium 内核浏览器使用了加密保护，\n"
-                        f"需要以管理员身份运行程序才能提取 Cookie。\n\n"
-                        "是否以管理员身份重启程序？\n\n"
-                        "提示：您也可以切换到 Firefox/LibreWolf 浏览器，\n"
-                        "或使用「登录获取」方式，无需管理员权限。",
+                        f"需要以管理员身份运行程序才能提取 Cookie。\n\n" +
+                        self.tr("是否以管理员身份重启程序？\n\n") +
+                        self.tr("提示：您也可以切换到 Firefox/LibreWolf 浏览器，\n") +
+                        self.tr("或使用「登录获取」方式，无需管理员权限。"),
                         self,
                     )
-                    box.yesButton.setText("以管理员身份重启")
-                    box.cancelButton.setText("稍后再说")
+                    box.yesButton.setText(self.tr("以管理员身份重启"))
+                    box.cancelButton.setText(self.tr("稍后再说"))
 
                     if box.exec():
                         from ..utils.admin_utils import restart_as_admin
@@ -1426,13 +1428,13 @@ class MainWindow(FluentWindow):
 
         # 根据模式定制按钮文案
         if source_type == AuthSourceType.WEBVIEW2:
-            dialog.repair_btn.setText("重新登录")
-            dialog.setWindowTitle("需要重新登录 YouTube")
+            dialog.repair_btn.setText(self.tr("重新登录"))
+            dialog.setWindowTitle(self.tr("需要重新登录 YouTube"))
         elif source_type == AuthSourceType.FILE:
-            dialog.repair_btn.setText("重新导入")
-            dialog.setWindowTitle("Cookie 文件需要更新")
+            dialog.repair_btn.setText(self.tr("重新导入"))
+            dialog.setWindowTitle(self.tr("Cookie 文件需要更新"))
         else:
-            dialog.repair_btn.setText("重新提取")
+            dialog.repair_btn.setText(self.tr("重新提取"))
 
         # 自动修复信号
         def on_auto_repair():

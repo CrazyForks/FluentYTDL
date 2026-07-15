@@ -75,8 +75,8 @@ class ValidatedEditDialog(MessageBoxBase):
         self.errorLabel.hide()
         self.viewLayout.addWidget(self.errorLabel)
 
-        self.yesButton.setText("确认")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("确认"))
+        self.cancelButton.setText(self.tr("取消"))
 
         try:
             self.widget.setMinimumWidth(int(min_width))
@@ -114,9 +114,9 @@ class ValidatedEditDialog(MessageBoxBase):
             try:
                 ok, msg = self._validator(text)
             except Exception:
-                ok, msg = False, "输入校验失败"
+                ok, msg = False, self.tr("输入校验失败")
             if not ok:
-                self._show_error(msg or "输入不合法")
+                self._show_error(msg or self.tr("输入不合法"))
                 return
 
         self.final_value = text

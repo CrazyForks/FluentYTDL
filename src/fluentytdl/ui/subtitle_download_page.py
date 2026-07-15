@@ -44,7 +44,7 @@ class SubtitleDownloadPage(QWidget):
         self.vBoxLayout.addStretch(1)
 
         # 1. Title
-        self.titleLabel = SubtitleLabel("字幕下载", self)
+        self.titleLabel = SubtitleLabel(self.tr("字幕下载"), self)
         self.centerLayout.addWidget(self.titleLabel)
 
         # 2. Input Card
@@ -55,7 +55,7 @@ class SubtitleDownloadPage(QWidget):
         self.cardLayout.setContentsMargins(20, 20, 20, 20)
         self.cardLayout.setSpacing(15)
 
-        self.instructionLabel = BodyLabel("在此处粘贴 YouTube 视频链接以下载字幕", self)
+        self.instructionLabel = BodyLabel(self.tr("在此处粘贴 YouTube 视频链接以下载字幕"), self)
         self.cardLayout.addWidget(self.instructionLabel)
 
         # Input row
@@ -69,7 +69,7 @@ class SubtitleDownloadPage(QWidget):
 
         self.inputLayout.addWidget(self.urlInput)
 
-        self.pasteBtn = PushButton("粘贴", self)
+        self.pasteBtn = PushButton(self.tr("粘贴"), self)
         self.pasteBtn.setMinimumWidth(72)
         self.pasteBtn.clicked.connect(self.on_paste_clicked)
         self.inputLayout.addWidget(self.pasteBtn)
@@ -79,7 +79,7 @@ class SubtitleDownloadPage(QWidget):
         self.btnLayout = QHBoxLayout()
         self.btnLayout.addStretch(1)
 
-        self.parseBtn = PrimaryPushButton(FluentIcon.SEARCH, "获取字幕", self)
+        self.parseBtn = PrimaryPushButton(FluentIcon.SEARCH, self.tr("获取字幕"), self)
         self.parseBtn.setMinimumWidth(120)
         self.parseBtn.clicked.connect(self.on_parse_clicked)
 
@@ -89,7 +89,7 @@ class SubtitleDownloadPage(QWidget):
         self.centerLayout.addWidget(self.inputCard)
 
         self.tipsLabel = CaptionLabel(
-            "提示：将解析视频并列出所有可用语言字幕供选择。",
+            self.tr("提示：将解析视频并列出所有可用语言字幕供选择。"),
             self,
         )
         self.tipsLabel.setWordWrap(True)

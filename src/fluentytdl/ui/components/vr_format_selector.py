@@ -7,7 +7,6 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
-    QCheckBox,
     QHBoxLayout,
     QHeaderView,
     QStackedWidget,
@@ -17,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import (
     CaptionLabel,
+    CheckBox,
     ComboBox,
     FluentIcon,
     IconWidget,
@@ -67,7 +67,7 @@ def _analyze_format_tags(r: dict) -> list[tuple[str, str]]:
 
 # ── VR 场景化预设定义 ─────────────────────────────────────────
 #
-# 设计原则：用户不关心 Equirectangular 还是 Mesh，他们只关心"我用什么设备看"。
+# 设计原则：用户不关心 Equirectangular 还是 Mesh，他们只关心self.tr("我用什么设备看")。
 # VP9 优先于 AV1：Quest 2（最大存量设备）不支持 AV1 硬解。
 #
 
@@ -245,7 +245,7 @@ class VRPresetWidget(QWidget):
             self.radios.append(rb)
 
             desc_label = CaptionLabel(desc, container)
-            desc_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
+            desc_label.setTextColor(QColor(120, 120, 120), QColor(190, 190, 190))
             desc_label.setWordWrap(True)
 
             h_layout.addWidget(rb)
@@ -255,7 +255,7 @@ class VRPresetWidget(QWidget):
 
         # 播放提示
         hint_label = CaptionLabel(_VR_PLAYBACK_HINT, self.content_widget)
-        hint_label.setTextColor(QColor(100, 100, 100), QColor(160, 160, 160))
+        hint_label.setTextColor(QColor(100, 100, 100), QColor(200, 200, 200))
         hint_label.setWordWrap(True)
         self.v_layout.addWidget(hint_label)
 
@@ -310,8 +310,9 @@ class VRFormatTableWidget(QWidget):
         layout.addWidget(self.mode_combo)
 
         self.hint_label = CaptionLabel(
-            "提示：可组装模式仅显示分离流，分别点选“视频”和“音频”即可组装。", self
+            self.tr("提示：可组装模式仅显示分离流，分别点选“视频”和“音频”即可组装。"), self
         )
+        self.hint_label.setTextColor(QColor(100, 100, 100), QColor(200, 200, 200))
         layout.addWidget(self.hint_label)
 
         # VR 过滤器
@@ -319,15 +320,15 @@ class VRFormatTableWidget(QWidget):
         filter_row.setContentsMargins(0, 0, 0, 0)
         filter_row.setSpacing(12)
 
-        self._filter_3d = QCheckBox("\u4ec5 3D \u7acb\u4f53", self)
+        self._filter_3d = CheckBox("\u4ec5 3D \u7acb\u4f53", self)
         self._filter_3d.stateChanged.connect(self._on_filter_changed)
         filter_row.addWidget(self._filter_3d)
 
-        self._filter_8k = QCheckBox("\u4ec5 8K+", self)
+        self._filter_8k = CheckBox("\u4ec5 8K+", self)
         self._filter_8k.stateChanged.connect(self._on_filter_changed)
         filter_row.addWidget(self._filter_8k)
 
-        self._filter_no_av1 = QCheckBox("\u6392\u9664 AV1", self)
+        self._filter_no_av1 = CheckBox("\u6392\u9664 AV1", self)
         self._filter_no_av1.stateChanged.connect(self._on_filter_changed)
         filter_row.addWidget(self._filter_no_av1)
 
@@ -341,32 +342,21 @@ class VRFormatTableWidget(QWidget):
         split_layout.setSpacing(8)
 
         # Video Section
-        from qfluentwidgets import CardWidget
+        from .format_selector import FormatExpandCard
 
-        self.video_container = CardWidget(self.split_container)
-        v_layout = QVBoxLayout(self.video_container)
-        v_layout.setContentsMargins(8, 8, 8, 8)
-
-        self.video_label = StrongBodyLabel("\u89c6\u9891\u6d41", self.video_container)
-        v_layout.addWidget(self.video_label)
-
+        self.video_container = FormatExpandCard(FluentIcon.VIDEO, "\u89c6\u9891\u6d41", self.split_container)
         self._build_video_table()
-        v_layout.addWidget(self.video_table)
-
+        self.video_container.set_content(self.video_table)
         split_layout.addWidget(self.video_container)
 
         # Audio Section
-        self.audio_container = CardWidget(self.split_container)
-        a_layout = QVBoxLayout(self.audio_container)
-        a_layout.setContentsMargins(8, 8, 8, 8)
-
-        self.audio_label = StrongBodyLabel("\u97f3\u9891\u6d41", self.audio_container)
-        a_layout.addWidget(self.audio_label)
-
+        self.audio_container = FormatExpandCard(FluentIcon.MUSIC, "\u97f3\u9891\u6d41", self.split_container)
         self._build_audio_table()
-        a_layout.addWidget(self.audio_table)
-
+        self.audio_container.set_content(self.audio_table)
         split_layout.addWidget(self.audio_container)
+        
+        self.video_container.toggle()
+        self.audio_container.toggle()
 
         layout.addWidget(self.split_container)
 
@@ -860,10 +850,10 @@ class VRFormatTableWidget(QWidget):
         is_video_like = content_kind in {"video"}
         if is_video_like:
             self.single_table.setColumnCount(5)
-            self.single_table.setHorizontalHeaderLabels(["类型", "质量", "立体", "投影", "详情"])
+            self.single_table.setHorizontalHeaderLabels([self.tr("类型"), self.tr("质量"), self.tr("立体"), self.tr("投影"), self.tr("详情")])
         else:
             self.single_table.setColumnCount(3)
-            self.single_table.setHorizontalHeaderLabels(["类型", "质量", "详情"])
+            self.single_table.setHorizontalHeaderLabels([self.tr("类型"), self.tr("质量"), self.tr("详情")])
         try:
             self.single_table.verticalHeader().setDefaultSectionSize(42)
             if is_video_like:
@@ -1090,20 +1080,38 @@ class VRFormatTableWidget(QWidget):
         label = self.summary_label
 
         if mode == 1:
-            label.setText("已选：整合流" if self._selected_muxed_id else "请选择：整合流")
+            label.setText(self.tr("已选：整合流") if self._selected_muxed_id else self.tr("请选择：整合流"))
         elif mode == 2:
-            label.setText("已选：视频流" if self._selected_video_id else "请选择：视频流")
+            label.setText(self.tr("已选：视频流") if self._selected_video_id else self.tr("请选择：视频流"))
         elif mode == 3:
-            label.setText("已选：音频流" if self._selected_audio_id else "请选择：音频流")
+            label.setText(self.tr("已选：音频流") if self._selected_audio_id else self.tr("请选择：音频流"))
         else:
             if self._selected_video_id and self._selected_audio_id:
-                label.setText("已选：视频流 + 音频流")
+                label.setText(self.tr("已选：视频流 + 音频流"))
             elif self._selected_video_id:
-                label.setText("已选：视频流（将自动匹配最佳音频）")
+                label.setText(self.tr("已选：视频流（将自动匹配最佳音频）"))
             elif self._selected_audio_id:
-                label.setText("已选：音频流（请再选择一个视频流）")
+                label.setText(self.tr("已选：音频流（请再选择一个视频流）"))
             else:
-                label.setText("未选择")
+                label.setText(self.tr("未选择"))
+
+        # Update container summaries
+        if self._selected_video_id:
+            for r in self._video_rows:
+                if r["format_id"] == self._selected_video_id:
+                    self.video_container.set_summary(f"{r.get('height', '?')}p · {r.get('vcodec', 'unknown')}")
+                    break
+        else:
+            self.video_container.set_summary(self.tr("未选择"))
+
+        if self._selected_audio_id:
+            for r in self._audio_rows:
+                if r["format_id"] == self._selected_audio_id:
+                    abr = r.get("abr", 0)
+                    self.audio_container.set_summary(f"{int(abr)}kbps" if abr else "Audio")
+                    break
+        else:
+            self.audio_container.set_summary(self.tr("未选择"))
 
     # ── 公开接口 ──
 

@@ -80,10 +80,10 @@ class AuthenticationCard(CardWidget):
         self.iconWidget.setFixedSize(20, 20)
         self.headerLayout.addWidget(self.iconWidget)
 
-        self.titleLabel = StrongBodyLabel("身份验证", self)
+        self.titleLabel = StrongBodyLabel(self.tr("身份验证"), self)
         self.headerLayout.addWidget(self.titleLabel)
 
-        self.descLabel = CaptionLabel("用于下载会员专属或年龄限制内容", self)
+        self.descLabel = CaptionLabel(self.tr("用于下载会员专属或年龄限制内容"), self)
         self.descLabel.setStyleSheet("color: #888;")
         self.headerLayout.addWidget(self.descLabel)
 
@@ -100,7 +100,7 @@ class AuthenticationCard(CardWidget):
         self.topRow.setSpacing(16)
 
         # 验证源选择
-        self.sourceLabel = CaptionLabel("验证源", self)
+        self.sourceLabel = CaptionLabel(self.tr("验证源"), self)
         self.topRow.addWidget(self.sourceLabel)
 
         self.sourceCombo = ComboBox(self)
@@ -108,8 +108,8 @@ class AuthenticationCard(CardWidget):
         self._populate_source_combo()
         self.topRow.addWidget(self.sourceCombo)
 
-        # 文件选择按钮（仅在选择"手动导入"时显示）
-        self.fileSelectBtn = PushButton("选择文件", self)
+        # 文件选择按钮（仅在选择self.tr("手动导入")时显示）
+        self.fileSelectBtn = PushButton(self.tr("选择文件"), self)
         self.fileSelectBtn.setIcon(FluentIcon.FOLDER)
         self.fileSelectBtn.setFixedWidth(100)
         self.fileSelectBtn.setVisible(False)
@@ -118,7 +118,7 @@ class AuthenticationCard(CardWidget):
         self.topRow.addStretch()
 
         # 自动刷新开关
-        self.autoRefreshLabel = CaptionLabel("自动刷新", self)
+        self.autoRefreshLabel = CaptionLabel(self.tr("自动刷新"), self)
         self.topRow.addWidget(self.autoRefreshLabel)
 
         self.autoRefreshSwitch = SwitchButton(self)
@@ -126,7 +126,7 @@ class AuthenticationCard(CardWidget):
         self.topRow.addWidget(self.autoRefreshSwitch)
 
         # 刷新按钮
-        self.refreshBtn = PrimaryPushButton("刷新", self)
+        self.refreshBtn = PrimaryPushButton(self.tr("刷新"), self)
         self.refreshBtn.setIcon(FluentIcon.SYNC)
         self.refreshBtn.setFixedWidth(90)
         self.topRow.addWidget(self.refreshBtn)
@@ -141,7 +141,7 @@ class AuthenticationCard(CardWidget):
         self.statusIcon.setFixedSize(16, 16)
         self.statusRow.addWidget(self.statusIcon)
 
-        self.statusLabel = BodyLabel("未验证", self)
+        self.statusLabel = BodyLabel(self.tr("未验证"), self)
         self.statusRow.addWidget(self.statusLabel)
 
         self.statusRow.addSpacing(16)
@@ -171,17 +171,17 @@ class AuthenticationCard(CardWidget):
             AuthSourceType.LIBREWOLF,
             AuthSourceType.FILE,
         ]
-        self.sourceCombo.addItem("🌐 Edge 浏览器 (需管理员)")
-        self.sourceCombo.addItem("🌐 Chrome 浏览器 (⚠️不稳定)")
-        self.sourceCombo.addItem("🌐 Chromium 浏览器 (需管理员)")
-        self.sourceCombo.addItem("🦁 Brave 浏览器 (需管理员)")
-        self.sourceCombo.addItem("🌐 Opera 浏览器 (需管理员)")
-        self.sourceCombo.addItem("🎮 Opera GX 浏览器 (需管理员)")
-        self.sourceCombo.addItem("🌐 Vivaldi 浏览器 (需管理员)")
-        self.sourceCombo.addItem("🌐 Arc 浏览器 (需管理员)")
-        self.sourceCombo.addItem("🦊 Firefox 浏览器")
-        self.sourceCombo.addItem("🦊 LibreWolf 浏览器")
-        self.sourceCombo.addItem("📄 手动导入 (cookies.txt)")
+        self.sourceCombo.addItem(self.tr("🌐 Edge 浏览器 (需管理员)"))
+        self.sourceCombo.addItem(self.tr("🌐 Chrome 浏览器 (⚠️不稳定)"))
+        self.sourceCombo.addItem(self.tr("🌐 Chromium 浏览器 (需管理员)"))
+        self.sourceCombo.addItem(self.tr("🦁 Brave 浏览器 (需管理员)"))
+        self.sourceCombo.addItem(self.tr("🌐 Opera 浏览器 (需管理员)"))
+        self.sourceCombo.addItem(self.tr("🎮 Opera GX 浏览器 (需管理员)"))
+        self.sourceCombo.addItem(self.tr("🌐 Vivaldi 浏览器 (需管理员)"))
+        self.sourceCombo.addItem(self.tr("🌐 Arc 浏览器 (需管理员)"))
+        self.sourceCombo.addItem(self.tr("🦊 Firefox 浏览器"))
+        self.sourceCombo.addItem(self.tr("🦊 LibreWolf 浏览器"))
+        self.sourceCombo.addItem(self.tr("📄 手动导入 (cookies.txt)"))
 
     def _get_source_at_index(self, index: int) -> AuthSourceType | None:
         """获取指定索引的验证源类型"""
@@ -229,7 +229,7 @@ class AuthenticationCard(CardWidget):
             return
 
         # 显示正在刷新状态
-        self.statusLabel.setText("正在自动获取 Cookie...")
+        self.statusLabel.setText(self.tr("正在自动获取 Cookie..."))
         self.refreshBtn.setEnabled(False)
 
         # 异步执行刷新
@@ -243,7 +243,7 @@ class AuthenticationCard(CardWidget):
             self.statusUpdated.emit(status)
 
             if status.valid:
-                self._show_success("Cookie 验证成功")
+                self._show_success(self.tr("Cookie 验证成功"))
             else:
                 # 不显示错误提示，只更新状态
                 pass
@@ -270,12 +270,12 @@ class AuthenticationCard(CardWidget):
 
         if source == AuthSourceType.FILE:
             # 手动导入模式：等待用户选择文件
-            self.statusLabel.setText("请选择 cookies.txt 文件")
+            self.statusLabel.setText(self.tr("请选择 cookies.txt 文件"))
             self._update_status_icon(False)
         else:
             # 浏览器模式：检查 rookiepy
             if not auth_service.available:
-                self._show_error("rookiepy 未安装，无法从浏览器提取 Cookie")
+                self._show_error(self.tr("rookiepy 未安装，无法从浏览器提取 Cookie"))
                 self.sourceCombo.setCurrentIndex(0)
                 return
 
@@ -292,11 +292,11 @@ class AuthenticationCard(CardWidget):
         source = self._get_source_at_index(current_index)
 
         if source is None:
-            self._show_warning("请先选择验证源")
+            self._show_warning(self.tr("请先选择验证源"))
             return
 
         if source == AuthSourceType.FILE:
-            self._show_warning("文件模式不支持刷新，请重新选择文件")
+            self._show_warning(self.tr("文件模式不支持刷新，请重新选择文件"))
             return
 
         # 确保 AuthService 使用当前选中的验证源
@@ -308,7 +308,7 @@ class AuthenticationCard(CardWidget):
     def _do_refresh(self):
         """执行刷新"""
         self.refreshBtn.setEnabled(False)
-        self.statusLabel.setText("正在刷新...")
+        self.statusLabel.setText(self.tr("正在刷新..."))
 
         # 使用 QTimer 避免阻塞 UI
         QTimer.singleShot(100, self._perform_refresh)
@@ -321,7 +321,7 @@ class AuthenticationCard(CardWidget):
             self.statusUpdated.emit(status)
 
             if status.valid:
-                self._show_success("Cookie 刷新成功")
+                self._show_success(self.tr("Cookie 刷新成功"))
             else:
                 self._show_warning(status.message)
 
@@ -335,7 +335,7 @@ class AuthenticationCard(CardWidget):
         """选择文件"""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "选择 Cookies 文件",
+            self.tr("选择 Cookies 文件"),
             "",
             "Cookie Files (*.txt);;All Files (*)",
         )
@@ -354,7 +354,7 @@ class AuthenticationCard(CardWidget):
                 auto_refresh=False,
             )
             self._update_status_display(status)
-            self._show_success("Cookie 文件已导入")
+            self._show_success(self.tr("Cookie 文件已导入"))
         else:
             self._show_error(status.message)
 
@@ -398,7 +398,7 @@ class AuthenticationCard(CardWidget):
     def _show_success(self, message: str):
         """显示成功提示"""
         InfoBar.info(
-            title="成功",
+            title=self.tr("成功"),
             content=message,
             duration=2000,
             position=InfoBarPosition.TOP,
@@ -408,7 +408,7 @@ class AuthenticationCard(CardWidget):
     def _show_warning(self, message: str):
         """显示警告提示"""
         InfoBar.warning(
-            title="警告",
+            title=self.tr("警告"),
             content=message,
             duration=3000,
             position=InfoBarPosition.TOP,
@@ -418,7 +418,7 @@ class AuthenticationCard(CardWidget):
     def _show_error(self, message: str):
         """显示错误提示"""
         InfoBar.error(
-            title="错误",
+            title=self.tr("错误"),
             content=message,
             duration=4000,
             position=InfoBarPosition.TOP,

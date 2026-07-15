@@ -62,7 +62,7 @@ class SectionDownloadCard(QFrame):
 
         # 标题行
         header = QHBoxLayout()
-        self.titleLabel = BodyLabel("✂️ 片段下载", self)
+        self.titleLabel = BodyLabel(self.tr("✂️ 片段下载"), self)
         self.titleLabel.setStyleSheet("font-weight: 600;")
         header.addWidget(self.titleLabel)
 
@@ -81,7 +81,7 @@ class SectionDownloadCard(QFrame):
 
         # 提示文本
         self.hintLabel = CaptionLabel(
-            "仅下载指定时间段。格式: 1:30 或 1m30s 或 90 (秒)", self.optionsWidget
+            self.tr("仅下载指定时间段。格式: 1:30 或 1m30s 或 90 (秒)"), self.optionsWidget
         )
         # Hint label style moved to _update_style
         self.optionsLayout.addWidget(self.hintLabel)
@@ -91,7 +91,7 @@ class SectionDownloadCard(QFrame):
         timeRow.setSpacing(12)
 
         # 开始时间
-        timeRow.addWidget(BodyLabel("开始:", self.optionsWidget))
+        timeRow.addWidget(BodyLabel(self.tr("开始:"), self.optionsWidget))
         self.startEdit = LineEdit(self.optionsWidget)
         self.startEdit.setPlaceholderText("0:00")
         self.startEdit.setFixedWidth(100)
@@ -99,9 +99,9 @@ class SectionDownloadCard(QFrame):
         timeRow.addWidget(self.startEdit)
 
         # 结束时间
-        timeRow.addWidget(BodyLabel("结束:", self.optionsWidget))
+        timeRow.addWidget(BodyLabel(self.tr("结束:"), self.optionsWidget))
         self.endEdit = LineEdit(self.optionsWidget)
-        self.endEdit.setPlaceholderText("留空=到结束")
+        self.endEdit.setPlaceholderText(self.tr("留空=到结束"))
         self.endEdit.setFixedWidth(100)
         self.endEdit.editingFinished.connect(self._on_time_changed)
         timeRow.addWidget(self.endEdit)

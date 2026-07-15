@@ -8,7 +8,16 @@ class InfoBar:
     """Wrapper around qfluentwidgets InfoBar to fix ugly colors in dark mode."""
 
     @staticmethod
-    def _apply_dark_style(widget):
+    def _apply_custom_style(widget):
+        # Fix the "big chin" issue by overriding default min-height
+        widget.setStyleSheet(
+            widget.styleSheet()
+            + """
+            InfoBar, SuccessInfoBar, ErrorInfoBar, WarningInfoBar, InfoInfoBar {
+                min-height: 36px !important;
+            }
+            """
+        )
         if isDarkTheme():
             # A more professional dark mode color palette for InfoBars
             widget.setStyleSheet(
@@ -27,20 +36,29 @@ class InfoBar:
                 InfoInfoBar QLabel { color: #d1d1ff !important; }
             """
             )
+            
+        # Optional layout tweak for vertically centering text if there's still a chin
+        try:
+            from PySide6.QtCore import Qt
+            if hasattr(widget, "textLayout"):
+                widget.textLayout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        except Exception:
+            pass
+
         return widget
 
     @staticmethod
     def success(*args, **kwargs):
-        return InfoBar._apply_dark_style(_FluentInfoBar.success(*args, **kwargs))
+        return InfoBar._apply_custom_style(_FluentInfoBar.success(*args, **kwargs))
 
     @staticmethod
     def error(*args, **kwargs):
-        return InfoBar._apply_dark_style(_FluentInfoBar.error(*args, **kwargs))
+        return InfoBar._apply_custom_style(_FluentInfoBar.error(*args, **kwargs))
 
     @staticmethod
     def warning(*args, **kwargs):
-        return InfoBar._apply_dark_style(_FluentInfoBar.warning(*args, **kwargs))
+        return InfoBar._apply_custom_style(_FluentInfoBar.warning(*args, **kwargs))
 
     @staticmethod
     def info(*args, **kwargs):
-        return InfoBar._apply_dark_style(_FluentInfoBar.info(*args, **kwargs))
+        return InfoBar._apply_custom_style(_FluentInfoBar.info(*args, **kwargs))

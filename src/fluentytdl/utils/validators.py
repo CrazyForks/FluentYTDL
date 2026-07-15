@@ -54,3 +54,32 @@ class UrlValidator:
         if not text:
             return False
         return bool(re.match(UrlValidator._CHANNEL_REGEX, text.strip()))
+
+    # X (Twitter) 推文视频 URL 正则
+    X_STATUS_REGEX = (
+        r"^(https?://)?(www\.)?(mobile\.)?"
+        r"(twitter\.com|x\.com)/"
+        r"(\w+|i(/web)?)/(?:status|statuses)/(\d+)"
+        r"(\?[\w=&.-]*)?"
+        r"$"
+    )
+
+    # X 平台域名检测 (包含镜像站)
+    X_DOMAIN_REGEX = (
+        r"^(https?://)?(www\.)?(mobile\.)?"
+        r"(twitter\.com|x\.com|vxtwitter\.com|fxtwitter\.com|fixvx\.com|t\.co)"
+    )
+
+    @staticmethod
+    def is_x_url(text: str) -> bool:
+        """判断是否为 X 平台相关 URL"""
+        if not text:
+            return False
+        return bool(re.match(UrlValidator.X_DOMAIN_REGEX, text.strip()))
+
+    @staticmethod
+    def is_x_video_url(text: str) -> bool:
+        """判断是否为 X 平台推文视频 URL（可直接下载）"""
+        if not text:
+            return False
+        return bool(re.match(UrlValidator.X_STATUS_REGEX, text.strip()))

@@ -278,15 +278,15 @@ class DownloadItemDelegate(QStyledItemDelegate):
             elif progress > 0:
                 meta_str = f"下载: {progress:.1f}%"
             else:
-                meta_str = "准备下载..."
+                meta_str = self.tr("准备下载...")
         elif state == "completed":
-            meta_str = "下载完成"
+            meta_str = self.tr("下载完成")
         elif state == "error":
-            meta_str = "下载失败"
+            meta_str = self.tr("下载失败")
         elif state == "queued":
-            meta_str = "等待下载..."
+            meta_str = self.tr("等待下载...")
         elif state == "paused":
-            meta_str = "已暂停"
+            meta_str = self.tr("已暂停")
 
         painter.drawText(
             QRect(text_left, rect.top() + 66, text_width, 20),

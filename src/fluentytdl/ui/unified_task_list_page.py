@@ -166,7 +166,7 @@ class UnifiedTaskListPage(QWidget):
         self.v_layout.setSpacing(16)
 
         # === 标题 ===
-        self.title_label = SubtitleLabel("任务列表", self)
+        self.title_label = SubtitleLabel(self.tr("任务列表"), self)
         self.v_layout.addWidget(self.title_label)
 
         # === 用于筛选的 SegmentedWidget (胶囊样式) ===
@@ -179,13 +179,13 @@ class UnifiedTaskListPage(QWidget):
         self.header_layout.setContentsMargins(0, 0, 0, 0)
 
         self.pivot = SegmentedWidget(self)
-        self.pivot.addItem(routeKey="all", text="全部任务")
-        self.pivot.addItem(routeKey="running", text="下载中")
-        self.pivot.addItem(routeKey="queued", text="排队中")
-        self.pivot.addItem(routeKey="paused", text="已暂停")
-        self.pivot.addItem(routeKey="quality_guard", text="质量守卫")
-        self.pivot.addItem(routeKey="completed", text="已完成")
-        self.pivot.addItem(routeKey="error", text="已失败")
+        self.pivot.addItem(routeKey="all", text=self.tr("全部任务"))
+        self.pivot.addItem(routeKey="running", text=self.tr("下载中"))
+        self.pivot.addItem(routeKey="queued", text=self.tr("排队中"))
+        self.pivot.addItem(routeKey="paused", text=self.tr("已暂停"))
+        self.pivot.addItem(routeKey="quality_guard", text=self.tr("质量守卫"))
+        self.pivot.addItem(routeKey="completed", text=self.tr("已完成"))
+        self.pivot.addItem(routeKey="error", text=self.tr("已失败"))
         self.pivot.currentItemChanged.connect(self._on_pivot_changed)
         self.pivot.setCurrentItem("all")
 
@@ -194,7 +194,7 @@ class UnifiedTaskListPage(QWidget):
         from PySide6.QtCore import Qt
 
         # === 并发数控制 ===
-        self.concurrent_label = BodyLabel("并发下载数:", self)
+        self.concurrent_label = BodyLabel(self.tr("并发下载数:"), self)
         self.header_layout.addWidget(self.concurrent_label, 0, Qt.AlignmentFlag.AlignVCenter)
         self.concurrent_box = ComboBox(self)
         self.concurrent_box.addItems([str(i) for i in range(1, 11)])
@@ -215,8 +215,8 @@ class UnifiedTaskListPage(QWidget):
         self.v_layout.addLayout(self.header_layout)
 
         # SegmentedWidget 自带容器背景，不再需要额外的分割线，或者保留分割线作为区域划分
-        # 用户建议: "去掉下划线...那个蓝绿色的下划线就可以去掉了" -> SegmentedWidget 没有下划线
-        # 用户建议: "下方可以有一条贯穿全宽的细分割线" -> 保留分割线作为区域划分
+        # 用户建议: self.tr("去掉下划线...那个蓝绿色的下划线就可以去掉了") -> SegmentedWidget 没有下划线
+        # 用户建议: self.tr("下方可以有一条贯穿全宽的细分割线") -> 保留分割线作为区域划分
 
         # === 分割线 (保留以区分区域) ===
         self.pivot_line = QFrame(self)
@@ -266,10 +266,10 @@ class UnifiedTaskListPage(QWidget):
         text_layout = QVBoxLayout(text_container)
         text_layout.setSpacing(4)
 
-        self.empty_title = SubtitleLabel("暂无任务", text_container)
+        self.empty_title = SubtitleLabel(self.tr("暂无任务"), text_container)
         self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.empty_desc = BodyLabel("点击下方按钮新建下载任务", text_container)
+        self.empty_desc = BodyLabel(self.tr("点击下方按钮新建下载任务"), text_container)
         self.empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_desc.setTextColor(
             QColor(96, 96, 96), QColor(206, 206, 206)
@@ -280,7 +280,7 @@ class UnifiedTaskListPage(QWidget):
 
         # 行动点按钮 (!Action)
         self.empty_action_btn = PrimaryPushButton(
-            FluentIcon.ADD, "新建任务", self.empty_placeholder
+            FluentIcon.ADD, self.tr("新建任务"), self.empty_placeholder
         )
         self.empty_action_btn.setFixedWidth(160)
         # 连接到跳转信号
@@ -433,14 +433,14 @@ class UnifiedTaskListPage(QWidget):
 
                 # 根据当前过滤器显示不同文案
                 messages = {
-                    "all": ("🍃", "暂无任务", "点击「新建任务」开始下载"),
-                    "running": ("⏳", "没有正在下载的任务", "当前无活跃下载"),
-                    "queued": ("📋", "没有排队中的任务", "所有任务已开始"),
-                    "paused": ("⏸️", "没有暂停的任务", "所有任务运行中"),
-                    "completed": ("✅", "没有已完成的任务", "完成的任务会显示在这里"),
-                    "error": ("❌", "没有失败的任务", "太棒了，一切顺利！"),
+                    "all": ("🍃", self.tr("暂无任务"), self.tr("点击「新建任务」开始下载")),
+                    "running": ("⏳", self.tr("没有正在下载的任务"), self.tr("当前无活跃下载")),
+                    "queued": ("📋", self.tr("没有排队中的任务"), self.tr("所有任务已开始")),
+                    "paused": ("⏸️", self.tr("没有暂停的任务"), self.tr("所有任务运行中")),
+                    "completed": ("✅", self.tr("没有已完成的任务"), self.tr("完成的任务会显示在这里")),
+                    "error": ("❌", self.tr("没有失败的任务"), self.tr("太棒了，一切顺利！")),
                 }
-                icon, title, subtitle = messages.get(self._current_filter, ("🍃", "暂无任务", ""))
+                icon, title, subtitle = messages.get(self._current_filter, ("🍃", self.tr("暂无任务"), ""))
                 self.empty_icon.setText(icon)
                 self.empty_title.setText(title)
                 self.empty_desc.setText(subtitle)

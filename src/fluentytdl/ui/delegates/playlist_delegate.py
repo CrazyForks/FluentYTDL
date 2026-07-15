@@ -345,14 +345,14 @@ class PlaylistItemDelegate(QStyledItemDelegate):
         else:
             duration = str(task.duration_str or "").strip()
             if duration:
-                meta_str = f"时长: {duration}"
+                meta_str = self.tr("时长: {}").format(duration)
             if task.upload_date and task.upload_date != "-":
                 if meta_str:
-                    meta_str += f" • 日期: {task.upload_date}"
+                    meta_str += self.tr(" • 日期: {}").format(task.upload_date)
                 else:
-                    meta_str = f"日期: {task.upload_date}"
+                    meta_str = self.tr("日期: {}").format(task.upload_date)
             if not meta_str:
-                meta_str = "待加载"
+                meta_str = self.tr("待加载")
 
         fm_meta = QFontMetrics(meta_font)
         elided_meta = fm_meta.elidedText(meta_str, Qt.TextElideMode.ElideRight, rect.width())
@@ -380,23 +380,23 @@ class PlaylistItemDelegate(QStyledItemDelegate):
         if task.is_parsing:
             bg = colors["btn_subtle_bg"]
             fg = colors["text_secondary"]
-            text = "解析中…"
+            text = self.tr("解析中…")
         elif task.has_error:
             bg = colors["error_bg"]
             fg = colors["error_fg"]
-            text = "错误"
+            text = self.tr("错误")
         elif task.custom_options.format is None:
-            # Not yet enqueued – show neutral "待加载" badge
+            # Not yet enqueued – show neutral self.tr("待加载") badge
             bg = QColor(255, 255, 255, 6) if is_dark else QColor(0, 0, 0, 5)
             fg = colors["muted_fg"]
-            text = "待加载"
+            text = self.tr("待加载")
         else:
             # Loaded: keep the visual transition subtle to reduce perceptual flashing.
             bg = QColor(colors["btn_subtle_bg"])
             fg = colors["text_primary"]
 
             # 格式
-            fmt_note = task.custom_options.format if task.custom_options.format else "自动最佳"
+            fmt_note = task.custom_options.format if task.custom_options.format else self.tr("自动最佳")
             if len(fmt_note) > 20:
                 fmt_note = fmt_note[:18] + ".."
             text = fmt_note

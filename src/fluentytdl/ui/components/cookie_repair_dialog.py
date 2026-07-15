@@ -39,7 +39,7 @@ class CookieRepairDialog(QDialog):
 
     def _setup_ui(self):
         """初始化 UI"""
-        self.setWindowTitle("Cookie 已失效")
+        self.setWindowTitle(self.tr("Cookie 已失效"))
         self.setMinimumWidth(500)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
 
@@ -48,30 +48,30 @@ class CookieRepairDialog(QDialog):
         layout.setContentsMargins(24, 24, 24, 24)
 
         # 标题
-        title_label = StrongBodyLabel("🔒 检测到 Cookie 验证失败", self)
+        title_label = StrongBodyLabel(self.tr("🔒 检测到 Cookie 验证失败"), self)
         title_label.setStyleSheet("font-size: 16px;")
         layout.addWidget(title_label)
 
         # 根据验证模式动态调整说明文本
         if self._auth_source == "webview2":
             desc_text = (
-                "YouTube 需要重新验证身份，请选择以下方式修复：\n\n"
-                "• 重新登录：点击下方按钮在浏览器中重新登录 YouTube\n"
-                "• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并导入"
+                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n") +
+                self.tr("• 重新登录：点击下方按钮在浏览器中重新登录 YouTube\n") +
+                self.tr("• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并导入")
             )
         elif self._auth_source == "file":
             desc_text = (
-                "YouTube 需要重新验证身份，请选择以下方式修复：\n\n"
-                "• 重新导入：选择更新的 Cookie 文件 (Netscape 格式)\n"
-                "• 推荐使用浏览器扩展 Get cookies.txt LOCALLY 导出\n"
-                "• 或切换到「登录获取」模式，无需手动导出"
+                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n") +
+                self.tr("• 重新导入：选择更新的 Cookie 文件 (Netscape 格式)\n") +
+                self.tr("• 推荐使用浏览器扩展 Get cookies.txt LOCALLY 导出\n") +
+                self.tr("• 或切换到「登录获取」模式，无需手动导出")
             )
         else:
             desc_text = (
-                "YouTube 需要重新验证身份，请选择以下方式修复：\n\n"
-                "• 自动修复：尝试重新提取 Cookie (Chrome/Edge 若失败请使用下方方案)\n"
-                "• 强烈建议：将设置页面的提取来源换为 Firefox 或 LibreWolf\n"
-                "• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并手动导入"
+                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n") +
+                self.tr("• 自动修复：尝试重新提取 Cookie (Chrome/Edge 若失败请使用下方方案)\n") +
+                self.tr("• 强烈建议：将设置页面的提取来源换为 Firefox 或 LibreWolf\n") +
+                self.tr("• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并手动导入")
             )
         desc_label = BodyLabel(desc_text, self)
         desc_label.setWordWrap(True)
@@ -96,19 +96,19 @@ class CookieRepairDialog(QDialog):
         button_layout.setSpacing(12)
 
         # 取消按钮
-        self.cancel_btn = PushButton("稍后处理", self)
+        self.cancel_btn = PushButton(self.tr("稍后处理"), self)
         self.cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(self.cancel_btn)
 
         button_layout.addStretch(1)
 
         # 手动导入按钮
-        self.manual_btn = PushButton("手动导入 Cookie", self)
+        self.manual_btn = PushButton(self.tr("手动导入 Cookie"), self)
         self.manual_btn.clicked.connect(self._on_manual_import)
         button_layout.addWidget(self.manual_btn)
 
         # 自动修复按钮（主要操作）
-        self.repair_btn = PrimaryPushButton("自动修复", self)
+        self.repair_btn = PrimaryPushButton(self.tr("自动修复"), self)
         self.repair_btn.clicked.connect(self._on_auto_repair)
         button_layout.addWidget(self.repair_btn)
 
@@ -124,7 +124,7 @@ class CookieRepairDialog(QDialog):
     def _on_auto_repair(self):
         """自动修复按钮点击"""
         self.repair_btn.setEnabled(False)
-        self.repair_btn.setText("修复中...")
+        self.repair_btn.setText(self.tr("修复中..."))
         self.repair_requested.emit()
 
     def _on_manual_import(self):
@@ -142,7 +142,7 @@ class CookieRepairDialog(QDialog):
         """
         if success:
             InfoBar.info(
-                title="修复成功",
+                title=self.tr("修复成功"),
                 content=message,
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
@@ -156,7 +156,7 @@ class CookieRepairDialog(QDialog):
             QTimer.singleShot(1500, self.accept)
         else:
             InfoBar.error(
-                title="修复失败",
+                title=self.tr("修复失败"),
                 content=message,
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
@@ -166,7 +166,7 @@ class CookieRepairDialog(QDialog):
             )
             # 恢复按钮状态
             self.repair_btn.setEnabled(True)
-            self.repair_btn.setText("自动修复")
+            self.repair_btn.setText(self.tr("自动修复"))
 
 
 def show_cookie_repair_dialog(error_message: str = "", parent=None) -> CookieRepairDialog:

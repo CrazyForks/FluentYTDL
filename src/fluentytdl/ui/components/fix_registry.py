@@ -11,16 +11,16 @@ def do_relogin(parent_widget: QWidget) -> None:
         if hasattr(main_win, "switchTo"):
             main_win.switchTo(settings_iface)  # type: ignore
         InfoBar.info(
-            "提示",
-            "请在设置页中重新提取或验证您的账号 Cookie。",
+            self.tr("提示"),
+            self.tr("请在设置页中重新提取或验证您的账号 Cookie。"),
             parent=main_win,
             position=InfoBarPosition.TOP,
             duration=5000,
         )
     else:
         InfoBar.warning(
-            "不支持的操作",
-            "无法定位到设置界面。",
+            self.tr("不支持的操作"),
+            self.tr("无法定位到设置界面。"),
             parent=main_win,
             position=InfoBarPosition.TOP,
             duration=3000,
@@ -39,8 +39,8 @@ def switch_proxy(parent_widget: QWidget) -> None:
     if settings_iface is not None and hasattr(main_win, "switchTo"):
         main_win.switchTo(settings_iface)  # type: ignore
         InfoBar.info(
-            "网络设置",
-            "请在此配置可用的代理节点。",
+            self.tr("网络设置"),
+            self.tr("请在此配置可用的代理节点。"),
             parent=main_win,
             position=InfoBarPosition.TOP,
             duration=5000,
@@ -54,8 +54,8 @@ def change_download_dir(parent_widget: QWidget) -> None:
     if settings_iface is not None and hasattr(main_win, "switchTo"):
         main_win.switchTo(settings_iface)  # type: ignore
         InfoBar.info(
-            "存储设置",
-            "请更改默认的下载保存路径。",
+            self.tr("存储设置"),
+            self.tr("请更改默认的下载保存路径。"),
             parent=main_win,
             position=InfoBarPosition.TOP,
             duration=5000,
@@ -79,7 +79,7 @@ def execute_fix_action(action_id: str, parent_widget: QWidget) -> bool:
             return True
         except Exception as e:
             InfoBar.error(
-                "执行失败",
+                self.tr("执行失败"),
                 f"尝试执行自动修复时发生错误: {e}",
                 parent=parent_widget.window(),
                 position=InfoBarPosition.TOP,

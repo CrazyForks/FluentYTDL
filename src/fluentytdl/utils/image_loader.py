@@ -227,6 +227,16 @@ class ImageLoader(QObject):
         original_url: str,
     ) -> None:
         try:
+            # 如果绑定的 UI 控件已经被销毁，C++ 对象也会被销毁，这里会引发 RuntimeError
+            self.objectName()
+        except RuntimeError:
+            try:
+                reply.deleteLater()
+            except Exception:
+                pass
+            return
+
+        try:
             # 1. 检查网络错误
             err = reply.error()
             if err != QNetworkReply.NetworkError.NoError:
@@ -274,8 +284,14 @@ class ImageLoader(QObject):
 
             self.loaded.emit(pixmap)
             self.loaded_with_url.emit(str(original_url), pixmap)
+        except RuntimeError:
+            # 额外防护：在处理过程中如果对象被销毁
+            pass
         finally:
-            reply.deleteLater()
+            try:
+                reply.deleteLater()
+            except Exception:
+                pass
 
     @staticmethod
     def _round_corners(source: QPixmap, radius: int) -> QPixmap:

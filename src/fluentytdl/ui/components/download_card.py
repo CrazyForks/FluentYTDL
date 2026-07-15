@@ -72,7 +72,7 @@ def _infer_stream_label(d: dict[str, Any]) -> str:
 
     # 1. 优先使用执行器传入的明确标签 (Aria2c / Executor Injected)
     label = d.get("label")
-    if label and label in ("视频", "音频", "字幕", "封面"):
+    if label and label in (self.tr("视频"), self.tr("音频"), self.tr("字幕"), self.tr("封面")):
         return f"[{label}]"
 
     # 2. 检查 info_dict (Native yt-dlp)
@@ -82,30 +82,30 @@ def _infer_stream_label(d: dict[str, Any]) -> str:
         acodec = info.get("acodec")
         if isinstance(vcodec, str) and isinstance(acodec, str):
             if vcodec != "none" and acodec == "none":
-                return "[视频]"
+                return self.tr("[视频]")
             if vcodec == "none" and acodec != "none":
-                return "[音频]"
+                return self.tr("[音频]")
 
     # 3. 检查文件名后缀
     filename = d.get("filename")
     if isinstance(filename, str):
         lower = filename.lower()
         if lower.endswith((".vtt", ".srt", ".ass", ".lrc")):
-            return "[字幕]"
+            return self.tr("[字幕]")
         if lower.endswith((".jpg", ".jpeg", ".webp", ".png")):
-            return "[封面]"
+            return self.tr("[封面]")
         if lower.endswith((".json", ".xml")):
-            return "[元数据]"
+            return self.tr("[元数据]")
         if lower.endswith((".m4a", ".mp3", ".aac", ".opus", ".ogg", ".flac", ".wav")):
-            return "[音频]"
+            return self.tr("[音频]")
         if lower.endswith((".mp4", ".webm", ".mkv", ".mov", ".avi")):
-            return "[视频]"
+            return self.tr("[视频]")
 
     # 4. 有标签但未命中特定类型
     if label:
         return f"[{label}]"
 
-    return "[下载]"
+    return self.tr("[下载]")
 
 
 class DownloadItemCard(CardWidget):
@@ -159,7 +159,7 @@ class DownloadItemCard(CardWidget):
         self.progressBar.setValue(0)
         self.progressBar.setFixedHeight(4)
 
-        self.statusLabel = CaptionLabel("等待开始...", self)
+        self.statusLabel = CaptionLabel(self.tr("等待开始..."), self)
         self.statusLabel.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
 
         self.infoLayout.addWidget(self.titleLabel)
@@ -169,14 +169,14 @@ class DownloadItemCard(CardWidget):
 
         # 3. 右侧按钮区
         self.actionBtn = TransparentToolButton(FluentIcon.PAUSE, self)
-        self.actionBtn.setToolTip("暂停任务")
+        self.actionBtn.setToolTip(self.tr("暂停任务"))
         self.actionBtn.installEventFilter(
             ToolTipFilter(self.actionBtn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
         self.actionBtn.clicked.connect(self.on_action_clicked)
 
         self.folderBtn = TransparentToolButton(FluentIcon.FOLDER, self)
-        self.folderBtn.setToolTip("打开文件夹")
+        self.folderBtn.setToolTip(self.tr("打开文件夹"))
         self.folderBtn.installEventFilter(
             ToolTipFilter(self.folderBtn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -184,14 +184,14 @@ class DownloadItemCard(CardWidget):
         self.folderBtn.clicked.connect(self._open_output_location)
 
         self.deleteBtn = TransparentToolButton(FluentIcon.DELETE, self)
-        self.deleteBtn.setToolTip("删除任务")
+        self.deleteBtn.setToolTip(self.tr("删除任务"))
         self.deleteBtn.installEventFilter(
             ToolTipFilter(self.deleteBtn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
         self.deleteBtn.clicked.connect(self.on_delete_clicked)
 
         self.reportBtn = TransparentToolButton(FluentIcon.GITHUB, self)
-        self.reportBtn.setToolTip("反馈此错误")
+        self.reportBtn.setToolTip(self.tr("反馈此错误"))
         self.reportBtn.installEventFilter(
             ToolTipFilter(self.reportBtn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -293,7 +293,7 @@ class DownloadItemCard(CardWidget):
                     handler()
             InfoBar.info(
                 hint,
-                "操作完成后可重试下载",
+                self.tr("操作完成后可重试下载"),
                 parent=main_win,
                 position=InfoBarPosition.TOP,
                 duration=5000,
@@ -326,11 +326,11 @@ class DownloadItemCard(CardWidget):
             pass
         try:
             self.actionBtn.setIcon(FluentIcon.PAUSE)
-            self.actionBtn.setToolTip("暂停任务")
+            self.actionBtn.setToolTip(self.tr("暂停任务"))
         except Exception:
             pass
         try:
-            self.statusLabel.setText("正在重试..." if started else "排队中...")
+            self.statusLabel.setText(self.tr("正在重试...") if started else self.tr("排队中..."))
         except Exception:
             pass
         self.set_state("running" if started else "queued")
@@ -374,23 +374,23 @@ class DownloadItemCard(CardWidget):
         self.statusLabel.setText(clean_msg)
 
         # 合并/处理阶段：给用户明确感知（进度条可保持接近满格）
-        if "合并" in clean_msg or "处理" in clean_msg:
+        if self.tr("合并") in clean_msg or self.tr("处理") in clean_msg:
             self.progressBar.setValue(99)
 
         clean_msg.lower()
-        if "排队" in clean_msg or "等待" in clean_msg:
+        if self.tr("排队") in clean_msg or self.tr("等待") in clean_msg:
             self.set_state("queued")
-        if "暂停" in clean_msg:
+        if self.tr("暂停") in clean_msg:
             self.set_state("paused")
 
     def on_finished(self) -> None:
         self.progressBar.setValue(100)
-        self.statusLabel.setText("下载完成")
+        self.statusLabel.setText(self.tr("下载完成"))
         self.set_state("completed")
         self.actionBtn.setEnabled(False)
         self.folderBtn.setEnabled(True)
         InfoBar.info(
-            "下载完成",
+            self.tr("下载完成"),
             self.title_text,
             parent=self.window(),
             position=InfoBarPosition.TOP_RIGHT,
@@ -431,25 +431,25 @@ class DownloadItemCard(CardWidget):
     def on_error(self, err_data: dict) -> None:
         # 兼容新的 DiagnosedError 结构和旧的直接字符串 dict
         if "code" in err_data and "severity" in err_data:
-            friendly_title = err_data.get("user_title", "下载出错")
-            err_msg = err_data.get("user_message", "未知错误")
+            friendly_title = err_data.get("user_title", self.tr("下载出错"))
+            err_msg = err_data.get("user_message", self.tr("未知错误"))
             fix_action = err_data.get("fix_action")
             recovery_hint = err_data.get("recovery_hint")
             technical_detail = err_data.get("technical_detail", "")
         else:
             err_msg = str(err_data.get("raw_error") or err_data.get("content") or "")
-            friendly_title = str(err_data.get("title") or "下载出错")
+            friendly_title = str(err_data.get("title") or self.tr("下载出错"))
             fix_action = None
             recovery_hint = None
             technical_detail = err_msg
 
-        self.statusLabel.setText("出错")
+        self.statusLabel.setText(self.tr("出错"))
         self.set_state("error")
         if hasattr(self.progressBar, "setError"):
             self.progressBar.setError(True)
         self.actionBtn.setEnabled(True)
         self.actionBtn.setIcon(FluentIcon.PLAY)
-        self.actionBtn.setToolTip("继续/重试")
+        self.actionBtn.setToolTip(self.tr("继续/重试"))
 
         if fix_action:
             # 如果包含诊断出的修复方案，使用 MessageBox 弹出并引导修复
@@ -466,8 +466,8 @@ class DownloadItemCard(CardWidget):
                     f"{err_msg}\n\n[技术详情]\n{detail_text}",
                     parent=self.window(),
                 )
-                box.yesButton.setText(recovery_hint or "去处理")
-                box.cancelButton.setText("关闭")
+                box.yesButton.setText(recovery_hint or self.tr("去处理"))
+                box.cancelButton.setText(self.tr("关闭"))
                 if box.exec():
                     execute_fix_action(fix_action, self)
             except Exception:
@@ -518,14 +518,14 @@ class DownloadItemCard(CardWidget):
             return
 
         box = MessageBox(
-            "预设质量不可用",
+            self.tr("预设质量不可用"),
             f"当前任务预设为 {current_height}p，但该视频可能不提供该档位。\n\n"
-            f"错误信息：{err_msg}\n\n"
-            "可选择自动降低档位重试，或手动调整格式。",
+            f"错误信息：{err_msg}\n\n" +
+            self.tr("可选择自动降低档位重试，或手动调整格式。"),
             parent=self.window(),
         )
-        box.yesButton.setText("自动降档重试")
-        box.cancelButton.setText("手动调整")
+        box.yesButton.setText(self.tr("自动降档重试"))
+        box.cancelButton.setText(self.tr("手动调整"))
         if not box.exec():
             # Manual adjust: open selection dialog for this single video
             try:
@@ -556,17 +556,17 @@ class DownloadItemCard(CardWidget):
                     self.progressBar.setError(False)
                 self.folderBtn.setEnabled(False)
                 self.actionBtn.setIcon(FluentIcon.PAUSE)
-                self.actionBtn.setToolTip("暂停任务")
+                self.actionBtn.setToolTip(self.tr("暂停任务"))
                 self.statusLabel.setText(
-                    "已手动调整格式，开始下载..." if started else "已手动调整格式，排队中..."
+                    self.tr("已手动调整格式，开始下载...") if started else self.tr("已手动调整格式，排队中...")
                 )
             return
 
         next_height = self._next_lower_height(current_height)
         if next_height is None:
             InfoBar.warning(
-                "无法继续降档",
-                "已是最低预设档位，建议手动调整格式。",
+                self.tr("无法继续降档"),
+                self.tr("已是最低预设档位，建议手动调整格式。"),
                 parent=self.window(),
                 position=InfoBarPosition.TOP_RIGHT,
             )
@@ -588,7 +588,7 @@ class DownloadItemCard(CardWidget):
         if hasattr(self.progressBar, "setError"):
             self.progressBar.setError(False)
         self.actionBtn.setIcon(FluentIcon.PAUSE)
-        self.actionBtn.setToolTip("暂停任务")
+        self.actionBtn.setToolTip(self.tr("暂停任务"))
         self.statusLabel.setText(
             f"自动降档至 {next_height}p，开始下载..."
             if started
@@ -617,8 +617,8 @@ class DownloadItemCard(CardWidget):
             # 暂停
             self.worker.stop()
             self.actionBtn.setIcon(FluentIcon.PLAY)
-            self.actionBtn.setToolTip("继续下载")
-            self.statusLabel.setText("已暂停")
+            self.actionBtn.setToolTip(self.tr("继续下载"))
+            self.statusLabel.setText(self.tr("已暂停"))
             self.set_state("paused")
         else:
             # 继续（重建 worker，利用 yt-dlp 断点续传）
@@ -636,8 +636,8 @@ class DownloadItemCard(CardWidget):
                 self.progressBar.setError(False)
             self.folderBtn.setEnabled(False)
             self.actionBtn.setIcon(FluentIcon.PAUSE)
-            self.actionBtn.setToolTip("暂停任务")
-            self.statusLabel.setText("正在恢复..." if started else "排队中...")
+            self.actionBtn.setToolTip(self.tr("暂停任务"))
+            self.statusLabel.setText(self.tr("正在恢复...") if started else self.tr("排队中..."))
             self.set_state("running" if started else "queued")
 
     def on_delete_clicked(self) -> None:

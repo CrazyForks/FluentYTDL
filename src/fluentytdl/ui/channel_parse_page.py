@@ -43,7 +43,7 @@ class ChannelParsePage(QWidget):
         self.vBoxLayout.addStretch(1)
 
         # 1. 顶部标题
-        self.titleLabel = SubtitleLabel("📺  频道下载", self)
+        self.titleLabel = SubtitleLabel(self.tr("📺  频道下载"), self)
         self.centerLayout.addWidget(self.titleLabel)
 
         # 2. 说明卡片
@@ -53,16 +53,16 @@ class ChannelParsePage(QWidget):
         infoLayout.setContentsMargins(20, 16, 20, 16)
         infoLayout.setSpacing(8)
 
-        infoTitle = BodyLabel("频道批量下载", self.infoCard)
+        infoTitle = BodyLabel(self.tr("频道批量下载"), self.infoCard)
         font = infoTitle.font()
         font.setBold(True)
         infoTitle.setFont(font)
         infoLayout.addWidget(infoTitle)
 
         infoText = CaptionLabel(
-            "粘贴 YouTube 频道链接，自动解析频道内所有视频。\n"
-            "支持切换「视频」和「Shorts」标签页，以及按时间正序/倒序排列。\n"
-            "解析采用渐进式加载，先展示标题和封面，滚动到可视区域时再获取详细格式。",
+            self.tr("粘贴 YouTube 频道链接，自动解析频道内所有视频。\n") +
+            self.tr("支持切换「视频」和「Shorts」标签页，以及按时间正序/倒序排列。\n") +
+            self.tr("解析采用渐进式加载，先展示标题和封面，滚动到可视区域时再获取详细格式。"),
             self.infoCard,
         )
         infoText.setWordWrap(True)
@@ -77,7 +77,7 @@ class ChannelParsePage(QWidget):
         self.cardLayout.setContentsMargins(20, 20, 20, 20)
         self.cardLayout.setSpacing(15)
 
-        self.instructionLabel = BodyLabel("粘贴 YouTube 频道链接", self)
+        self.instructionLabel = BodyLabel(self.tr("粘贴 YouTube 频道链接"), self)
         self.cardLayout.addWidget(self.instructionLabel)
 
         # 输入框行
@@ -91,7 +91,7 @@ class ChannelParsePage(QWidget):
 
         self.inputLayout.addWidget(self.urlInput)
 
-        self.pasteBtn = PushButton("粘贴", self)
+        self.pasteBtn = PushButton(self.tr("粘贴"), self)
         self.pasteBtn.setMinimumWidth(72)
         self.pasteBtn.clicked.connect(self.on_paste_clicked)
         self.inputLayout.addWidget(self.pasteBtn)
@@ -101,22 +101,22 @@ class ChannelParsePage(QWidget):
         self.btnLayout = QHBoxLayout()
         self.btnLayout.setSpacing(12)
 
-        self.scopeLabel = CaptionLabel("解析范围:", self)
+        self.scopeLabel = CaptionLabel(self.tr("解析范围:"), self)
         self.btnLayout.addWidget(self.scopeLabel)
 
         from qfluentwidgets import ComboBox
 
         self.scopeCombo = ComboBox(self)
-        self.scopeCombo.addItem("全部 / 智能探测", userData="all")
-        self.scopeCombo.addItem("仅常规视频", userData="videos")
-        self.scopeCombo.addItem("仅 Shorts", userData="shorts")
-        self.scopeCombo.addItem("仅直播回放", userData="streams")
+        self.scopeCombo.addItem(self.tr("全部 / 智能探测"), userData="all")
+        self.scopeCombo.addItem(self.tr("仅常规视频"), userData="videos")
+        self.scopeCombo.addItem(self.tr("仅 Shorts"), userData="shorts")
+        self.scopeCombo.addItem(self.tr("仅直播回放"), userData="streams")
         self.scopeCombo.setMinimumWidth(160)
         self.btnLayout.addWidget(self.scopeCombo)
 
         self.btnLayout.addStretch(1)
 
-        self.parseBtn = PrimaryPushButton(FluentIcon.SEARCH, "开始解析频道", self)
+        self.parseBtn = PrimaryPushButton(FluentIcon.SEARCH, self.tr("开始解析频道"), self)
         self.parseBtn.setMinimumWidth(140)
         self.parseBtn.clicked.connect(self.on_parse_clicked)
 
@@ -127,11 +127,11 @@ class ChannelParsePage(QWidget):
 
         # 4. 底部提示
         self.tipsLabel = CaptionLabel(
-            "支持的频道 URL 格式：\n"
+            self.tr("支持的频道 URL 格式：\n") +
             "- https://www.youtube.com/@ChannelName\n"
             "- https://www.youtube.com/channel/UCxxxxxxxxx\n"
-            "- https://www.youtube.com/c/ChannelName\n"
-            "- 单个视频请使用左侧「新建任务」页面",
+            "- https://www.youtube.com/c/ChannelName\n" +
+            self.tr("- 单个视频请使用左侧「新建任务」页面"),
             self,
         )
         self.tipsLabel.setWordWrap(True)

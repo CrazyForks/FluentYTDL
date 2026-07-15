@@ -1,7 +1,7 @@
 """
 FluentYTDL 软件更新卡片
 
-在设置页 "更新" 标签中显示，提供:
+在设置页 self.tr("更新") 标签中显示，提供:
 - 当前版本和最新版本对比
 - 检查更新 / 立即更新按钮
 - 更新日志查看
@@ -40,7 +40,7 @@ class AppUpdateSettingCard(SettingCard):
         super().__init__(
             FluentIcon.APPLICATION,
             "FluentYTDL",
-            f"当前版本: {current_ver}",
+            self.tr("当前版本: {}").format(current_ver),
             parent,
         )
         self._current_version = current_ver
@@ -56,7 +56,7 @@ class AppUpdateSettingCard(SettingCard):
 
         # 更新日志按钮
         self.changelogButton = ToolButton(FluentIcon.DICTIONARY, self)
-        self.changelogButton.setToolTip("查看更新日志")
+        self.changelogButton.setToolTip(self.tr("查看更新日志"))
         self.changelogButton.installEventFilter(
             ToolTipFilter(self.changelogButton, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -64,7 +64,7 @@ class AppUpdateSettingCard(SettingCard):
         self.changelogButton.setVisible(False)
 
         # 操作按钮
-        self.actionButton = PushButton("检查更新", self)
+        self.actionButton = PushButton(self.tr("检查更新"), self)
         self.actionButton.clicked.connect(self._on_action_clicked)
 
         # 布局
@@ -87,9 +87,9 @@ class AppUpdateSettingCard(SettingCard):
 
     def _on_action_clicked(self) -> None:
         text = self.actionButton.text()
-        if text == "检查更新":
+        if text == self.tr("检查更新"):
             self._start_check()
-        elif text == "立即更新":
+        elif text == self.tr("立即更新"):
             self._start_download()
 
     def _start_check(self) -> None:
@@ -99,7 +99,7 @@ class AppUpdateSettingCard(SettingCard):
             self._show_locked_dialog()
             return
 
-        self.actionButton.setText("正在检查...")
+        self.actionButton.setText(self.tr("正在检查..."))
         self.actionButton.setEnabled(False)
         component_update_manager.check_app_update()
 
@@ -110,14 +110,14 @@ class AppUpdateSettingCard(SettingCard):
 
         url = self._latest_info.get("url", "")
         if not url:
-            InfoBar.error("错误", "下载地址无效", parent=self.window())
+            InfoBar.error(self.tr("错误"), self.tr("下载地址无效"), parent=self.window())
             return
 
         self._downloading = True
         self.progressBar.setVisible(True)
         self.progressBar.setValue(0)
         self.actionButton.setEnabled(False)
-        self.actionButton.setText("正在下载...")
+        self.actionButton.setText(self.tr("正在下载..."))
         self.changelogButton.setEnabled(False)
 
         sha256 = self._latest_info.get("sha256", "")
@@ -132,15 +132,15 @@ class AppUpdateSettingCard(SettingCard):
 
         latest_ver = info.get("version", "?")
         is_pre = info.get("is_prerelease", False)
-        prefix = "预发布 " if is_pre else ""
+        prefix = self.tr("预发布 ") if is_pre else ""
 
         self.setTitle(f"FluentYTDL ({prefix}更新)")
         self.setContent(f"当前: {self._current_version}  |  最新: {latest_ver}")
-        self.actionButton.setText("立即更新")
+        self.actionButton.setText(self.tr("立即更新"))
         self.changelogButton.setVisible(True)
 
         InfoBar.info(
-            "发现新版本",
+            self.tr("发现新版本"),
             f"FluentYTDL {latest_ver} 已可用",
             duration=10000,
             parent=self.window(),
@@ -149,12 +149,12 @@ class AppUpdateSettingCard(SettingCard):
     def _on_no_update(self) -> None:
         """无更新。"""
         self.actionButton.setEnabled(True)
-        self.actionButton.setText("检查更新")
-        self.setContent(f"当前版本: {self._current_version}  |  已是最新")
+        self.actionButton.setText(self.tr("检查更新"))
+        self.setContent(self.tr("当前版本: {}  |  已是最新").format(self._current_version))
 
         InfoBar.info(
-            "已是最新",
-            f"FluentYTDL {self._current_version} 已是最新版本。",
+            self.tr("已是最新"),
+            self.tr("FluentYTDL {} 已是最新版本。").format(self._current_version),
             duration=5000,
             parent=self.window(),
         )
@@ -162,13 +162,13 @@ class AppUpdateSettingCard(SettingCard):
     def _on_check_error(self, msg: str) -> None:
         """检查出错。"""
         self.actionButton.setEnabled(True)
-        self.actionButton.setText("检查更新")
+        self.actionButton.setText(self.tr("检查更新"))
 
         if msg == "locked":
             self._show_locked_dialog()
             return
 
-        InfoBar.error("检查更新失败", msg, duration=10000, parent=self.window())
+        InfoBar.error(self.tr("检查更新失败"), msg, duration=10000, parent=self.window())
 
     def _on_download_progress(self, percent: int) -> None:
         """下载进度。"""
@@ -179,7 +179,7 @@ class AppUpdateSettingCard(SettingCard):
     def _on_download_finished(self, path: str) -> None:
         """下载完成，启动 updater。"""
         self.progressBar.setValue(100)
-        self.actionButton.setText("正在安装...")
+        self.actionButton.setText(self.tr("正在安装..."))
 
         try:
             component_update_manager.apply_app_core_update(path)
@@ -187,23 +187,23 @@ class AppUpdateSettingCard(SettingCard):
             self._downloading = False
             self.progressBar.setVisible(False)
             self.actionButton.setEnabled(True)
-            self.actionButton.setText("立即更新")
-            InfoBar.error("更新失败", str(e), parent=self.window())
+            self.actionButton.setText(self.tr("立即更新"))
+            InfoBar.error(self.tr("更新失败"), str(e), parent=self.window())
         except Exception as e:
             self._downloading = False
             self.progressBar.setVisible(False)
             self.actionButton.setEnabled(True)
-            self.actionButton.setText("立即更新")
-            InfoBar.error("更新失败", str(e), parent=self.window())
+            self.actionButton.setText(self.tr("立即更新"))
+            InfoBar.error(self.tr("更新失败"), str(e), parent=self.window())
 
     def _on_download_error(self, msg: str) -> None:
         """下载出错。"""
         self._downloading = False
         self.progressBar.setVisible(False)
         self.actionButton.setEnabled(True)
-        self.actionButton.setText("立即更新")
+        self.actionButton.setText(self.tr("立即更新"))
         self.changelogButton.setEnabled(True)
-        InfoBar.error("下载失败", msg, duration=15000, parent=self.window())
+        InfoBar.error(self.tr("下载失败"), msg, duration=15000, parent=self.window())
 
     # ── 更新日志 ──────────────────────────────────────────
 
@@ -238,9 +238,9 @@ class AppUpdateSettingCard(SettingCard):
             ver = "unknown"
 
         InfoBar.warning(
-            "检测到测试版本",
-            f"当前运行的是 {ver} 测试/预发布版本，不支持自动更新。"
-            "如需更新请前往 GitHub Releases 下载正式版。",
+            self.tr("检测到测试版本"),
+            f"当前运行的是 {ver} 测试/预发布版本，不支持自动更新。" +
+            self.tr("如需更新请前往 GitHub Releases 下载正式版。"),
             duration=10000,
             parent=self.window(),
         )
@@ -260,10 +260,10 @@ class AppUpdateSettingCard(SettingCard):
         self.progressBar.setVisible(False)
         self.changelogButton.setVisible(False)
         self.actionButton.setEnabled(True)
-        self.actionButton.setText("检查更新")
+        self.actionButton.setText(self.tr("检查更新"))
         try:
             from fluentytdl import __version__
 
-            self.setContent(f"当前版本: {__version__}")
+            self.setContent(self.tr("当前版本: {}").format(__version__))
         except ImportError:
             pass

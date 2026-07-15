@@ -31,12 +31,15 @@ from ...utils.logger import logger
 LOGIN_INDICATOR_YT = {"LOGIN_INFO"}
 LOGIN_INDICATOR_GOOGLE = {"__Secure-1PSID", "SAPISID", "SID"}
 
+LOGIN_INDICATOR_X = {"auth_token", "ct0"}
+
 DEFAULT_TIMEOUT = 300
 POLL_INTERVAL = 2.5
 LONG_EXPIRY_SECONDS = 365 * 24 * 3600
 
 YOUTUBE_HOME = "https://www.youtube.com/"
 GOOGLE_ACCOUNT_URL = "https://accounts.google.com/"
+X_HOME = "https://x.com/"
 
 
 # ==================== SimpleCookie 解析 ====================
@@ -92,6 +95,7 @@ def _webview_subprocess(
     timeout: int,
     start_hidden: bool,
     reveal_after_seconds: int,
+    platform: str = "youtube",
 ) -> None:
     """在独立子进程中运行 pywebview 登录窗口。"""
     import datetime as _dt
@@ -154,7 +158,7 @@ def _webview_subprocess(
 
     # ── 创建窗口 ──
     window_kwargs = {
-        "title": "FluentYTDL - YouTube 安全登录",
+        "title": "FluentYTDL - YouTube 安全登录" if platform == "youtube" else "FluentYTDL - X (Twitter) 安全登录",
         "url": login_url,
         "width": 900,
         "height": 700,
@@ -185,49 +189,70 @@ def _webview_subprocess(
                 elapsed = int(time.time() - start_time)
                 time.sleep(POLL_INTERVAL)
 
-                if start_hidden and (not revealed) and elapsed >= reveal_after_seconds:
+                           if platform == "twitter":
+                    if "x.com" not in current_url and "twitter.com" not in current_url:
+                        _log(f"[{elapsed}s] 等待跳回 X... (当前: {current_url[:80]})")
+                        continue
+
                     try:
-                        win.show()
-                        revealed = True
-                        _log("🔔 已自动显示登录窗口")
+                        x_cookies = win.get_cookies() or []
                     except Exception as e:
-                        _log(f"⚠️ show() 失败: {e}")
+                        _log(f"⚠️ get_cookies 失败: {e}")
+                        continue
 
-                # 步骤 1: 检查 URL
-                try:
-                    current_url = win.get_current_url() or ""
-                except Exception as e:
-                    _log(f"⚠️ get_current_url 失败: {e}")
-                    break
+                    x_names = _get_cookie_names(x_cookies)
+                    _log(
+                        f"[{elapsed}s] X 域 {len(x_cookies)} 个 Cookie, names={list(x_names)[:10]}"
+                    )
 
-                if "youtube.com" not in current_url:
-                    _log(f"[{elapsed}s] 等待跳回 YouTube... (当前: {current_url[:80]})")
-                    continue
+                    if not LOGIN_INDICATOR_X <= x_names:
+                        _log(f"[{elapsed}s] 尚未检测到完整的登录 Cookie")
+                        continue
 
-                # 步骤 2: YouTube 域 Cookie
-                try:
-                    yt_cookies = win.get_cookies() or []
-                except Exception as e:
-                    _log(f"⚠️ get_cookies 失败: {e}")
-                    continue
+                    _log("🎯 检测到 auth_token! 用户已完成登录。")
+                    all_raw = list(x_cookies)
+                else:
+                    if "youtube.com" not in current_url:
+                        _log(f"[{elapsed}s] 等待跳回 YouTube... (当前: {current_url[:80]})")
+                        continue
 
-                yt_names = _get_cookie_names(yt_cookies)
-                _log(
-                    f"[{elapsed}s] YouTube 域 {len(yt_cookies)} 个 Cookie, names={list(yt_names)[:10]}"
-                )
+                    # 步骤 2: YouTube 域 Cookie
+                    try:
+                        yt_cookies = win.get_cookies() or []
+                    except Exception as e:
+                        _log(f"⚠️ get_cookies 失败: {e}")
+                        continue
 
-                if not LOGIN_INDICATOR_YT & yt_names:
-                    _log(f"[{elapsed}s] 尚未检测到 LOGIN_INFO")
-                    continue
+                    yt_names = _get_cookie_names(yt_cookies)
+                    _log(
+                        f"[{elapsed}s] YouTube 域 {len(yt_cookies)} 个 Cookie, names={list(yt_names)[:10]}"
+                    )
 
-                _log("🎯 检测到 LOGIN_INFO! 用户已完成登录。")
+                    if not LOGIN_INDICATOR_YT & yt_names:
+                        _log(f"[{elapsed}s] 尚未检测到 LOGIN_INFO")
+                        continue
 
-                # 步骤 3: Google 域 Cookie
-                _log("📡 导航到 accounts.google.com ...")
-                google_cookies = []
-                try:
-                    win.load_url(GOOGLE_ACCOUNT_URL)
-                    time.sleep(3)
+                    _log("🎯 检测到 LOGIN_INFO! 用户已完成登录。")
+
+                    # 步骤 3: Google 域 Cookie
+                    _log("📡 导航到 accounts.google.com ...")
+                    google_cookies = []
+                    try:
+                        win.load_url(GOOGLE_ACCOUNT_URL)
+                        time.sleep(3)
+                        google_cookies = win.get_cookies() or []
+                        google_names = _get_cookie_names(google_cookies)
+                        _log(
+                            f"Google 域 {len(google_cookies)} 个 Cookie, names={list(google_names)[:10]}"
+                        )
+                    except Exception as e:
+                        _log(f"⚠️ 获取 Google Cookie 失败: {e}")
+
+                    # 步骤 4: 合并+格式化+回传
+                    all_raw = list(yt_cookies) + list(google_cookies)
+                    all_names = _get_cookie_names(all_raw)
+                    has_core = LOGIN_INDICATOR_GOOGLE & all_names
+                    _log(f"合并后共 {len(all_raw)} 个, core匹配={has_core}")        time.sleep(3)
                     google_cookies = win.get_cookies() or []
                     google_names = _get_cookie_names(google_cookies)
                     _log(
@@ -366,7 +391,7 @@ class WebView2CookieProvider:
         reveal_after_seconds: int = 8,
     ) -> list[dict[str, Any]] | None:
         """启动 WebView2 登录窗口并提取 Cookie。"""
-        login_url = YOUTUBE_HOME
+        login_url = X_HOME if platform == "twitter" else YOUTUBE_HOME
 
         cache_dir = storage_path or str(
             Path(os.environ.get("LOCALAPPDATA", os.getcwd())) / "FluentYTDL" / ".webview_profile"
@@ -384,7 +409,7 @@ class WebView2CookieProvider:
 
         process = multiprocessing.Process(
             target=_webview_subprocess,
-            args=(cookie_queue, login_url, cache_dir, timeout, start_hidden, reveal_after_seconds),
+            args=(cookie_queue, login_url, cache_dir, timeout, start_hidden, reveal_after_seconds, platform),
             daemon=True,
         )
 

@@ -109,13 +109,13 @@ class NotificationFlyoutView(FlyoutViewBase):
 
         # 头部
         self.headerLayout = QHBoxLayout()
-        self.titleLabel = BodyLabel("消息中心", self)
+        self.titleLabel = BodyLabel(self.tr("消息中心"), self)
         font = self.titleLabel.font()
         font.setPixelSize(16)
         font.setBold(True)
         self.titleLabel.setFont(font)
 
-        self.clearAllBtn = PushButton("全部已读", self)
+        self.clearAllBtn = PushButton(self.tr("全部已读"), self)
         self.clearAllBtn.setFixedSize(80, 28)
         self.clearAllBtn.clicked.connect(self._on_clear_all)
 
@@ -141,7 +141,7 @@ class NotificationFlyoutView(FlyoutViewBase):
         self.scrollArea.setWidget(self.scrollWidget)
         self.vBoxLayout.addWidget(self.scrollArea)
 
-        self.emptyLabel = BodyLabel("暂无通知", self)
+        self.emptyLabel = BodyLabel(self.tr("暂无通知"), self)
         self.emptyLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.emptyLabel.setTextColor(Qt.GlobalColor.gray, Qt.GlobalColor.darkGray)
         self.vBoxLayout.addWidget(self.emptyLabel)

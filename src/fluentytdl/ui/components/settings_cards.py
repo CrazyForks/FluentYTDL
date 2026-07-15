@@ -1,4 +1,5 @@
 from __future__ import annotations
+from PySide6.QtCore import QT_TRANSLATE_NOOP
 
 import os
 import shutil
@@ -46,7 +47,7 @@ class CookieRefreshWorker(QThread):
         from ...utils.logger import logger
 
         success = False
-        message = "未知错误"
+        message = self.tr("未知错误")
 
         try:
             # 直接刷新（调用前已检查权限，或已是管理员/非Edge/Chrome）
@@ -63,15 +64,15 @@ class CookieRefreshWorker(QThread):
 
                 # 如果 auth_service 已经提供了关于【提取解密失败】的详细多行指引，则保留其内容
                 # 否则，如果是其他诸如“未找到文件”或普通的异常，才覆盖为通用建议
-                if "【提取解密失败】" not in message and (
-                    "未找到" in message or "not found" in message.lower()
+                if self.tr("【提取解密失败】") not in message and (
+                    self.tr("未找到") in message or "not found" in message.lower()
                 ):
                     message = (
-                        f"无法从 {browser_name} 提取 Cookie\n\n"
-                        "可能的原因：\n"
+                        f"无法从 {browser_name} 提取 Cookie\n\n" +
+                        self.tr("可能的原因：\n") +
                         f"1. {browser_name} 未安装或未登录 YouTube\n"
-                        f"2. {browser_name} Cookie 数据库被锁定（请关闭浏览器）\n\n"
-                        "建议：完全关闭浏览器后重试"
+                        f"2. {browser_name} Cookie 数据库被锁定（请关闭浏览器）\n\n" +
+                        self.tr("建议：完全关闭浏览器后重试")
                     )
 
                 logger.warning(f"[CookieRefreshWorker] 提取失败: {message}")
@@ -105,18 +106,18 @@ class ComponentSettingCard(SettingCard):
         self.progressBar.setFixedWidth(120)
         self.progressBar.setVisible(False)
 
-        self.actionButton = PushButton("检查更新", self)
+        self.actionButton = PushButton(self.tr("检查更新"), self)
         self.actionButton.clicked.connect(self._on_action_clicked)
 
-        self.importButton = PushButton("手动导入", self, FluentIcon.ADD)
-        self.importButton.setToolTip("选择本地文件覆盖当前组件")
+        self.importButton = PushButton(self.tr("手动导入"), self, FluentIcon.ADD)
+        self.importButton.setToolTip(self.tr("选择本地文件覆盖当前组件"))
         self.importButton.installEventFilter(
             ToolTipFilter(self.importButton, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
         self.importButton.clicked.connect(self._on_import_clicked)
 
         self.folderButton = ToolButton(FluentIcon.FOLDER, self)
-        self.folderButton.setToolTip("打开所在文件夹")
+        self.folderButton.setToolTip(self.tr("打开所在文件夹"))
         self.folderButton.installEventFilter(
             ToolTipFilter(self.folderButton, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -145,9 +146,9 @@ class ComponentSettingCard(SettingCard):
 
     def _on_action_clicked(self):
         text = self.actionButton.text()
-        if text == "检查更新":
+        if text == self.tr("检查更新"):
             dependency_manager.check_update(self.component_key)
-        elif text in ("立即更新", "立即安装"):
+        elif text in (self.tr("立即更新"), self.tr("立即安装")):
             dependency_manager.install_component(self.component_key)
 
     def _on_import_clicked(self):
@@ -179,17 +180,17 @@ class ComponentSettingCard(SettingCard):
 
             # Simple check
             if src.stat().st_size == 0:
-                InfoBar.error("错误", "所选文件为空", parent=self.window())
+                InfoBar.error(self.tr("错误"), self.tr("所选文件为空"), parent=self.window())
                 return
 
             shutil.copy2(src, target_path)
 
-            InfoBar.info("导入成功", f"已手动导入 {exe_name}", parent=self.window())
+            InfoBar.info(self.tr("导入成功"), f"已手动导入 {exe_name}", parent=self.window())
             # Refresh version info
             dependency_manager.check_update(self.component_key)
 
         except Exception as e:
-            InfoBar.error("导入失败", str(e), parent=self.window())
+            InfoBar.error(self.tr("导入失败"), str(e), parent=self.window())
 
     def _open_folder(self):
         try:
@@ -197,14 +198,14 @@ class ComponentSettingCard(SettingCard):
             if path.exists():
                 os.startfile(path)
             else:
-                InfoBar.warning("目录不存在", f"{path} 尚未创建", parent=self.window())
+                InfoBar.warning(self.tr("目录不存在"), f"{path} 尚未创建", parent=self.window())
         except Exception as e:
-            InfoBar.error("错误", str(e), parent=self.window())
+            InfoBar.error(self.tr("错误"), str(e), parent=self.window())
 
     def _on_check_started(self, key):
         if key != self.component_key:
             return
-        self.actionButton.setText("正在检查...")
+        self.actionButton.setText(self.tr("正在检查..."))
         self.actionButton.setEnabled(False)
 
     def _on_check_finished(self, key, result):
@@ -221,7 +222,7 @@ class ComponentSettingCard(SettingCard):
         title_text = self.titleLabel.text()
 
         if has_update:
-            self.actionButton.setText("立即更新")
+            self.actionButton.setText(self.tr("立即更新"))
             InfoBar.info(
                 f"发现新版本: {title_text}",
                 f"版本 {latest} 可用 (当前: {curr})",
@@ -230,11 +231,11 @@ class ComponentSettingCard(SettingCard):
             )
         else:
             if curr == "unknown":
-                self.actionButton.setText("立即安装")
+                self.actionButton.setText(self.tr("立即安装"))
             else:
-                self.actionButton.setText("检查更新")
+                self.actionButton.setText(self.tr("检查更新"))
                 InfoBar.info(
-                    "已是最新",
+                    self.tr("已是最新"),
                     f"{title_text} 当前版本 {curr} 已是最新。",
                     duration=5000,
                     parent=self.window(),
@@ -246,7 +247,7 @@ class ComponentSettingCard(SettingCard):
         self.progressBar.setVisible(True)
         self.progressBar.setValue(0)
         self.actionButton.setEnabled(False)
-        self.actionButton.setText("正在下载...")
+        self.actionButton.setText(self.tr("正在下载..."))
 
     def _on_download_progress(self, key, percent):
         if key != self.component_key:
@@ -256,20 +257,20 @@ class ComponentSettingCard(SettingCard):
     def _on_download_finished(self, key):
         if key != self.component_key:
             return
-        self.actionButton.setText("正在安装...")
+        self.actionButton.setText(self.tr("正在安装..."))
 
     def _on_install_finished(self, key):
         if key != self.component_key:
             return
         self.progressBar.setVisible(False)
         self.actionButton.setEnabled(True)
-        self.actionButton.setText("检查更新")
+        self.actionButton.setText(self.tr("检查更新"))
         # Trigger a re-check to update version text
         dependency_manager.check_update(self.component_key)
 
         title_text = self.titleLabel.text()
         InfoBar.info(
-            "安装完成", f"{title_text} 已成功安装/更新。", duration=5000, parent=self.window()
+            self.tr("安装完成"), f"{title_text} 已成功安装/更新。", duration=5000, parent=self.window()
         )
 
     def _on_error(self, key, msg):
@@ -277,7 +278,7 @@ class ComponentSettingCard(SettingCard):
             return
         self.progressBar.setVisible(False)
         self.actionButton.setEnabled(True)
-        self.actionButton.setText("检查更新")  # Reset
+        self.actionButton.setText(self.tr("检查更新"))  # Reset
 
         title_text = self.titleLabel.text()
         InfoBar.error(f"{title_text} 错误", msg, duration=15000, parent=self.window())
@@ -344,21 +345,22 @@ class LanguageSelectionDialog(MessageBox):
     """语言多选对话框"""
 
     def __init__(self, languages: list[tuple[str, str]], selected: list[str], parent=None):
-        super().__init__("选择字幕语言", "", parent)
+        super().__init__(self.tr("选择字幕语言"), "", parent)
 
         self.languages = languages
         self.selected_languages = selected.copy() if selected else []
         self.checkboxes = {}
 
         # 创建内容布局
-        from PySide6.QtWidgets import QFrame, QGridLayout, QScrollArea
+        from PySide6.QtWidgets import QFrame, QGridLayout, QVBoxLayout, QWidget
+        from qfluentwidgets import SmoothScrollArea
 
         content_widget = QWidget(self)
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(0, 0, 0, 0)
 
         # 添加说明
-        hint_label = SubtitleLabel("请选择要下载的字幕语言（可多选）：", content_widget)
+        hint_label = SubtitleLabel(self.tr("请选择要下载的字幕语言（可多选）："), content_widget)
         content_layout.addWidget(hint_label)
         content_layout.addSpacing(12)
 
@@ -372,7 +374,9 @@ class LanguageSelectionDialog(MessageBox):
         row = 0
         col = 0
         for code, name in languages:
-            checkbox = CheckBox(f"{name} ({code})", checkbox_container)
+            from PySide6.QtCore import QCoreApplication
+            display_name = QCoreApplication.translate("Subtitle", name)
+            checkbox = CheckBox(f"{display_name} ({code})", checkbox_container)
             checkbox.setChecked(code in self.selected_languages)
             checkbox.setMinimumWidth(280)  # 确保复选框有足够宽度显示完整文本
             checkbox_layout.addWidget(checkbox, row, col)
@@ -388,7 +392,10 @@ class LanguageSelectionDialog(MessageBox):
         checkbox_layout.setColumnStretch(1, 1)
 
         # 添加滚动区域
-        scroll = QScrollArea(content_widget)
+        scroll = SmoothScrollArea(content_widget)
+        checkbox_container.setObjectName("checkboxContainer")
+        scroll.setObjectName("scrollArea")
+        scroll.setStyleSheet("QScrollArea#scrollArea { background-color: transparent; border: none; } QWidget#checkboxContainer { background-color: transparent; }")
         scroll.setWidget(checkbox_container)
         scroll.setWidgetResizable(True)
         scroll.setMinimumHeight(250)
@@ -428,7 +435,7 @@ class LanguageMultiSelectCard(SettingCard):
         self.selected_languages = selected_default if selected_default else []
 
         # 创建按钮显示当前选择
-        self.selectButton = PushButton("选择语言", self)
+        self.selectButton = PushButton(self.tr("选择语言"), self)
         self.selectButton.clicked.connect(self._show_language_dialog)
         self.hBoxLayout.addWidget(self.selectButton, 0, Qt.AlignmentFlag.AlignRight)
         self.hBoxLayout.addSpacing(16)
@@ -439,17 +446,22 @@ class LanguageMultiSelectCard(SettingCard):
     def _update_button_text(self):
         """更新按钮显示文本"""
         if not self.selected_languages:
-            self.selectButton.setText("选择语言")
+            self.selectButton.setText(self.tr("选择语言"))
         else:
             # 显示选中的语言名称
             names = []
             for code in self.selected_languages[:3]:  # 最多显示3个
                 name = next((n for c, n in self.languages if c == code), code)
-                names.append(name)
+                from PySide6.QtCore import QCoreApplication
+                translated_name = QCoreApplication.translate("Subtitle", name)
+                import os
+                with open(os.path.join(os.path.dirname(__file__), "debug_translation.log"), "a", encoding="utf-8") as f:
+                    f.write(f"Translating: '{name}' -> '{translated_name}'\n")
+                names.append(translated_name)
 
             text = ", ".join(names)
             if len(self.selected_languages) > 3:
-                text += f" 等 {len(self.selected_languages)} 种语言"
+                text += self.tr(" 等 {} 种语言").format(len(self.selected_languages))
             self.selectButton.setText(text)
 
     def _show_language_dialog(self):
@@ -481,7 +493,7 @@ class AudioLanguageSelectionDialog(MessageBox):
 
     def __init__(self, languages: list[tuple[str, str]], selected: list[str], parent=None):
         super().__init__(
-            "选择并排序首选音轨语言", "选中的语言越靠前，优先级越高。可拖拽调整顺序。", parent
+            self.tr("选择并排序首选音轨语言"), self.tr("选中的语言越靠前，优先级越高。可拖拽调整顺序。"), parent
         )
         self.languages = languages
         self.selected_languages_init = selected.copy() if selected else []
@@ -496,8 +508,9 @@ class AudioLanguageSelectionDialog(MessageBox):
         # Left list: Available
         left_layout = QVBoxLayout()
         left_layout.setSpacing(12)
-        left_layout.addWidget(SubtitleLabel("可选语言:", content_widget))
-        self.available_list = QListWidget(content_widget)
+        left_layout.addWidget(SubtitleLabel(self.tr("可选语言:"), content_widget))
+        from qfluentwidgets import ListWidget
+        self.available_list = ListWidget(content_widget)
         self.available_list.setMinimumWidth(240)
         self.available_list.setMinimumHeight(250)
         left_layout.addWidget(self.available_list)
@@ -506,8 +519,8 @@ class AudioLanguageSelectionDialog(MessageBox):
         # Middle Layout: Add/Remove buttons
         mid_layout = QVBoxLayout()
         mid_layout.addStretch(1)
-        self.btn_add = PushButton("添加 >>", content_widget)
-        self.btn_remove = PushButton("<< 移除", content_widget)
+        self.btn_add = PushButton(self.tr("添加 >>"), content_widget)
+        self.btn_remove = PushButton(self.tr("<< 移除"), content_widget)
         mid_layout.addWidget(self.btn_add)
         mid_layout.addWidget(self.btn_remove)
         mid_layout.addStretch(1)
@@ -516,8 +529,8 @@ class AudioLanguageSelectionDialog(MessageBox):
         # Right list: Selected
         right_layout = QVBoxLayout()
         right_layout.setSpacing(12)
-        right_layout.addWidget(SubtitleLabel("已选排序 (拖拽调整):", content_widget))
-        self.selected_list = QListWidget(content_widget)
+        right_layout.addWidget(SubtitleLabel(self.tr("已选排序 (拖拽调整):"), content_widget))
+        self.selected_list = ListWidget(content_widget)
         self.selected_list.setMinimumWidth(240)
         self.selected_list.setMinimumHeight(250)
         self.selected_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
@@ -542,14 +555,18 @@ class AudioLanguageSelectionDialog(MessageBox):
         # 填充已选
         for code in self.selected_languages_init:
             name = lang_dict.get(code, code)
-            item = QListWidgetItem(f"{name} ({code})")
+            from PySide6.QtCore import QCoreApplication
+            display_name = QCoreApplication.translate("Subtitle", name)
+            item = QListWidgetItem(f"{display_name} ({code})")
             item.setData(Qt.ItemDataRole.UserRole, code)
             self.selected_list.addItem(item)
 
         # 填充备选
         for code, name in self.languages:
             if code not in self.selected_languages_init:
-                item = QListWidgetItem(f"{name} ({code})")
+                from PySide6.QtCore import QCoreApplication
+                display_name = QCoreApplication.translate("Subtitle", name)
+                item = QListWidgetItem(f"{display_name} ({code})")
                 item.setData(Qt.ItemDataRole.UserRole, code)
                 self.available_list.addItem(item)
 
@@ -591,7 +608,7 @@ class AudioLanguageMultiSelectCard(SettingCard):
         self.languages = languages
         self.selected_languages = selected_default if selected_default else []
 
-        self.selectButton = PushButton("设置首选音轨...", self)
+        self.selectButton = PushButton(self.tr("设置首选音轨..."), self)
         self.selectButton.clicked.connect(self._show_dialog)
         self.hBoxLayout.addWidget(self.selectButton, 0, Qt.AlignmentFlag.AlignRight)
         self.hBoxLayout.addSpacing(16)
@@ -600,11 +617,13 @@ class AudioLanguageMultiSelectCard(SettingCard):
 
     def _update_button_text(self):
         if not self.selected_languages:
-            self.selectButton.setText("选择语言 (未设置)")
+            self.selectButton.setText(self.tr("选择语言 (未设置)"))
         else:
             names = []
             for code in self.selected_languages[:3]:
                 name = next((n for c, n in self.languages if c == code), code)
+                from PySide6.QtCore import QCoreApplication
+                name = QCoreApplication.translate("Subtitle", name)
                 names.append(name)
             text = " > ".join(names)
             if len(self.selected_languages) > 3:
@@ -634,8 +653,8 @@ class EmbedTypeComboCard(SettingCard):
 
     # 嵌入类型映射
     EMBED_TYPES = [
-        ("soft", "软嵌入（推荐） - 封装到容器，可开关，多语言"),
-        ("external", "外置文件 - 独立字幕文件（格式见外部菜单），兼容性佳"),
+        ("soft", QCoreApplication.translate("EmbedTypeComboCard", "软嵌入（推荐） - 封装到容器，可开关，多语言")),
+        ("external", QCoreApplication.translate("EmbedTypeComboCard", "外置文件 - 独立字幕文件（格式见外部菜单），兼容性佳")),
     ]
 
     def __init__(
@@ -693,11 +712,13 @@ class InlinePathPickerCard(SettingCard):
         icon,
         title: str,
         content: str | None,
-        button_text: str = "选择",
+        button_text: str | None = None,
         placeholder: str | None = None,
         parent=None,
     ):
         super().__init__(icon, title, content, parent)
+        if button_text is None:
+            button_text = self.tr("选择")
         self.lineEdit = LineEdit(self)
         if placeholder is not None:
             self.lineEdit.setPlaceholderText(placeholder)
@@ -718,12 +739,18 @@ class InlinePathPickerActionCard(SettingCard):
         icon,
         title: str,
         content: str | None,
-        pick_text: str = "选择",
-        action_text: str = "检查",
+        pick_folder: bool = True,
+        file_filter: str = "",
+        pick_text: str | None = None,
+        action_text: str | None = None,
         placeholder: str | None = None,
         parent=None,
     ):
         super().__init__(icon, title, content, parent)
+        if pick_text is None:
+            pick_text = self.tr("选择")
+        if action_text is None:
+            action_text = self.tr("检查")
         self.lineEdit = LineEdit(self)
         if placeholder is not None:
             self.lineEdit.setPlaceholderText(placeholder)

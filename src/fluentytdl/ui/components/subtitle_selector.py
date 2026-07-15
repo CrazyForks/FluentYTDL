@@ -11,12 +11,14 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QGridLayout,
 )
 from qfluentwidgets import (
     CaptionLabel,
     CheckBox,
     ComboBox,
-    TableWidget,
+    SmoothScrollArea,
+    BodyLabel,
 )
 
 from ...processing.subtitle_manager import (
@@ -56,33 +58,41 @@ class SubtitleSelectorWidget(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
-        # 1. 字幕列表表格
-        self.table = TableWidget(self)
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["选择", "语言", "类型", "原始格式"])
-        self.table.verticalHeader().setVisible(False)
-        self.table.setBorderVisible(True)
-        self.table.setBorderRadius(8)
-        self.table.setWordWrap(False)
+        # 1. 字幕列表 (使用 SmoothScrollArea + QGridLayout)
+        self.scroll_area = SmoothScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setStyleSheet(
+            "QScrollArea { background-color: transparent; border: 1px solid rgba(128,128,128,0.2); border-radius: 8px; } "
+            "QWidget#scrollContent { background-color: transparent; }"
+        )
+        self.scroll_content = QWidget()
+        self.scroll_content.setObjectName("scrollContent")
+        self.grid_layout = QGridLayout(self.scroll_content)
+        self.grid_layout.setContentsMargins(8, 8, 8, 8)
+        self.grid_layout.setSpacing(8)
+        self.grid_layout.setColumnStretch(0, 0)
+        self.grid_layout.setColumnStretch(1, 1)
+        self.grid_layout.setColumnStretch(2, 0)
+        self.grid_layout.setColumnStretch(3, 0)
 
-        # Column setup
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        self.table.setColumnWidth(0, 60)
-        self.table.setColumnWidth(2, 100)
-        self.table.setColumnWidth(3, 100)
+        # 添加表头
+        self.grid_layout.addWidget(BodyLabel(self.tr("选择")), 0, 0, Qt.AlignmentFlag.AlignCenter)
+        self.grid_layout.addWidget(BodyLabel(self.tr("语言")), 0, 1, Qt.AlignmentFlag.AlignLeft)
+        self.grid_layout.addWidget(BodyLabel(self.tr("类型")), 0, 2, Qt.AlignmentFlag.AlignCenter)
+        self.grid_layout.addWidget(BodyLabel(self.tr("原始格式")), 0, 3, Qt.AlignmentFlag.AlignCenter)
 
-        # Disable default selection (we use checkboxes)
-        # self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        # TableWidget doesn't easily support NoSelection if we want hover effects,
-        # but we can ignore selection.
+        # 添加分割线
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet("background-color: rgba(128, 128, 128, 0.2); border: none; max-height: 1px;")
+        self.grid_layout.addWidget(line, 1, 0, 1, 4)
 
-        layout.addWidget(self.table)
+        self.scroll_area.setWidget(self.scroll_content)
+        layout.addWidget(self.scroll_area)
 
         # 无字幕提示
-        self.noSubtitleLabel = CaptionLabel("该视频无可用字幕", self)
+        self.noSubtitleLabel = CaptionLabel(self.tr("该视频无可用字幕"), self)
         self.noSubtitleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.noSubtitleLabel.setStyleSheet("color: #888; margin: 20px;")
         self.noSubtitleLabel.hide()
@@ -95,7 +105,7 @@ class SubtitleSelectorWidget(QFrame):
         optRow.addStretch()
 
         # 添加格式选择
-        self.formatLabel = CaptionLabel("字幕格式:", self)
+        self.formatLabel = CaptionLabel(self.tr("字幕格式:"), self)
         self.formatCombo = ComboBox(self)
         self.formatCombo.addItems(["srt", "ass", "vtt", "lrc", "json3"])
 
@@ -114,7 +124,7 @@ class SubtitleSelectorWidget(QFrame):
         optRow.addWidget(self.formatCombo)
 
         # 嵌入选项 (默认隐藏，由外部控制显示)
-        self.embedCheck = CheckBox("嵌入到视频", self)
+        self.embedCheck = CheckBox(self.tr("嵌入到视频"), self)
         self.embedCheck.setChecked(True)
         self.embedCheck.hide()  # 默认隐藏
         optRow.addWidget(self.embedCheck)
@@ -123,15 +133,14 @@ class SubtitleSelectorWidget(QFrame):
 
     def _load_subtitles(self):
         """加载可用字幕列表"""
-        self.table.setRowCount(0)
         self._tracks = extract_subtitle_tracks(self.info)
 
         if not self._tracks:
-            self.table.hide()
+            self.scroll_area.hide()
             self.noSubtitleLabel.show()
             return
 
-        self.table.show()
+        self.scroll_area.show()
         self.noSubtitleLabel.hide()
 
         # 排序：手动 > 自动，然后按语言优先级
@@ -147,75 +156,64 @@ class SubtitleSelectorWidget(QFrame):
 
         self._tracks.sort(key=sort_key)
 
-        self.table.setRowCount(len(self._tracks))
+        # 清理旧的行 (保留表头和分割线)
+        while self.grid_layout.count() > 5:
+            item = self.grid_layout.takeAt(5)
+            if item.widget():
+                item.widget().deleteLater()
 
-        for row, track in enumerate(self._tracks):
-            # 1. Checkbox (Centered)
-            cell_widget = QWidget()
-            layout = QHBoxLayout(cell_widget)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.checkboxes = []
+
+        for idx, track in enumerate(self._tracks):
+            row = idx + 2  # 行 0 是表头, 行 1 是分割线
+            
+            # 1. Checkbox
             cb = CheckBox()
-
-            # 默认选中第一个中文手动字幕，稍后可被 set_initial_state 覆盖
             if (
-                row == 0
+                idx == 0
                 and track.lang_code.startswith("zh")
                 and track.source_type == SubtitleSourceType.MANUAL
             ):
                 cb.setChecked(True)
 
             cb.stateChanged.connect(self.selectionChanged)
-            layout.addWidget(cb)
-            self.table.setCellWidget(row, 0, cell_widget)
+            cb.setProperty("track_data", track)
+            self.grid_layout.addWidget(cb, row, 0, Qt.AlignmentFlag.AlignCenter)
+            self.checkboxes.append(cb)
 
             # 2. Language
             lang_text = f"{track.display_name} ({track.lang_code})"
-            item_lang = QTableWidgetItem(lang_text)
-            item_lang.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            self.table.setItem(row, 1, item_lang)
+            lang_label = BodyLabel(lang_text)
+            self.grid_layout.addWidget(lang_label, row, 1, Qt.AlignmentFlag.AlignLeft)
 
             # 3. Type
             if track.source_type == SubtitleSourceType.MANUAL:
-                type_text = "人工"
+                type_text = self.tr("人工")
                 color = None
             elif track.source_type == SubtitleSourceType.AUTO_GENERATED:
-                type_text = "自动生成"
-                color = Qt.GlobalColor.gray
+                type_text = self.tr("自动生成")
+                color = "#888888"
             else:
-                type_text = "自动翻译"
+                type_text = self.tr("自动翻译")
                 color = None
 
-            item_type = QTableWidgetItem(type_text)
-            item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            item_type.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            type_label = BodyLabel(type_text)
             if color:
-                item_type.setForeground(color)
-            self.table.setItem(row, 2, item_type)
+                type_label.setStyleSheet(f"color: {color};")
+            self.grid_layout.addWidget(type_label, row, 2, Qt.AlignmentFlag.AlignCenter)
 
             # 4. Format
-            item_fmt = QTableWidgetItem(track.ext.upper())
-            item_fmt.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            item_fmt.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            self.table.setItem(row, 3, item_fmt)
-
-            # Store track data
-            item_lang.setData(Qt.ItemDataRole.UserRole, track)
+            fmt_label = BodyLabel(track.ext.upper())
+            self.grid_layout.addWidget(fmt_label, row, 3, Qt.AlignmentFlag.AlignCenter)
 
     def get_selected_tracks(self) -> list[SubtitleTrack]:
         """获取用户选中的轨道"""
         selected = []
-        for row in range(self.table.rowCount()):
-            cell_widget = self.table.cellWidget(row, 0)
-            if not cell_widget:
-                continue
-            # Use findChildren to be safe
-            cbs = cell_widget.findChildren(CheckBox)
-            if cbs and cbs[0].isChecked():
-                item = self.table.item(row, 1)
-                if item is None:
-                    continue
-                track = item.data(Qt.ItemDataRole.UserRole)
+        if not hasattr(self, "checkboxes"):
+            return selected
+        for cb in self.checkboxes:
+            if cb.isChecked():
+                track = cb.property("track_data")
                 if track:
                     selected.append(track)
         return selected
@@ -233,13 +231,12 @@ class SubtitleSelectorWidget(QFrame):
 
     def set_initial_state(self, selected_langs: list[str]):
         """根据之前的选择恢复 checkbox 状态和外部设置"""
-        if not selected_langs:
+        if not selected_langs or not hasattr(self, "checkboxes"):
             return
 
-        for row, track in enumerate(self._tracks):
-            cell_widget = self.table.cellWidget(row, 0)
-            if cell_widget:
-                cb = cell_widget.layout().itemAt(0).widget()
+        for cb in self.checkboxes:
+            track = cb.property("track_data")
+            if track:
                 cb.setChecked(track.lang_code in selected_langs)
 
     def get_opts(self) -> dict[str, Any]:

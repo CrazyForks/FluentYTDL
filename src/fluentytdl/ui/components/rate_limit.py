@@ -1,3 +1,5 @@
+from __future__ import annotations
+from PySide6.QtCore import QT_TRANSLATE_NOOP
 """
 FluentYTDL 动态限速控制组件
 
@@ -7,7 +9,6 @@ FluentYTDL 动态限速控制组件
 - 预设快捷按钮
 """
 
-from __future__ import annotations
 
 from collections.abc import Callable
 
@@ -28,7 +29,7 @@ from ...core.config_manager import config_manager
 
 # 限速预设值 (bytes/s), 0 表示不限速
 RATE_LIMIT_PRESETS = [
-    (0, "不限速"),
+    (0, QCoreApplication.translate("RateLimitSlider", "不限速")),
     (512 * 1024, "512 KB/s"),
     (1024 * 1024, "1 MB/s"),
     (2 * 1024 * 1024, "2 MB/s"),
@@ -42,7 +43,7 @@ RATE_LIMIT_PRESETS = [
 def _format_rate(bytes_per_sec: int) -> str:
     """格式化速度值"""
     if bytes_per_sec <= 0:
-        return "不限速"
+        return QCoreApplication.translate("RateLimitSlider", "不限速")
     elif bytes_per_sec < 1024:
         return f"{bytes_per_sec} B/s"
     elif bytes_per_sec < 1024 * 1024:
@@ -92,8 +93,8 @@ class RateLimitSlider(QWidget):
 
             # 标签行
             label_layout = QHBoxLayout()
-            self.titleLabel = BodyLabel("下载限速", self)
-            self.valueLabel = CaptionLabel("不限速", self)
+            self.titleLabel = BodyLabel(self.tr("下载限速"), self)
+            self.valueLabel = CaptionLabel(QCoreApplication.translate("RateLimitSlider", "不限速"), self)
             self.valueLabel.setStyleSheet("color: #0078D4;")
             label_layout.addWidget(self.titleLabel)
             label_layout.addStretch()
@@ -106,7 +107,7 @@ class RateLimitSlider(QWidget):
 
         # 无限速按钮
         self.unlimitedBtn = ToolButton(FluentIcon.SPEED_HIGH, self)
-        self.unlimitedBtn.setToolTip("取消限速")
+        self.unlimitedBtn.setToolTip(self.tr("取消限速"))
         self.unlimitedBtn.installEventFilter(
             ToolTipFilter(self.unlimitedBtn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -124,7 +125,7 @@ class RateLimitSlider(QWidget):
 
         if self._compact:
             # 紧凑模式：值标签在右侧
-            self.valueLabel = CaptionLabel("不限速", self)
+            self.valueLabel = CaptionLabel(QCoreApplication.translate("RateLimitSlider", "不限速"), self)
             self.valueLabel.setFixedWidth(70)
             self.valueLabel.setStyleSheet("color: #0078D4;")
             slider_layout.addWidget(self.valueLabel)
@@ -236,7 +237,7 @@ class GlobalRateLimitWidget(QWidget):
 
         # 图标
         self.iconBtn = ToolButton(FluentIcon.SPEED_OFF, self)
-        self.iconBtn.setToolTip("全局限速设置")
+        self.iconBtn.setToolTip(self.tr("全局限速设置"))
         self.iconBtn.installEventFilter(
             ToolTipFilter(self.iconBtn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )

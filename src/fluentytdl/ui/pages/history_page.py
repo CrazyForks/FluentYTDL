@@ -53,7 +53,7 @@ class HistoryPage(QWidget):
         layout.setSpacing(16)
 
         # --- 标题行 ---
-        self.title_label = SubtitleLabel("下载历史", self)
+        self.title_label = SubtitleLabel(self.tr("下载历史"), self)
         layout.addWidget(self.title_label)
 
         # --- 工具栏: 搜索 + 操作按钮 ---
@@ -61,7 +61,7 @@ class HistoryPage(QWidget):
         toolbar.setSpacing(8)
 
         self.search_box = SearchLineEdit(self)
-        self.search_box.setPlaceholderText("搜索历史记录...")
+        self.search_box.setPlaceholderText(self.tr("搜索历史记录..."))
         self.search_box.setFixedWidth(280)
         self.search_box.textChanged.connect(self._on_search)
         toolbar.addWidget(self.search_box)
@@ -75,7 +75,7 @@ class HistoryPage(QWidget):
 
         # 刷新
         refresh_btn = TransparentToolButton(FluentIcon.SYNC, self)
-        refresh_btn.setToolTip("刷新列表")
+        refresh_btn.setToolTip(self.tr("刷新列表"))
         refresh_btn.installEventFilter(
             ToolTipFilter(refresh_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -84,7 +84,7 @@ class HistoryPage(QWidget):
 
         # 清理无效
         clean_btn = TransparentToolButton(FluentIcon.BROOM, self)
-        clean_btn.setToolTip("清理文件丢失的记录")
+        clean_btn.setToolTip(self.tr("清理文件丢失的记录"))
         clean_btn.installEventFilter(
             ToolTipFilter(clean_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -93,7 +93,7 @@ class HistoryPage(QWidget):
 
         # 清空全部
         clear_btn = TransparentToolButton(FluentIcon.DELETE, self)
-        clear_btn.setToolTip("清空所有历史")
+        clear_btn.setToolTip(self.tr("清空所有历史"))
         clear_btn.installEventFilter(
             ToolTipFilter(clear_btn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -142,10 +142,10 @@ class HistoryPage(QWidget):
         self.empty_icon.setFixedSize(64, 64)
         empty_icon_layout.addWidget(self.empty_icon)
 
-        self.empty_title = SubtitleLabel("暂无历史记录", self.empty_placeholder)
+        self.empty_title = SubtitleLabel(self.tr("暂无历史记录"), self.empty_placeholder)
         self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.empty_desc = BodyLabel("下载完成的视频将显示在这里", self.empty_placeholder)
+        self.empty_desc = BodyLabel(self.tr("下载完成的视频将显示在这里"), self.empty_placeholder)
         self.empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_desc.setTextColor(QColor(96, 96, 96), QColor(206, 206, 206))
 
@@ -252,7 +252,7 @@ class HistoryPage(QWidget):
         if removed:
             self.reload()
             InfoBar.info(
-                "清理完成",
+                self.tr("清理完成"),
                 f"已移除 {removed} 条无效记录",
                 parent=self.window(),
                 position=InfoBarPosition.TOP,
@@ -260,8 +260,8 @@ class HistoryPage(QWidget):
             )
         else:
             InfoBar.info(
-                "无需清理",
-                "所有记录对应的文件均存在",
+                self.tr("无需清理"),
+                self.tr("所有记录对应的文件均存在"),
                 parent=self.window(),
                 position=InfoBarPosition.TOP,
                 duration=2000,
@@ -271,7 +271,7 @@ class HistoryPage(QWidget):
         if not self._cards:
             return
         box = MessageBox(
-            "清空历史记录",
+            self.tr("清空历史记录"),
             f"确定清空全部 {len(self._cards)} 条历史记录？\n（不会删除已下载的文件）",
             self.window(),
         )
@@ -279,7 +279,7 @@ class HistoryPage(QWidget):
             count = history_service.clear()
             self.reload()
             InfoBar.info(
-                "已清空",
+                self.tr("已清空"),
                 f"已清除 {count} 条历史记录",
                 parent=self.window(),
                 position=InfoBarPosition.TOP,
@@ -308,9 +308,9 @@ class HistoryPage(QWidget):
                 size /= 1024
 
         if total == existing:
-            self.stats_label.setText(f"{total} 条记录{size_str}")
+            self.stats_label.setText(self.tr("{} 条记录{}").format(total, size_str))
         else:
-            self.stats_label.setText(f"{total} 条记录 ({total - existing} 个文件丢失){size_str}")
+            self.stats_label.setText(self.tr("{} 条记录 ({} 个文件丢失){}").format(total, total - existing, size_str))
 
     def count(self) -> int:
         return len(self._cards)

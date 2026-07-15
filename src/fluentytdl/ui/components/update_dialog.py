@@ -5,7 +5,7 @@
 - 新版本号（区分稳定版/预发布版）
 - 更新日志 (Markdown 渲染)
 - 下载进度条
-- 按钮: "立即更新" / "跳过此版本" / "稍后提醒"
+- 按钮: self.tr("立即更新") / self.tr("跳过此版本") / self.tr("稍后提醒")
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ class UpdateDialog(MessageBoxBase):
         # 预发布提示
         if is_prerelease:
             self.preNotice = BodyLabel(
-                "此为预发布版本，可能存在不稳定因素。建议仅在测试环境中使用。", self
+                self.tr("此为预发布版本，可能存在不稳定因素。建议仅在测试环境中使用。"), self
             )
             self.preNotice.setStyleSheet("color: #e6a817;")
             self.viewLayout.addWidget(self.preNotice)
@@ -59,7 +59,7 @@ class UpdateDialog(MessageBoxBase):
         # 更新日志
         self.changelog = TextEdit(self)
         self.changelog.setReadOnly(True)
-        self.changelog.setMarkdown(update_info.get("changelog") or "暂无更新说明")
+        self.changelog.setMarkdown(update_info.get("changelog") or self.tr("暂无更新说明"))
         self.changelog.setMaximumHeight(250)
         self.viewLayout.addWidget(self.changelog)
 
@@ -73,10 +73,10 @@ class UpdateDialog(MessageBoxBase):
         self.viewLayout.addWidget(self.progressBar)
 
         # 按钮
-        self.yesButton.setText("立即更新")
-        self.cancelButton.setText("稍后提醒")
+        self.yesButton.setText(self.tr("立即更新"))
+        self.cancelButton.setText(self.tr("稍后提醒"))
 
-        self.skipBtn = PushButton("跳过此版本", self.buttonGroup)
+        self.skipBtn = PushButton(self.tr("跳过此版本"), self.buttonGroup)
         self.buttonLayout.insertWidget(1, self.skipBtn)
 
         # 信号：断开默认 accept，改为下载
@@ -92,14 +92,14 @@ class UpdateDialog(MessageBoxBase):
     def _on_update_clicked(self) -> None:
         url = self.update_info.get("url") or self.update_info.get("download_url")
         if not url:
-            self.progressLabel.setText("下载地址无效")
+            self.progressLabel.setText(self.tr("下载地址无效"))
             self.progressLabel.show()
             return
 
         self.yesButton.setEnabled(False)
         self.skipBtn.setEnabled(False)
         self.cancelButton.setEnabled(False)
-        self.progressLabel.setText("正在下载更新...")
+        self.progressLabel.setText(self.tr("正在下载更新..."))
         self.progressLabel.show()
         self.progressBar.show()
 
@@ -111,7 +111,7 @@ class UpdateDialog(MessageBoxBase):
         self.progressLabel.setText(f"正在下载更新... {percent}%")
 
     def _on_downloaded(self, path: str) -> None:
-        self.progressLabel.setText("下载完成，正在安装...")
+        self.progressLabel.setText(self.tr("下载完成，正在安装..."))
         try:
             component_update_manager.apply_app_core_update(path)
         except Exception as e:

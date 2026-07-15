@@ -98,7 +98,7 @@ class CoverSelectorWidget(QFrame):
 
             width = t.get("width") or 0
             height = t.get("height") or 0
-            res = f"{width}x{height}" if width and height else "未知"
+            res = f"{width}x{height}" if width and height else self.tr("未知")
             t_id = t.get("id") or "unknown"
 
             # 尝试从 URL 推断格式
@@ -152,14 +152,14 @@ class CoverSelectorWidget(QFrame):
         layout.setSpacing(12)
 
         # 标题及提示
-        self.titleLabel = BodyLabel("🖼️ 封面选择", self)
+        self.titleLabel = BodyLabel(self.tr("🖼️ 封面选择"), self)
         font = self.titleLabel.font()
         font.setBold(True)
         self.titleLabel.setFont(font)
         layout.addWidget(self.titleLabel)
 
         self.tipLabel = CaptionLabel(
-            "提示：YouTube 封面的分辨率为画布标称值，并非实际图片像素。⚠️ 标记的版本可能不存在。",
+            self.tr("提示：YouTube 封面的分辨率为画布标称值，并非实际图片像素。⚠️ 标记的版本可能不存在。"),
             self,
         )
         self.tipLabel.setStyleSheet("color: #888888;")
@@ -172,7 +172,7 @@ class CoverSelectorWidget(QFrame):
         # 左侧表格
         self.table = TableWidget(self)
         self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["分辨率", "ID", "格式"])
+        self.table.setHorizontalHeaderLabels([self.tr("分辨率"), "ID", self.tr("格式")])
         self.table.verticalHeader().hide()
         self.table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.ResizeToContents
@@ -191,7 +191,7 @@ class CoverSelectorWidget(QFrame):
             # 分辨率
             res_str = t["res"]
             if t["width"] and t["height"]:
-                res_str += " (标称)"
+                res_str += self.tr(" (标称)")
 
             res_item = QTableWidgetItem(res_str)
             res_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -203,7 +203,7 @@ class CoverSelectorWidget(QFrame):
                 id_str += " ⚠️"
             id_item = QTableWidgetItem(id_str)
             if "maxres" in id_str:
-                id_item.setToolTip("最高画质封面可能不存在，若下载报错请选择其他版本")
+                id_item.setToolTip(self.tr("最高画质封面可能不存在，若下载报错请选择其他版本"))
             self.table.setItem(i, 1, id_item)
 
             # 格式
@@ -232,7 +232,7 @@ class CoverSelectorWidget(QFrame):
         self.previewLabel.setFixedSize(220, 124)  # 16:9 ratio approx
         self.previewLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.previewInfo = CaptionLabel("预览加载中...", previewContainer)
+        self.previewInfo = CaptionLabel(self.tr("预览加载中..."), previewContainer)
         self.previewInfo.setWordWrap(True)
         self.previewInfo.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -297,11 +297,11 @@ class CoverSelectorWidget(QFrame):
 
         text = id_item.text().replace(" ⚠️", "")
         if is_valid:
-            id_item.setText(text + " (真实可用)")
-            id_item.setToolTip("该分辨率版本经检测实际存在")
+            id_item.setText(text + self.tr(" (真实可用)"))
+            id_item.setToolTip(self.tr("该分辨率版本经检测实际存在"))
         else:
             id_item.setText(text + " ❌ 404")
-            id_item.setToolTip("该版本由于 YouTube 服务端未提供导致 404 错误")
+            id_item.setToolTip(self.tr("该版本由于 YouTube 服务端未提供导致 404 错误"))
 
             # Change text color to red or gray to indicate it's invalid
             from PySide6.QtGui import QColor

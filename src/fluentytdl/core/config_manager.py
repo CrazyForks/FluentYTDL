@@ -19,6 +19,7 @@ class ConfigManager(QObject):
 
     DEFAULT_CONFIG: dict[str, Any] = {
         "download_dir": str(Path.home() / "Downloads" / "FluentYTDL"),
+        "app_language": "auto",  # auto / zh_CN / en_US
         "ffmpeg_path": "",  # 空代表自动检测
         # Proxy mode:
         # - off: do NOT use system/ambient proxy

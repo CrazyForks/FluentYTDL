@@ -54,7 +54,7 @@ class LogViewerDialog(MessageBoxBase):
         super().__init__(parent)
 
         self._log_buffer: deque[tuple[str, str, str, str]] = deque(maxlen=self.MAX_LINES)
-        self._current_filter_level = "全部"
+        self._current_filter_level = self.tr("全部")
         self._current_search = ""
         self._auto_scroll = True
 
@@ -98,7 +98,7 @@ class LogViewerDialog(MessageBoxBase):
         self.widget.setMinimumHeight(600)
 
         # 标题
-        self.titleLabel = SubtitleLabel("📋 运行日志", self.widget)
+        self.titleLabel = SubtitleLabel(self.tr("📋 运行日志"), self.widget)
         self.viewLayout.addWidget(self.titleLabel)
 
         # 工具栏
@@ -108,14 +108,14 @@ class LogViewerDialog(MessageBoxBase):
 
         # 级别过滤
         self.levelCombo = ComboBox()
-        self.levelCombo.addItems(["全部", "DEBUG", "INFO", "WARNING", "ERROR"])
+        self.levelCombo.addItems([self.tr("全部"), "DEBUG", "INFO", "WARNING", "ERROR"])
         self.levelCombo.setCurrentText("INFO")
         self._current_filter_level = "INFO"
         toolbar_layout.addWidget(self.levelCombo)
 
         # 搜索框
         self.searchEdit = SearchLineEdit()
-        self.searchEdit.setPlaceholderText("搜索日志...")
+        self.searchEdit.setPlaceholderText(self.tr("搜索日志..."))
         self.searchEdit.setFixedWidth(200)
         toolbar_layout.addWidget(self.searchEdit)
 
@@ -123,7 +123,7 @@ class LogViewerDialog(MessageBoxBase):
 
         # 清屏按钮
         self.clearBtn = ToolButton(FluentIcon.DELETE)
-        self.clearBtn.setToolTip("清屏")
+        self.clearBtn.setToolTip(self.tr("清屏"))
         self.clearBtn.installEventFilter(
             ToolTipFilter(self.clearBtn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -131,7 +131,7 @@ class LogViewerDialog(MessageBoxBase):
 
         # 打开目录按钮
         self.openDirBtn = ToolButton(FluentIcon.FOLDER)
-        self.openDirBtn.setToolTip("打开日志目录")
+        self.openDirBtn.setToolTip(self.tr("打开日志目录"))
         self.openDirBtn.installEventFilter(
             ToolTipFilter(self.openDirBtn, showDelay=300, position=ToolTipPosition.BOTTOM)
         )
@@ -164,7 +164,7 @@ class LogViewerDialog(MessageBoxBase):
         status_layout.addWidget(self.statusLabel)
         status_layout.addStretch()
 
-        self.lineCountLabel = SubtitleLabel("0 行")
+        self.lineCountLabel = SubtitleLabel(self.tr("0 行"))
         self.lineCountLabel.setStyleSheet("color: #888; font-size: 11px;")
         status_layout.addWidget(self.lineCountLabel)
 
@@ -174,7 +174,7 @@ class LogViewerDialog(MessageBoxBase):
 
         # 隐藏默认按钮
         self.yesButton.hide()
-        self.cancelButton.setText("关闭")
+        self.cancelButton.setText(self.tr("关闭"))
 
     def _connect_signals(self):
         """连接信号"""
@@ -210,7 +210,7 @@ class LogViewerDialog(MessageBoxBase):
     def _should_show(self, level: str, message: str) -> bool:
         """检查日志是否应该显示"""
         # 级别过滤
-        if self._current_filter_level != "全部":
+        if self._current_filter_level != self.tr("全部"):
             try:
                 filter_idx = LEVEL_ORDER.index(self._current_filter_level)
                 log_idx = LEVEL_ORDER.index(level) if level in LEVEL_ORDER else 1

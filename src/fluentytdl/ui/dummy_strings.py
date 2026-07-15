@@ -1,0 +1,25 @@
+from PySide6.QtCore import QCoreApplication
+
+def _dummy_translation_strings():
+    # Common subtitle languages
+    QCoreApplication.translate("Subtitle", "中文(简体)")
+    QCoreApplication.translate("Subtitle", "中文(繁体)")
+    QCoreApplication.translate("Subtitle", "英语")
+    QCoreApplication.translate("Subtitle", "日语")
+    QCoreApplication.translate("Subtitle", "韩语")
+    QCoreApplication.translate("Subtitle", "法语")
+    QCoreApplication.translate("Subtitle", "德语")
+    QCoreApplication.translate("Subtitle", "西班牙语")
+    QCoreApplication.translate("Subtitle", "葡萄牙语")
+    QCoreApplication.translate("Subtitle", "意大利语")
+    QCoreApplication.translate("Subtitle", "俄语")
+    QCoreApplication.translate("Subtitle", "阿拉伯语")
+    QCoreApplication.translate("Subtitle", "印地语")
+    QCoreApplication.translate("Subtitle", "泰语")
+    QCoreApplication.translate("Subtitle", "越南语")
+    QCoreApplication.translate("Subtitle", "印尼语")
+    QCoreApplication.translate("Subtitle", "土耳其语")
+    QCoreApplication.translate("Subtitle", "荷兰语")
+    QCoreApplication.translate("Subtitle", "波兰语")
+    QCoreApplication.translate("Subtitle", "瑞典语")
+    QCoreApplication.translate("Subtitle", "挪威语")

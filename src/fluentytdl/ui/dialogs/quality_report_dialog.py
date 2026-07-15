@@ -14,13 +14,13 @@ class QualityReportDialog(MessageBoxBase):
         self.titleLabel = SubtitleLabel(f"🛡️ 质量守卫报告 ({len(warnings)} 项异常)", self)
         self.viewLayout.addWidget(self.titleLabel)
 
-        msg = "以下任务无法达到目标画质，继续下载可能会输出较低质量的视频："
+        msg = self.tr("以下任务无法达到目标画质，继续下载可能会输出较低质量的视频：")
         self.msgLabel = BodyLabel(msg, self)
         self.viewLayout.addWidget(self.msgLabel)
 
         self.table = TableWidget(self)
         self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["标题", "目标", "实际", "偏差"])
+        self.table.setHorizontalHeaderLabels([self.tr("标题"), self.tr("目标"), self.tr("实际"), self.tr("偏差")])
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -44,8 +44,8 @@ class QualityReportDialog(MessageBoxBase):
 
         self._populate_table(warnings)
 
-        self.yesButton.setText("仍然下载这些任务")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("仍然下载这些任务"))
+        self.cancelButton.setText(self.tr("取消"))
 
     def _populate_table(self, warnings):
         self.table.setRowCount(len(warnings))
@@ -53,8 +53,8 @@ class QualityReportDialog(MessageBoxBase):
             self.table.setItem(i, 0, QTableWidgetItem(title))
 
             parts = v.deviation.split("→")
-            target = parts[0].strip().replace("目标", "").strip() if len(parts) > 1 else "-"
-            actual = f"{v.actual_height}p" if v.actual_height else "未知"
+            target = parts[0].strip().replace(self.tr("目标"), "").strip() if len(parts) > 1 else "-"
+            actual = f"{v.actual_height}p" if v.actual_height else self.tr("未知")
 
             self.table.setItem(i, 1, QTableWidgetItem(target))
             self.table.setItem(i, 2, QTableWidgetItem(actual))

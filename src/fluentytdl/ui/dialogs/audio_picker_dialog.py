@@ -57,7 +57,7 @@ class AudioPickerDialog(MessageBoxBase):
         self._checkboxes: list[CheckBox] = []
 
         # 顶部标题
-        self.titleLabel = SubtitleLabel("精选音轨", self)
+        self.titleLabel = SubtitleLabel(self.tr("精选音轨"), self)
         self.viewLayout.addWidget(self.titleLabel)
 
         # 筛选区
@@ -65,15 +65,15 @@ class AudioPickerDialog(MessageBoxBase):
         filter_layout.setSpacing(12)
 
         self.lang_segment = SegmentedWidget(self)
-        self.lang_segment.addItem("all", "全部语言")
+        self.lang_segment.addItem("all", self.tr("全部语言"))
         self.lang_segment.currentItemChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self.lang_segment)
 
         filter_layout.addStretch(1)
 
-        filter_layout.addWidget(CaptionLabel("编码:", self))
+        filter_layout.addWidget(CaptionLabel(self.tr("编码:"), self))
         self.codec_combo = ComboBox(self)
-        self.codec_combo.addItems(["全部"])
+        self.codec_combo.addItems([self.tr("全部")])
         self.codec_combo.currentIndexChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self.codec_combo)
 
@@ -82,7 +82,7 @@ class AudioPickerDialog(MessageBoxBase):
         # 音轨列表表格
         self.table = TableWidget(self)
         self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["选择", "语言", "类型", "编码", "码率", "大小"])
+        self.table.setHorizontalHeaderLabels([self.tr("选择"), self.tr("语言"), self.tr("类型"), self.tr("编码"), self.tr("码率"), self.tr("大小")])
         self.table.verticalHeader().setVisible(False)
         self.table.setBorderVisible(True)
         self.table.setBorderRadius(8)
@@ -115,8 +115,8 @@ class AudioPickerDialog(MessageBoxBase):
         self._load_tracks()
 
         # 按钮文本
-        self.yesButton.setText("确认")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(self.tr("确认"))
+        self.cancelButton.setText(self.tr("取消"))
         self.widget.setMinimumWidth(650)
         self.widget.setMinimumHeight(450)
 
@@ -185,13 +185,13 @@ class AudioPickerDialog(MessageBoxBase):
             self._checkboxes.append(cb)
 
             # Language
-            lang_str = track.display_name or track.language or "未知/原音"
+            lang_str = track.display_name or track.language or self.tr("未知/原音")
             item_lang = QTableWidgetItem(lang_str)
             item_lang.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row_idx, 1, item_lang)
 
             # Type
-            type_str = "原音" if track.audio_track_type == "original" else "配音"
+            type_str = self.tr("原音") if track.audio_track_type == "original" else self.tr("配音")
             item_type = QTableWidgetItem(type_str)
             item_type.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row_idx, 2, item_type)
@@ -203,7 +203,7 @@ class AudioPickerDialog(MessageBoxBase):
             self.table.setItem(row_idx, 3, item_codec)
 
             # Bitrate
-            br_str = f"{int(track.abr)} kbps" if track.abr else "未知"
+            br_str = f"{int(track.abr)} kbps" if track.abr else self.tr("未知")
             # 推荐标识：如果它是 best_ids 的一员
             if track.format_id in best_ids:
                 br_str += " ⭐"
@@ -213,7 +213,7 @@ class AudioPickerDialog(MessageBoxBase):
             self.table.setItem(row_idx, 4, item_br)
 
             # Size
-            size_str = "未知"
+            size_str = self.tr("未知")
             if track.filesize:
                 mb = track.filesize / 1024 / 1024
                 size_str = f"{mb:.1f} MB"
@@ -252,13 +252,13 @@ class AudioPickerDialog(MessageBoxBase):
         else:
             if count > 1 and not container:
                 self._compat_label.setText(
-                    "💡 由于您选择了多个音轨，输出容器将自动设为 MKV 以保证兼容性。"
+                    self.tr("💡 由于您选择了多个音轨，输出容器将自动设为 MKV 以保证兼容性。")
                 )
                 self._compat_label.setStyleSheet("color: #8D9BE2;")
                 self._compat_label.show()
             elif count > 1 and container == "mp4":
                 self._compat_label.setText(
-                    "⚠ 警告: MP4 容器对多音轨支持不佳，可能会在部分播放器中无法切换音频或出现异常。\n如果您继续使用 MP4，建议仅供测试使用。"
+                    self.tr("⚠ 警告: MP4 容器对多音轨支持不佳，可能会在部分播放器中无法切换音频或出现异常。\n如果您继续使用 MP4，建议仅供测试使用。")
                 )
                 self._compat_label.setStyleSheet("color: #E2C08D;")
                 self._compat_label.show()
