@@ -252,20 +252,7 @@ def _webview_subprocess(
                     all_raw = list(yt_cookies) + list(google_cookies)
                     all_names = _get_cookie_names(all_raw)
                     has_core = LOGIN_INDICATOR_GOOGLE & all_names
-                    _log(f"合并后共 {len(all_raw)} 个, core匹配={has_core}")        time.sleep(3)
-                    google_cookies = win.get_cookies() or []
-                    google_names = _get_cookie_names(google_cookies)
-                    _log(
-                        f"Google 域 {len(google_cookies)} 个 Cookie, names={list(google_names)[:10]}"
-                    )
-                except Exception as e:
-                    _log(f"⚠️ 获取 Google Cookie 失败: {e}")
-
-                # 步骤 4: 合并+格式化+回传
-                all_raw = list(yt_cookies) + list(google_cookies)
-                all_names = _get_cookie_names(all_raw)
-                has_core = LOGIN_INDICATOR_GOOGLE & all_names
-                _log(f"合并后共 {len(all_raw)} 个, core匹配={has_core}")
+                    _log(f"合并后共 {len(all_raw)} 个, core匹配={has_core}")
 
                 formatted = _format_cookies(all_raw)
                 _log(f"格式化后 {len(formatted)} 个 Cookie")
