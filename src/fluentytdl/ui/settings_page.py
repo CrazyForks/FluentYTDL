@@ -86,7 +86,7 @@ class CookieRefreshWorker(QThread):
                     message = (
                         f"无法从 {browser_name} 提取 Cookie\n\n" +
                         self.tr("可能的原因：\n") +
-                        f"1. {browser_name} 未安装或未登录 YouTube\n"
+                        f"1. {browser_name} 未安装或未登录相关平台\n"
                         f"2. {browser_name} Cookie 数据库被锁定（请关闭浏览器）\n\n" +
                         self.tr("建议：完全关闭浏览器后重试")
                     )
@@ -1337,10 +1337,10 @@ class SettingsPage(QWidget):
 
         # WebView2 登录按钮
         self.webview2LoginCard = PushSettingCard(
-            self.tr("登录 YouTube"),
+            self.tr("启动安全登录"),
             FluentIcon.GLOBE,
             self.tr("🔑 账号登录"),
-            self.tr("通过内置浏览器安全登录 YouTube，自动提取并保存 Cookie"),
+            self.tr("通过内置浏览器安全登录各大平台，自动提取并保存 Cookie"),
             self.accountGroup,
         )
         self.webview2LoginCard.clicked.connect(self._on_webview2_login_clicked)
@@ -1649,7 +1649,7 @@ class SettingsPage(QWidget):
         self.clipboardDetectCard = InlineSwitchCard(
             FluentIcon.EDIT,
             self.tr("剪贴板自动识别"),
-            self.tr("自动识别复制的 YouTube 链接并弹出解析窗口（默认关闭）"),
+            self.tr("自动识别复制的视频链接并弹出解析窗口（默认关闭）"),
             parent=self.automationGroup,
         )
         self.clipboardDetectCard.checkedChanged.connect(self._on_clipboard_detect_changed)
@@ -2720,7 +2720,7 @@ class SettingsPage(QWidget):
 
             InfoBar.info(
                 self.tr("已切换到登录获取模式"),
-                self.tr("请点击「登录 YouTube」按钮进行账号认证"),
+                self.tr("请点击「启动安全登录」按钮进行账号认证"),
                 duration=3000,
                 parent=self,
             )
@@ -2896,14 +2896,14 @@ class SettingsPage(QWidget):
                     acc_cookie = current_acc.cached_cookie_path if current_acc else "未知"
                     InfoBar.info(
                         self.tr("登录成功"),
-                        self.tr("YouTube Cookie 已成功提取并保存（{}）\n账号文件: {}\n统一文件: {}").format(
+                        self.tr("Cookie 已成功提取并保存（{}）\n账号文件: {}\n统一文件: {}").format(
                             account_name, acc_cookie, cookie_sentinel.cookie_path
                         ),
                         duration=5000,
                         parent=self,
                     )
                 else:
-                    self.webview2LoginCard.setContent("❌ 登录未完成，请重新点击「登录 YouTube」")
+                    self.webview2LoginCard.setContent("❌ 登录未完成，请重新点击「启动安全登录」")
                     # 解析错误消息，去掉「刷新异常:」前缀
                     clean_msg = message
                     if clean_msg.startswith("刷新异常: "):
@@ -3194,7 +3194,7 @@ class SettingsPage(QWidget):
 
             if not info["exists"]:
                 if current_source == AuthSourceType.WEBVIEW2:
-                    status_text = self.tr("🔑 WebView2 模式 — 尚未登录，请点击「登录 YouTube」按钮")
+                    status_text = self.tr("🔑 WebView2 模式 — 尚未登录，请点击「启动安全登录」按钮")
                 elif current_source == AuthSourceType.FILE:
                     status_text = self.tr("❌ Cookie 文件不存在，请重新选择文件")
                 else:
