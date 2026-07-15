@@ -413,12 +413,15 @@ class CookieSentinel:
         )
         thread.start()
 
-    def force_refresh_with_uac(self) -> tuple[bool, str]:
+    def force_refresh_with_uac(self, platform: str | None = None) -> tuple[bool, str]:
         """
         强制刷新 Cookie（允许 UAC 提权）
 
         用于用户手动触发修复或下载失败后的重试。
         采用延迟清理策略：只有成功提取后才覆盖旧文件。
+
+        Args:
+            platform: 指定更新的平台（None 则更新所有支持的平台）
 
         Returns:
             (成功标志, 状态消息)
@@ -457,7 +460,7 @@ class CookieSentinel:
                     return False, "手动导入的 Cookie 文件不存在或无效"
 
             # 浏览器来源：强制刷新（允许 UAC）
-            success = self._update_from_browser(silent=False, force=True)
+            success = self._update_from_browser(silent=False, force=True, platform=platform)
 
             if success:
                 # 提取成功，保存元数据，清除回退状态
@@ -617,19 +620,20 @@ class CookieSentinel:
 
     # ==================== 内部方法 ====================
 
-    def _update_from_browser(self, silent: bool = False, force: bool = False) -> bool:
+    def _update_from_browser(self, silent: bool = False, force: bool = False, platform: str | None = None) -> bool:
         """
         从浏览器更新支持平台 (YouTube, X) 的 Cookie
 
         Args:
             silent: 静默模式（失败不抛出异常）
             force: 强制刷新（允许 UAC）
+            platform: 指定更新的平台（None 则更新所有支持的平台）
 
         Returns:
             更新是否成功 (只要任一平台成功即为 True)
         """
         success_any = False
-        platforms = ["youtube", "twitter"]
+        platforms = [platform] if platform else ["youtube", "twitter"]
         for platform in platforms:
             try:
                 # 通过 AuthService 获取 Cookie 文件

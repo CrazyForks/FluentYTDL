@@ -69,13 +69,13 @@ class QuickAddPanel(QWidget):
         self.cardLayout.setSpacing(15)
 
         self.instructionLabel = BodyLabel(
-            self.tr("每行输入一个链接，可粘贴多个 YouTube 视频/频道/播放列表链接"), self
+            self.tr("每行输入一个链接，可粘贴多个 YouTube / X 平台 视频链接"), self
         )
         self.cardLayout.addWidget(self.instructionLabel)
 
         self.urlInput = TextEdit(self)
         self.urlInput.setPlaceholderText(
-            "https://www.youtube.com/watch?v=...\nhttps://www.youtube.com/playlist?list=..."
+            "https://www.youtube.com/watch?v=...\nhttps://x.com/username/status/..."
         )
         self.urlInput.setMinimumHeight(120)
         self.urlInput.setAcceptRichText(False)
@@ -290,21 +290,39 @@ class QuickAddPanel(QWidget):
             )
             return
 
+        from ..utils.url_router import UrlRouter
+        from PySide6.QtWidgets import QApplication
+
+        self.startBtn.setEnabled(False)
+        self.startBtn.setText(self.tr("处理中..."))
+        QApplication.processEvents()
+
         urls = []
+        unsupported = []
+        
         for line in text.split("\n"):
             line = line.strip()
-            # 允许 ytsearch: 等 yt-dlp 支持的前缀，或者 http 链接
-            if line and (
-                line.startswith("http://")
-                or line.startswith("https://")
-                or line.startswith("ytsearch")
-            ):
+            if not line:
+                continue
+                
+            if line.startswith("ytsearch"):
                 urls.append(line)
+                continue
+                
+            if line.startswith("http://") or line.startswith("https://"):
+                result = UrlRouter.route(line)
+                if result.is_supported:
+                    urls.append(result.final_url)
+                else:
+                    unsupported.append(line)
+
+        self.startBtn.setEnabled(True)
+        self.startBtn.setText(self.tr("直接下载"))
 
         if not urls:
             InfoBar.warning(
                 title=self.tr("没有检测到有效链接"),
-                content=self.tr("请确保每行包含以 http:// 或 https:// 开头的有效网址。"),
+                content=self.tr("请确保输入了支持的平台（如 YouTube, X）有效网址。"),
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
                 position=InfoBarPosition.TOP,
@@ -312,6 +330,17 @@ class QuickAddPanel(QWidget):
                 parent=self.window(),
             )
             return
+
+        if unsupported:
+            InfoBar.warning(
+                title=self.tr("部分链接跳过"),
+                content=self.tr("跳过了 {} 个不支持或无法解析的链接。").format(len(unsupported)),
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=4000,
+                parent=self.window(),
+            )
 
         params = QuickDownloadParams()
         params.download_type = self.typeCombo.currentData()

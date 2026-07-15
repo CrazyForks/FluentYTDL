@@ -52,8 +52,9 @@ class CookieRefreshWorker(QThread):
 
     finished = Signal(bool, str, bool)  # (成功标志, 消息, 是否需要管理员权限)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, platform: str | None = None):
         super().__init__(parent)
+        self.platform = platform
 
     def run(self):
         """在Qt线程中执行Cookie刷新"""
@@ -66,7 +67,7 @@ class CookieRefreshWorker(QThread):
 
         try:
             # 直接刷新（调用前已检查权限，或已是管理员/非Edge/Chrome）
-            success, message = cookie_sentinel.force_refresh_with_uac()
+            success, message = cookie_sentinel.force_refresh_with_uac(platform=self.platform)
 
             if not success:
                 # 获取详细状态
@@ -2857,7 +2858,14 @@ class SettingsPage(QWidget):
 
     def _on_webview2_login_clicked(self):
         """WebView2 登录按钮点击 - 启动浏览器登录流程"""
+        from .dialogs.platform_selector_dialog import PlatformSelectorDialog
         from ..auth.auth_service import AuthSourceType, auth_service
+        
+        dialog = PlatformSelectorDialog(self.window())
+        if not dialog.exec():
+            return
+            
+        platform = dialog.get_selected_platform()
 
         # 保证处于 WebView2 模式
         auth_service.set_source(AuthSourceType.WEBVIEW2, auto_refresh=False)
@@ -2871,7 +2879,7 @@ class SettingsPage(QWidget):
         )
 
         # 执行刷新
-        self._do_cookie_refresh()
+        self._do_cookie_refresh(platform=platform)
 
         # 挂载完成回调（worker 已在 _do_cookie_refresh 中创建）
         if self._cookie_worker:
@@ -3106,9 +3114,16 @@ class SettingsPage(QWidget):
         self._cookie_worker.start()
 
     def _select_cookie_file(self):
-        """选择 Cookie 文件并导入到 bin/cookies.txt"""
+        """选择 Cookie 文件并导入到相应平台的 cookies.txt"""
 
         from ..auth.auth_service import AuthSourceType, auth_service
+        from .dialogs.platform_selector_dialog import PlatformSelectorDialog
+        
+        dialog = PlatformSelectorDialog(self.window())
+        if not dialog.exec():
+            return
+            
+        platform = dialog.get_selected_platform()
 
         file_path, _ = QFileDialog.getOpenFileName(
             self, "选择 Cookies 文件", "", "Cookies 文件 (*.txt);;所有文件 (*.*)"
@@ -3116,7 +3131,7 @@ class SettingsPage(QWidget):
 
         if file_path:
             # 验证提取写入一条龙导入
-            status = auth_service.import_manual_cookie_file(file_path)
+            status = auth_service.import_manual_cookie_file(file_path, platform=platform)
 
             if not status.valid:
                 InfoBar.error(self.tr("文件格式有问题"), status.message, duration=5000, parent=self)

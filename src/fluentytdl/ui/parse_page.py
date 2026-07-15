@@ -64,7 +64,7 @@ class ParsePage(QWidget):
         self.cardLayout.setSpacing(15)
 
         self.instructionLabel = BodyLabel(
-            self.tr("在此处粘贴 YouTube 视频链接 (支持 Short/Live/Playlist/Channel)"), self
+            self.tr("在此处粘贴视频链接 (支持 YouTube / X 平台)"), self
         )
         self.cardLayout.addWidget(self.instructionLabel)
 
@@ -75,10 +75,11 @@ class ParsePage(QWidget):
         self.inputLayout = QHBoxLayout()
 
         self.urlInput = LineEdit(self)
-        self.urlInput.setPlaceholderText("https://www.youtube.com/watch?v=...")
+        self.urlInput.setPlaceholderText("https://www.youtube.com/... 或 https://x.com/...")
         self.urlInput.setClearButtonEnabled(True)
         self.urlInput.setMinimumWidth(560)
         self.urlInput.returnPressed.connect(self.on_parse_clicked)
+        self.urlInput.textChanged.connect(self.on_url_changed)
 
         self.inputLayout.addWidget(self.urlInput)
 
@@ -104,10 +105,10 @@ class ParsePage(QWidget):
         # Extra compact tips to reduce emptiness and guide users
         self.tipsLabel = CaptionLabel(
             self.tr("支持格式示例：\n") +
-            "- https://www.youtube.com/watch?v=...\n"
-            "- https://youtu.be/...\n"
-            "- https://www.youtube.com/playlist?list=...\n" +
-            self.tr("- https://www.youtube.com/@ChannelName（频道请使用「频道下载」页面）"),
+            "- YouTube: https://www.youtube.com/watch?v=... 或 https://youtu.be/...\n" +
+            "- X (Twitter): https://x.com/username/status/123456789...\n" +
+            self.tr("- 注意：X 平台仅支持单个推文视频解析，暂不支持主页/列表等。\n") +
+            self.tr("- YouTube 频道请使用「频道下载」页面"),
             self,
         )
         self.tipsLabel.setWordWrap(True)
@@ -134,10 +135,43 @@ class ParsePage(QWidget):
             f"CardWidget {{ background-color: {card_bg}; border-radius: 12px; border: 1px solid {card_bd}; }}"
         )
 
+    def on_url_changed(self, text: str) -> None:
+        text = text.strip()
+        if not text:
+            self.hintLabel.setText(self.tr("提示：如需自动识别剪贴板，请到“设置 → 体验”开启。"))
+            return
+            
+        from ..utils.validators import UrlValidator
+        if UrlValidator.is_youtube_url(text):
+            self.hintLabel.setText(self.tr("✅ 已识别为 YouTube 链接"))
+        elif UrlValidator.is_x_url(text):
+            if UrlValidator.is_x_video_url(text):
+                self.hintLabel.setText(self.tr("✅ 已识别为 X (Twitter) 视频链接"))
+            else:
+                self.hintLabel.setText(self.tr("❌ 不支持的 X 链接：请提供包含 status/ 的具体推文视频链接"))
+        else:
+            self.hintLabel.setText(self.tr("❓ 未知或暂不支持的链接格式"))
+
     def on_parse_clicked(self) -> None:
         url = self.urlInput.text().strip()
-        if url:
-            self.parse_requested.emit(url)
+        if not url:
+            return
+            
+        from ..utils.validators import UrlValidator
+        if UrlValidator.is_x_url(url) and not UrlValidator.is_x_video_url(url):
+            from qfluentwidgets import InfoBar, InfoBarPosition
+            InfoBar.error(
+                title=self.tr("不支持的 X 链接"),
+                content=self.tr("目前仅支持 X (Twitter) 的单推文视频链接 (包含 status/)，暂不支持主页、列表或空间等链接。"),
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=4000,
+                parent=self
+            )
+            return
+
+        self.parse_requested.emit(url)
 
     def on_paste_clicked(self) -> None:
         text = (QApplication.clipboard().text() or "").strip()
