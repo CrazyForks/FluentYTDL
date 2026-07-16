@@ -14,10 +14,15 @@ def main():
         qm_file = ts_file.with_suffix(".qm")
         print(f"Releasing {qm_file}...")
         
-        # 调用 pyside6-lrelease 将 ts 编译为 qm 二进制文件
-        lrelease_exe = root_dir / ".venv" / "Lib" / "site-packages" / "PySide6" / "lrelease.exe"
+        # 获取 PySide6 的安装路径
+        import PySide6
+        pyside_dir = Path(PySide6.__file__).parent
+        
+        lrelease_exe = pyside_dir / "lrelease.exe"
         if not lrelease_exe.exists():
-            lrelease_exe = "lrelease"
+            lrelease_exe = pyside_dir / "lrelease"
+            if not lrelease_exe.exists():
+                lrelease_exe = "lrelease"
         cmd = [
             str(lrelease_exe),
             str(ts_file),
