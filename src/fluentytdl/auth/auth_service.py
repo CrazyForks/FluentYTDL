@@ -239,7 +239,9 @@ class AuthService:
         self._load_config()
         self._load_webview2_accounts()
         self._migrate_legacy_webview2_cache_if_needed()
-        self._ensure_current_webview2_account_valid()
+        self._migrate_accounts_to_platform_isolated_dirs()
+        self._ensure_current_webview2_account_valid("youtube")
+        self._ensure_current_webview2_account_valid("twitter")
 
     # ==================== 属性 ====================
 
@@ -1105,7 +1107,7 @@ class AuthService:
         self, account_id: str, platform: str = "youtube"
     ) -> tuple[Path, Path]:
         """构建 WebView2 账号 profile 与缓存路径"""
-        root = self._webview2_accounts_dir / account_id
+        root = self._webview2_accounts_dir / platform / account_id
         profile_dir = root / "profile"
         cache_file = root / "cookies.txt"
         profile_dir.mkdir(parents=True, exist_ok=True)
@@ -1160,7 +1162,7 @@ class AuthService:
             platform=platform,
             profile_dir=str(profile_dir),
             cached_cookie_path=str(cache_file),
-            is_default=(len(self._webview2_accounts) == 0),
+            is_default=(sum(1 for a in self._webview2_accounts.values() if a.platform == platform) == 0),
             notes=notes,
         )
         self._webview2_accounts[account_id] = account
@@ -1196,7 +1198,8 @@ class AuthService:
             account.notes = notes
         if is_default is True:
             for a in self._webview2_accounts.values():
-                a.is_default = False
+                if a.platform == account.platform:
+                    a.is_default = False
             account.is_default = True
 
         self._save_webview2_accounts()
@@ -1208,14 +1211,15 @@ class AuthService:
         if not account:
             return False
 
-        if len(self._webview2_accounts) <= 1:
-            logger.warning("至少需要保留一个 WebView2 账号，拒绝删除")
+        same_platform_count = sum(1 for a in self._webview2_accounts.values() if a.platform == account.platform)
+        if same_platform_count <= 1:
+            logger.warning(f"至少需要保留一个 {account.platform} WebView2 账号，拒绝删除")
             return False
 
         self._webview2_accounts.pop(account_id, None)
 
         if remove_storage:
-            account_root = self._webview2_accounts_dir / account_id
+            account_root = self._webview2_accounts_dir / account.platform / account_id
             try:
                 shutil.rmtree(account_root, ignore_errors=True)
             except Exception as e:
@@ -1227,9 +1231,9 @@ class AuthService:
             )
             self._save_config()
 
-        # 保证始终有一个默认账号
-        if not any(a.is_default for a in self._webview2_accounts.values()):
-            first = next(iter(self._webview2_accounts.values()), None)
+        # 保证始终有一个同平台的默认账号
+        if not any(a.is_default for a in self._webview2_accounts.values() if a.platform == account.platform):
+            first = next((a for a in self._webview2_accounts.values() if a.platform == account.platform), None)
             if first:
                 first.is_default = True
 
@@ -1392,6 +1396,29 @@ class AuthService:
                 self._sync_current_webview2_cookie_to_unified_cookiefile()
         except Exception as e:
             logger.warning(f"迁移旧 WebView2 缓存失败: {e}")
+
+    def _migrate_accounts_to_platform_isolated_dirs(self) -> None:
+        """将无平台的 `dle_user/<account_id>` 旧目录物理迁移到 `dle_user/<platform>/<account_id>` 下"""
+        changed = False
+        for account in self._webview2_accounts.values():
+            old_root = self._webview2_accounts_dir / account.account_id
+            new_root = self._webview2_accounts_dir / account.platform / account.account_id
+            
+            # 如果旧目录存在，并且新目录不存在，执行移动
+            if old_root.exists() and not new_root.exists():
+                try:
+                    new_root.parent.mkdir(parents=True, exist_ok=True)
+                    old_root.rename(new_root)
+                    # 更新 account 中的路径
+                    account.profile_dir = str(new_root / "profile")
+                    account.cached_cookie_path = str(new_root / "cookies.txt")
+                    changed = True
+                    logger.info(f"已将账号目录隔离至新路径: {new_root}")
+                except Exception as e:
+                    logger.warning(f"迁移账号目录失败 {account.account_id}: {e}")
+        
+        if changed:
+            self._save_webview2_accounts()
 
     def _resolve_runtime_bin_dir(self) -> Path:
         """解析运行目录下的 bin 路径（开发态/打包态统一）。"""

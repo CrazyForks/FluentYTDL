@@ -153,6 +153,13 @@ class YoutubeService:
 
         auth = options.auth
         net = options.network
+        
+        # 应用全局网络重试设置
+        network_retries = int(config_manager.get("network_retries", 10))
+        if net.retries == 10:
+            net.retries = network_retries
+        if net.fragment_retries == 10:
+            net.fragment_retries = network_retries
 
         ydl_opts: dict[str, Any] = {
             # Base

@@ -129,6 +129,7 @@ class ConfigManager(QObject):
         "playlist_audio_override": "自动推断",
         # === 下载分片与并发 ===
         "concurrent_fragments": 4,  # [新增] 全局分片并发数控制参数
+        "network_retries": 10,  # [新增] 网络请求与切片下载的最大重试次数
         # Theme Mode
         "theme_mode": "Auto",  # Light / Dark / Auto
         # 更新通道跳过版本（按通道分别存储）

@@ -23,6 +23,7 @@ from qfluentwidgets import (
     SegmentedWidget,
     SettingCard,
     SettingCardGroup,
+    SpinBox,
     SubtitleLabel,
     SwitchButton,
     ToolButton,
@@ -325,6 +326,16 @@ class InlineComboBoxCard(SettingCard):
 
         for text in texts:
             self.comboBox.addItem(text)
+
+class InlineSpinBoxCard(SettingCard):
+    """A fluent setting card with a right-aligned SpinBox."""
+
+    def __init__(self, icon, title: str, content: str | None, min_val: int, max_val: int, parent=None):
+        super().__init__(icon, title, content, parent)
+        self.spinBox = SpinBox(self)
+        self.spinBox.setRange(min_val, max_val)
+        self.hBoxLayout.addWidget(self.spinBox, 0, Qt.AlignmentFlag.AlignRight)
+        self.hBoxLayout.addSpacing(16)
 
 
 class InlineLineEditCard(SettingCard):
@@ -934,6 +945,10 @@ class SettingsPage(QWidget):
             idx = self.playlistAudioCard.comboBox.findText(value)
             if idx >= 0 and self.playlistAudioCard.comboBox.currentIndex() != idx:
                 self.playlistAudioCard.comboBox.setCurrentIndex(idx)
+        elif key == "network_retries":
+            val = int(value)
+            if self.networkRetriesCard.spinBox.value() != val:
+                self.networkRetriesCard.spinBox.setValue(val)
 
     def _create_page(self, object_name: str):
         page = QWidget()
@@ -990,6 +1005,18 @@ class SettingsPage(QWidget):
             self._on_concurrent_fragments_changed
         )
 
+        self.networkRetriesCard = InlineSpinBoxCard(
+            FluentIcon.SYNC,
+            self.tr("网络重试次数"),
+            self.tr("请求失败或切片断连时的最大重试次数，网络较差时建议调高"),
+            1,
+            200,
+            self.downloadGroup,
+        )
+        current_retries = config_manager.get("network_retries", 10)
+        self.networkRetriesCard.spinBox.setValue(int(current_retries))
+        self.networkRetriesCard.spinBox.valueChanged.connect(self._on_network_retries_changed)
+
         # Max Concurrent Downloads
         self.maxConcurrentCard = InlineComboBoxCard(
             FluentIcon.ALBUM,
@@ -1034,6 +1061,7 @@ class SettingsPage(QWidget):
 
         self.downloadGroup.addSettingCard(self.downloadFolderCard)
         self.downloadGroup.addSettingCard(self.concurrentFragmentsCard)
+        self.downloadGroup.addSettingCard(self.networkRetriesCard)
         self.downloadGroup.addSettingCard(self.maxConcurrentCard)
         self.downloadGroup.addSettingCard(self.playlistExtractConcurrencyCard)
         self.downloadGroup.addSettingCard(self.failedTaskRetentionCard)
@@ -3329,6 +3357,9 @@ class SettingsPage(QWidget):
             from ...utils.logger import logger
 
             logger.exception("Swallowed exception in settings")
+
+    def _on_network_retries_changed(self, value: int) -> None:
+        config_manager.set("network_retries", value)
 
     def _on_concurrent_fragments_changed(self, index: int) -> None:
         val = index + 1
