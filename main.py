@@ -153,11 +153,10 @@ def main() -> None:
     # === 启动清理: 删除更新残留文件 ===
     _cleanup_update_residuals()
 
-    # === 1. 修改缩放策略 (关键) ===
-    # 如觉得太小，可改为 1.5；或删除本行让 Qt/系统自动接管。
-    os.environ["QT_SCALE_FACTOR"] = "1.0"
-    # 备选：启用自动 HighDPI（通常 Qt6 默认就支持，只有在特殊环境下才需要）
-    # os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
+    # === 1. 修改缩放策略 (关键): 解决字体模糊问题 ===
+    # 允许 Qt 使用操作系统的精确小数缩放比例 (如 125%, 150%)
+    if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
+        QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
     # 1. 创建应用
     app = QApplication(sys.argv)
