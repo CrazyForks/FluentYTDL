@@ -8,7 +8,7 @@ from .config_manager import config_manager
 
 class I18nManager:
     """国际化 (i18n) 管理器"""
-    
+
     _app_translator: QTranslator | None = None
     _fluent_translator: FluentTranslator | None = None
 
@@ -25,26 +25,27 @@ class I18nManager:
             locale = QLocale.system()
         else:
             locale = QLocale(lang_cfg)
-        
+
         QLocale.setDefault(locale)
 
         # 1. 挂载 qfluentwidgets 自带的翻译器
         if cls._fluent_translator is not None:
             app.removeTranslator(cls._fluent_translator)
-            
+
         cls._fluent_translator = FluentTranslator(locale)
         app.installTranslator(cls._fluent_translator)
 
         # 2. 挂载应用自身的翻译器
         if cls._app_translator is not None:
             app.removeTranslator(cls._app_translator)
-            
+
         cls._app_translator = QTranslator()
-        
+
         # 本地翻译文件存放路径
         from ..utils.paths import resource_path
+
         locales_dir = resource_path("assets", "locales")
-        
+
         # load 规则：前缀为 "fluentytdl"，加上 "_"，加上 locale.name() (如 zh_CN)
         if cls._app_translator.load(locale, "fluentytdl", "_", str(locales_dir)):
             app.installTranslator(cls._app_translator)

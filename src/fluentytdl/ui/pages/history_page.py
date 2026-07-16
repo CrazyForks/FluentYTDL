@@ -70,7 +70,7 @@ class HistoryPage(QWidget):
 
         # 统计标签
         self.stats_label = BodyLabel("", self)
-        self.stats_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
+        self.stats_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         toolbar.addWidget(self.stats_label)
 
         # 刷新
@@ -310,7 +310,9 @@ class HistoryPage(QWidget):
         if total == existing:
             self.stats_label.setText(self.tr("{} 条记录{}").format(total, size_str))
         else:
-            self.stats_label.setText(self.tr("{} 条记录 ({} 个文件丢失){}").format(total, total - existing, size_str))
+            self.stats_label.setText(
+                self.tr("{} 条记录 ({} 个文件丢失){}").format(total, total - existing, size_str)
+            )
 
     def count(self) -> int:
         return len(self._cards)

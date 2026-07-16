@@ -314,7 +314,7 @@ class SimplePresetWidget(QWidget):
             self.radios.append(rb)
 
             desc_label = CaptionLabel(desc, container)
-            desc_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
+            desc_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
             desc_label.setWordWrap(True)
 
             h_layout.addWidget(rb)
@@ -1153,7 +1153,9 @@ class SelectionDialog(MessageBoxBase):
             self.on_parse_error(
                 {
                     "title": self.tr("不支持的操作"),
-                    "content": self.tr("此对话框仅用于单视频备选格式挑选，不再支持播放列表。请通过主页重新解析。"),
+                    "content": self.tr(
+                        "此对话框仅用于单视频备选格式挑选，不再支持播放列表。请通过主页重新解析。"
+                    ),
                     "raw_error": "Playlist not supported in fallback dialog.",
                 }
             )
@@ -1603,6 +1605,7 @@ class SelectionDialog(MessageBoxBase):
         self._scroll_area.verticalScrollBar().valueChanged.connect(self._on_scroll_value_changed)
 
         from ...core.config_manager import config_manager
+
         concurrency = int(config_manager.get("playlist_extract_concurrency", 3))
         self._extract_manager = AsyncExtractManager(max_concurrent=concurrency, parent=self)
 
@@ -1799,7 +1802,9 @@ class SelectionDialog(MessageBoxBase):
 
     def _current_playlist_preset_height(self) -> int | None:
         preset_text = (
-            self.preset_combo.currentText() if self.preset_combo is not None else self.tr("最高质量(自动)")
+            self.preset_combo.currentText()
+            if self.preset_combo is not None
+            else self.tr("最高质量(自动)")
         )
         height_map = {
             self.tr("2160p(严格)"): 2160,
@@ -1864,7 +1869,9 @@ class SelectionDialog(MessageBoxBase):
         if row not in self._detail_loaded:
             if mode == 2:
                 # 音频模式允许不等详情，先给占位
-                aw.set_loading(False, btn_text=self.tr("⚡ 自动选定"), info_text=self.tr("纯音频模式 (待解析)"))
+                aw.set_loading(
+                    False, btn_text=self.tr("⚡ 自动选定"), info_text=self.tr("纯音频模式 (待解析)")
+                )
                 return
             # Row not yet extracted – leave is_parsing unchanged so the delegate
             # correctly shows self.tr("解析中…") for queued rows and self.tr("待加载") for others.
@@ -1982,7 +1989,9 @@ class SelectionDialog(MessageBoxBase):
                     (chosen_audio or {}).get("filesize"),
                     (chosen_audio or {}).get("ext"),
                 )
-                aw.set_loading(False, btn_text=self.tr("🎛 自定义选定"), info_text=v_line + "\n" + a_line)
+                aw.set_loading(
+                    False, btn_text=self.tr("🎛 自定义选定"), info_text=v_line + "\n" + a_line
+                )
                 return
 
             # 仅视频
@@ -1998,7 +2007,11 @@ class SelectionDialog(MessageBoxBase):
         if self._vr_mode:
             fmts = data.get("video_formats") or []
             if not fmts:
-                aw.set_loading(False, btn_text=self.tr("❌ 无可用格式"), info_text=self.tr("解析失败或无 VR 流"))
+                aw.set_loading(
+                    False,
+                    btn_text=self.tr("❌ 无可用格式"),
+                    info_text=self.tr("解析失败或无 VR 流"),
+                )
                 return
 
             # 获取当前预设 ID
@@ -2046,12 +2059,16 @@ class SelectionDialog(MessageBoxBase):
             sz = _format_size(raw.get("filesize") or raw.get("filesize_approx"))
             ext = raw.get("ext")
             format_desc = str(data["override_text"] or "")
-            aw.set_loading(False, btn_text=self.tr("⚡ 自动选定"), info_text=f"{format_desc}\n{sz} · {ext}")
+            aw.set_loading(
+                False, btn_text=self.tr("⚡ 自动选定"), info_text=f"{format_desc}\n{sz} · {ext}"
+            )
             return
 
         fmts: list[dict[str, Any]] = data.get("video_formats") or []
         if not fmts:
-            aw.set_loading(False, btn_text=self.tr("❌ 无可用格式"), info_text=self.tr("解析失败或无视频流"))
+            aw.set_loading(
+                False, btn_text=self.tr("❌ 无可用格式"), info_text=self.tr("解析失败或无视频流")
+            )
             return
 
         preset_height = self._current_playlist_preset_height()
@@ -2939,7 +2956,6 @@ class SelectionDialog(MessageBoxBase):
 
         return tasks
 
-
     def accept(self) -> None:
         if self._is_playlist:
             mode = int(self.type_combo.currentIndex()) if self.type_combo is not None else 0
@@ -2949,8 +2965,10 @@ class SelectionDialog(MessageBoxBase):
                 if pending:
                     box = MessageBox(
                         self.tr("仍在解析中"),
-                        f"还有 {len(pending)} 个已勾选条目正在补全信息。\n\n" +
-                        self.tr("你可以继续下载（将按当前预设策略执行），或等待补全完成后再下载。"),
+                        f"还有 {len(pending)} 个已勾选条目正在补全信息。\n\n"
+                        + self.tr(
+                            "你可以继续下载（将按当前预设策略执行），或等待补全完成后再下载。"
+                        ),
                         parent=self,
                     )
                     box.yesButton.setText(self.tr("继续下载"))
@@ -3027,7 +3045,9 @@ class SelectionDialog(MessageBoxBase):
 
         mode = int(self.type_combo.currentIndex()) if self.type_combo is not None else 0
         preset_text = (
-            self.preset_combo.currentText() if self.preset_combo is not None else self.tr("最高质量(自动)")
+            self.preset_combo.currentText()
+            if self.preset_combo is not None
+            else self.tr("最高质量(自动)")
         )
 
         # VR 模式预设解析
@@ -3069,8 +3089,8 @@ class SelectionDialog(MessageBoxBase):
             if mismatched:
                 box = MessageBox(
                     self.tr("预设质量不可用"),
-                    f"有 {len(mismatched)} 个已获取格式的条目最高画质低于 {preset_height}p。\n\n" +
-                    self.tr("可选择自动降低到该视频最高可用档位，或返回手动调整格式。"),
+                    f"有 {len(mismatched)} 个已获取格式的条目最高画质低于 {preset_height}p。\n\n"
+                    + self.tr("可选择自动降低到该视频最高可用档位，或返回手动调整格式。"),
                     parent=self,
                 )
                 box.yesButton.setText(self.tr("自动降到最高"))

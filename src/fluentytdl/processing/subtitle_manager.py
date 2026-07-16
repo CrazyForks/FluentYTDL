@@ -108,11 +108,12 @@ class SubtitleTrack:
     def display_name(self) -> str:
         """获取显示名称"""
         from PySide6.QtCore import QCoreApplication
+
         name = LANGUAGE_NAMES.get(self.lang_code, self.lang_name or self.lang_code)
-        
+
         # Translate the base language name
         translated_name = QCoreApplication.translate("SubtitleManager", name)
-        
+
         if self.source_type == SubtitleSourceType.AUTO_GENERATED:
             translated_name += QCoreApplication.translate("SubtitleManager", " [自动生成]")
         elif self.source_type == SubtitleSourceType.AUTO_TRANSLATED:

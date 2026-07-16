@@ -30,14 +30,14 @@ from ..utils.logger import logger
 
 @dataclass
 class UrlProcessResult:
-    original_url: str           # 用户原始输入
-    normalized_url: str         # 规范化后的 URL
-    platform: str               # "youtube" | "twitter" | "unknown"
-    link_type: str              # 内部类型标识
-    link_type_display: str      # 用户可见的类型名称 (可翻译)
-    accepted: bool              # 是否允许继续
+    original_url: str  # 用户原始输入
+    normalized_url: str  # 规范化后的 URL
+    platform: str  # "youtube" | "twitter" | "unknown"
+    link_type: str  # 内部类型标识
+    link_type_display: str  # 用户可见的类型名称 (可翻译)
+    accepted: bool  # 是否允许继续
     rejection_reason: str | None  # 拒绝原因
-    cookie_platform: str | None   # Cookie 平台标识 ("youtube" | "twitter")
+    cookie_platform: str | None  # Cookie 平台标识 ("youtube" | "twitter")
 
 
 class _AsyncExpandWorker(QThread):
@@ -59,42 +59,52 @@ class UrlRouter:
     # === X 平台正则 ===
     # 唯一放行：推文视频
     _X_STATUS_RE = re.compile(
-        r'^https?://(?:(?:www|mobile)\.)?(?:twitter\.com|x\.com)/'
-        r'(?:\w+|i(?:/web)?)/(?:status|statuses)/(\d+)',
+        r"^https?://(?:(?:www|mobile)\.)?(?:twitter\.com|x\.com)/"
+        r"(?:\w+|i(?:/web)?)/(?:status|statuses)/(\d+)",
         re.IGNORECASE,
     )
 
     # 明确拒绝的类型 (按优先级排列)
     _X_REJECT_PATTERNS = [
-        (re.compile(r'/i/spaces/\w+', re.I), "spaces", "X Spaces 暂不支持下载"),
-        (re.compile(r'/i/lists/\d+', re.I), "list", "X 列表暂不支持下载"),
-        (re.compile(r'/i/communities/', re.I), "community", "X 社区暂不支持下载"),
-        (re.compile(r'/i/bookmarks', re.I), "bookmarks", "X 书签暂不支持下载"),
-        (re.compile(r'/i/moments/', re.I), "moments", "X Moments 暂不支持下载"),
-        (re.compile(r'/i/grok', re.I), "grok", "此链接非内容页面"),
-        (re.compile(r'/search\?', re.I), "search", "X 搜索结果暂不支持下载"),
-        (re.compile(r'/explore', re.I), "explore", "X 探索页暂不支持下载"),
-        (re.compile(r'/hashtag/', re.I), "hashtag", "X 话题标签暂不支持下载"),
-        (re.compile(r'/notifications', re.I), "notifications", "此链接非内容页面"),
-        (re.compile(r'/messages', re.I), "messages", "此链接非内容页面"),
-        (re.compile(r'/settings/', re.I), "settings", "此链接非内容页面"),
-        (re.compile(r'/(?:following|followers|verified_followers)', re.I), "social", "此链接非内容页面"),
+        (re.compile(r"/i/spaces/\w+", re.I), "spaces", "X Spaces 暂不支持下载"),
+        (re.compile(r"/i/lists/\d+", re.I), "list", "X 列表暂不支持下载"),
+        (re.compile(r"/i/communities/", re.I), "community", "X 社区暂不支持下载"),
+        (re.compile(r"/i/bookmarks", re.I), "bookmarks", "X 书签暂不支持下载"),
+        (re.compile(r"/i/moments/", re.I), "moments", "X Moments 暂不支持下载"),
+        (re.compile(r"/i/grok", re.I), "grok", "此链接非内容页面"),
+        (re.compile(r"/search\?", re.I), "search", "X 搜索结果暂不支持下载"),
+        (re.compile(r"/explore", re.I), "explore", "X 探索页暂不支持下载"),
+        (re.compile(r"/hashtag/", re.I), "hashtag", "X 话题标签暂不支持下载"),
+        (re.compile(r"/notifications", re.I), "notifications", "此链接非内容页面"),
+        (re.compile(r"/messages", re.I), "messages", "此链接非内容页面"),
+        (re.compile(r"/settings/", re.I), "settings", "此链接非内容页面"),
+        (
+            re.compile(r"/(?:following|followers|verified_followers)", re.I),
+            "social",
+            "此链接非内容页面",
+        ),
         # 用户主页/媒体页 (最后匹配，因为路径最短)
-        (re.compile(r'^https?://(?:(?:www|mobile)\.)?(?:twitter\.com|x\.com)/(\w+)/?(media|likes|with_replies)?/?$', re.I),
-         "profile", "X 平台用户主页暂不支持下载，请粘贴具体推文链接"),
+        (
+            re.compile(
+                r"^https?://(?:(?:www|mobile)\.)?(?:twitter\.com|x\.com)/(\w+)/?(media|likes|with_replies)?/?$",
+                re.I,
+            ),
+            "profile",
+            "X 平台用户主页暂不支持下载，请粘贴具体推文链接",
+        ),
     ]
 
     # 镜像域名
     _MIRROR_DOMAINS = {
-        'vxtwitter.com': 'x.com',
-        'fxtwitter.com': 'x.com',
-        'fixvx.com': 'x.com',
-        'twittpr.com': 'x.com',
-        'nitter.net': 'x.com',
+        "vxtwitter.com": "x.com",
+        "fxtwitter.com": "x.com",
+        "fixvx.com": "x.com",
+        "twittpr.com": "x.com",
+        "nitter.net": "x.com",
     }
 
     # X 平台跟踪参数 (清理)
-    _X_TRACKING_PARAMS = {'s', 't', 'ref_src', 'ref_url', 'src'}
+    _X_TRACKING_PARAMS = {"s", "t", "ref_src", "ref_url", "src"}
 
     @classmethod
     def detect_platform(cls, url: str) -> str:
@@ -102,7 +112,12 @@ class UrlRouter:
         url = url.lower()
         if "youtube.com" in url or "youtu.be" in url:
             return "youtube"
-        if "twitter.com" in url or "x.com" in url or "t.co" in url or any(d in url for d in cls._MIRROR_DOMAINS):
+        if (
+            "twitter.com" in url
+            or "x.com" in url
+            or "t.co" in url
+            or any(d in url for d in cls._MIRROR_DOMAINS)
+        ):
             return "twitter"
         return "unknown"
 
@@ -113,9 +128,14 @@ class UrlRouter:
 
         if not url:
             return UrlProcessResult(
-                original_url=original_url, normalized_url="", platform="unknown",
-                link_type="unknown", link_type_display="未知链接", accepted=False,
-                rejection_reason="链接不能为空", cookie_platform=None
+                original_url=original_url,
+                normalized_url="",
+                platform="unknown",
+                link_type="unknown",
+                link_type_display="未知链接",
+                accepted=False,
+                rejection_reason="链接不能为空",
+                cookie_platform=None,
             )
 
         # 1. t.co 展开
@@ -123,9 +143,14 @@ class UrlRouter:
             expanded = self._expand_tco_url(url)
             if not expanded:
                 return UrlProcessResult(
-                    original_url=original_url, normalized_url=url, platform="twitter",
-                    link_type="t.co", link_type_display="t.co 短链接", accepted=False,
-                    rejection_reason="短链接展开失败，请手动在浏览器打开复制完整链接", cookie_platform=None
+                    original_url=original_url,
+                    normalized_url=url,
+                    platform="twitter",
+                    link_type="t.co",
+                    link_type_display="t.co 短链接",
+                    accepted=False,
+                    rejection_reason="短链接展开失败，请手动在浏览器打开复制完整链接",
+                    cookie_platform=None,
                 )
             url = expanded
 
@@ -138,12 +163,19 @@ class UrlRouter:
             return self._process_youtube(original_url, url)
         else:
             return UrlProcessResult(
-                original_url=original_url, normalized_url=url, platform="unknown",
-                link_type="unknown", link_type_display="未知链接", accepted=False,
-                rejection_reason="不支持的平台", cookie_platform=None
+                original_url=original_url,
+                normalized_url=url,
+                platform="unknown",
+                link_type="unknown",
+                link_type_display="未知链接",
+                accepted=False,
+                rejection_reason="不支持的平台",
+                cookie_platform=None,
             )
 
-    def process_async(self, url: str, callback: Callable[[UrlProcessResult], None], parent: QObject | None = None) -> None:
+    def process_async(
+        self, url: str, callback: Callable[[UrlProcessResult], None], parent: QObject | None = None
+    ) -> None:
         """异步处理，主要用于 UI 层避免 t.co 展开阻塞"""
         self._worker = _AsyncExpandWorker(url, self)
         if parent:
@@ -157,17 +189,17 @@ class UrlRouter:
         # A. 规范化: 域名替换
         parsed = urllib.parse.urlparse(url)
         netloc = parsed.netloc.lower()
-        
+
         # 移除 mobile.
         if netloc.startswith("mobile."):
             netloc = netloc[7:]
-            
+
         # 替换镜像域名
         for mirror, target in self._MIRROR_DOMAINS.items():
             if netloc == mirror:
                 netloc = target
                 break
-                
+
         # 统一使用 x.com (yt-dlp 两个都支持，统一一下比较干净，这里如果保留也可以，目前默认替换为 x.com 方便)
         if netloc == "twitter.com":
             netloc = "x.com"
@@ -185,31 +217,46 @@ class UrlRouter:
         for pattern, link_type, reason in self._X_REJECT_PATTERNS:
             if pattern.search(normalized_url):
                 return UrlProcessResult(
-                    original_url=original_url, normalized_url=normalized_url, platform="twitter",
-                    link_type=link_type, link_type_display="不支持的链接", accepted=False,
-                    rejection_reason=reason, cookie_platform="twitter"
+                    original_url=original_url,
+                    normalized_url=normalized_url,
+                    platform="twitter",
+                    link_type=link_type,
+                    link_type_display="不支持的链接",
+                    accepted=False,
+                    rejection_reason=reason,
+                    cookie_platform="twitter",
                 )
-                
+
         # 检查是否为支持的推文视频
         if self._X_STATUS_RE.search(normalized_url):
             return UrlProcessResult(
-                original_url=original_url, normalized_url=normalized_url, platform="twitter",
-                link_type="tweet_video", link_type_display="𝕏 推文视频", accepted=True,
-                rejection_reason=None, cookie_platform="twitter"
+                original_url=original_url,
+                normalized_url=normalized_url,
+                platform="twitter",
+                link_type="tweet_video",
+                link_type_display="𝕏 推文视频",
+                accepted=True,
+                rejection_reason=None,
+                cookie_platform="twitter",
             )
 
         # 默认拒绝
         return UrlProcessResult(
-            original_url=original_url, normalized_url=normalized_url, platform="twitter",
-            link_type="unknown", link_type_display="未知页面", accepted=False,
-            rejection_reason="无法识别该 X 平台链接类型", cookie_platform="twitter"
+            original_url=original_url,
+            normalized_url=normalized_url,
+            platform="twitter",
+            link_type="unknown",
+            link_type_display="未知页面",
+            accepted=False,
+            rejection_reason="无法识别该 X 平台链接类型",
+            cookie_platform="twitter",
         )
 
     def _process_youtube(self, original_url: str, url: str) -> UrlProcessResult:
         """处理 YouTube 链接 (由于项目原本支持良好，此处仅作放行)"""
         link_type = "video"
         display = "🎬 YouTube 视频"
-        
+
         if "playlist" in url.lower():
             link_type = "playlist"
             display = "🎬 YouTube 播放列表"
@@ -219,17 +266,22 @@ class UrlRouter:
         elif "/shorts/" in url.lower():
             link_type = "shorts"
             display = "🎬 YouTube 短视频"
-            
+
         return UrlProcessResult(
-            original_url=original_url, normalized_url=url, platform="youtube",
-            link_type=link_type, link_type_display=display, accepted=True,
-            rejection_reason=None, cookie_platform="youtube"
+            original_url=original_url,
+            normalized_url=url,
+            platform="youtube",
+            link_type=link_type,
+            link_type_display=display,
+            accepted=True,
+            rejection_reason=None,
+            cookie_platform="youtube",
         )
 
     def _expand_tco_url(self, short_url: str, timeout: float = 3.0) -> str | None:
         """展开 t.co 短链接"""
         proxies = self._get_proxies_from_config()
-        
+
         try:
             resp = requests.head(
                 short_url,
@@ -247,18 +299,23 @@ class UrlRouter:
         """从 config_manager 获取代理配置"""
         proxy_mode = config_manager.get("proxy_mode", "off")
         proxy_url = str(config_manager.get("proxy_url", "") or "").strip()
-        
+
         if proxy_mode not in ("http", "socks5") or not proxy_url:
             return None
-        
+
         lower = proxy_url.lower()
-        if lower.startswith("http://") or lower.startswith("https://") or lower.startswith("socks5://"):
+        if (
+            lower.startswith("http://")
+            or lower.startswith("https://")
+            or lower.startswith("socks5://")
+        ):
             full_url = proxy_url
         else:
             scheme = "socks5" if proxy_mode == "socks5" else "http"
             full_url = f"{scheme}://{proxy_url}"
-        
+
         return {"http": full_url, "https": full_url}
+
 
 # 实例化全局单例方便调用
 url_router = UrlRouter()

@@ -65,9 +65,7 @@ class AsyncExtractManager(QObject):
     and cancellation of active tasks.
     """
 
-    def __init__(
-        self, max_concurrent: int = 3, parent: QObject | None = None
-    ):
+    def __init__(self, max_concurrent: int = 3, parent: QObject | None = None):
         super().__init__(parent)
         self.signals = AsyncExtractorSignals()
 

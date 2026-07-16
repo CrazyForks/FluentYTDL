@@ -209,7 +209,7 @@ def self_delete(exe_path: Path) -> None:
     # Windows: 用 cmd /c 延迟删除，增加重试避免进程未退出时删除失败
     # ping -n 3 ≈ 2 秒延迟，若删除失败再等待重试一次
     cmd = (
-        f'ping -n 3 127.0.0.1 >nul 2>&1'
+        f"ping -n 3 127.0.0.1 >nul 2>&1"
         f' & (del /f /q "{exe_path}" 2>nul'
         f' || (ping -n 3 127.0.0.1 >nul 2>&1 & del /f /q "{exe_path}" 2>nul))'
     )
@@ -265,7 +265,7 @@ def _elevate_self() -> bool:
         else:
             # 开发模式：用 python 运行 updater.py
             exe = sys.executable
-            params = f'{_quote(str(Path(__file__).resolve()))} {args}'
+            params = f"{_quote(str(Path(__file__).resolve()))} {args}"
 
         shell32 = ctypes.windll.shell32  # type: ignore[attr-defined]
         ret = shell32.ShellExecuteW(

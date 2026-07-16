@@ -159,7 +159,9 @@ class CoverSelectorWidget(QFrame):
         layout.addWidget(self.titleLabel)
 
         self.tipLabel = CaptionLabel(
-            self.tr("提示：YouTube 封面的分辨率为画布标称值，并非实际图片像素。⚠️ 标记的版本可能不存在。"),
+            self.tr(
+                "提示：YouTube 封面的分辨率为画布标称值，并非实际图片像素。⚠️ 标记的版本可能不存在。"
+            ),
             self,
         )
         self.tipLabel.setStyleSheet("color: #888888;")
@@ -279,7 +281,8 @@ class CoverSelectorWidget(QFrame):
         if pixmap and not pixmap.isNull():
             # Scale to fit fixed bounding box
             scaled = pixmap.scaled(
-                220, 124,
+                220,
+                124,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )

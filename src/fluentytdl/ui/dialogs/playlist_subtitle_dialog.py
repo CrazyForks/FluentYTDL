@@ -49,6 +49,7 @@ class PlaylistSubtitleConfigDialog(MessageBoxBase):
         self.viewLayout.addWidget(BodyLabel(self.tr("选择字幕语言 (可多选):"), self))
 
         from PySide6.QtWidgets import QVBoxLayout, QWidget
+
         content_widget = QWidget(self)
         checkbox_layout = QVBoxLayout(content_widget)
         checkbox_layout.setContentsMargins(8, 8, 8, 8)

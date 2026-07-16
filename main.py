@@ -154,6 +154,7 @@ def main() -> None:
     _cleanup_update_residuals()
 
     # === 1. 修改缩放策略 (关键): 解决字体模糊问题 ===
+
     # 允许 Qt 使用操作系统的精确小数缩放比例 (如 125%, 150%)
     if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
         QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
@@ -213,7 +214,9 @@ def main() -> None:
     # === 2. 设置全局字体 (关键) ===
     font = QFont("Microsoft YaHei UI", 9)
     try:
-        font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+        # 在 100% 缩放下，必须启用完全的 Hinting (微调)，否则 DirectWrite 会导致字体发虚和模糊。
+        # 绝对不能使用 PreferNoHinting，这只适合 150% 以上的高分屏或 Mac 系统。
+        font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
     except Exception:
         pass
     app.setFont(font)

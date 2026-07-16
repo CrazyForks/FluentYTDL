@@ -118,16 +118,17 @@ class CleanLogger:
 
         if "Deleting original file" in msg:
             return
-            
+
         if "Retrying" in msg or "retrying" in msg:
             import re
+
             m = re.search(r"\((\d+/\d+)\)", msg)
             retry_count = m.group(1) if m else ""
             if "fragment" in msg.lower():
                 processed_msg = f"🔄 切片下载超时，正在重试... {retry_count}"
             else:
                 processed_msg = f"🔄 网络请求失败，正在重试... {retry_count}"
-            
+
             if self.playlist_tracker:
                 final_msg = f"[{self.playlist_tracker.current_item}/{self.playlist_tracker.total_items}] {self.playlist_tracker.current_title} — {processed_msg}"
                 self._emit("processing", self.playlist_tracker.overall_percent, final_msg)

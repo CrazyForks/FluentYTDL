@@ -182,7 +182,7 @@ class SimplePresetWidget(QWidget):
             self.radios.append(rb)
 
             desc_label = CaptionLabel(desc, container)
-            desc_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
+            desc_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
             desc_label.setWordWrap(True)
 
             h_layout.addWidget(rb)

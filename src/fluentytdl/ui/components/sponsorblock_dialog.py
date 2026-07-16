@@ -77,7 +77,8 @@ class SponsorBlockCategoriesDialog(MessageBoxBase):
 
         # 说明文字
         self.infoLabel = BodyLabel(
-            self.tr("勾选下方要自动跳过的广告片段类型，这些片段将在下载时自动移除或标记为章节。"), self
+            self.tr("勾选下方要自动跳过的广告片段类型，这些片段将在下载时自动移除或标记为章节。"),
+            self,
         )
         self.infoLabel.setWordWrap(True)
         from qfluentwidgets import isDarkTheme

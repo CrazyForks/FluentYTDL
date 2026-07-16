@@ -192,7 +192,7 @@ class ConfigManager(QObject):
         # Dev: repo root config.json; Frozen: user-writable Documents/FluentYTDL/config.json
         self.config_file = config_path()
         self.config: dict[str, Any] = self._load_config()
-        
+
         # 启动时进行一次配置瘦身：剔除不再使用的僵尸字段
         obsolete_keys = [k for k in self.config if k not in self.DEFAULT_CONFIG]
         if obsolete_keys:

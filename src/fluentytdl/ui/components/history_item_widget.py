@@ -39,9 +39,6 @@ def _format_bytes(b: int | float) -> str:
     return f"{size:.1f} TB"
 
 
-
-
-
 class HistoryItemWidget(CardWidget):
     """
     单条历史记录卡片
@@ -91,9 +88,9 @@ class HistoryItemWidget(CardWidget):
             # Format: [字幕 (en, zh-Hans)] Title
             idx = title.find("]")
             if idx != -1:
-                prefix = title[:idx+1]
+                prefix = title[: idx + 1]
                 translated_prefix = prefix.replace("字幕", self.tr("字幕"))
-                title = translated_prefix + title[idx+1:]
+                title = translated_prefix + title[idx + 1 :]
 
         self.title_label = StrongBodyLabel(title, self)
         self.title_label.setWordWrap(False)
@@ -119,7 +116,7 @@ class HistoryItemWidget(CardWidget):
                 "纯音频": self.tr("纯音频"),
                 "自定义视频": self.tr("自定义视频"),
                 "自定义音频": self.tr("自定义音频"),
-                "自定义": self.tr("自定义")
+                "自定义": self.tr("自定义"),
             }
             for k, v in prefixes.items():
                 if note.startswith(k):
@@ -136,7 +133,7 @@ class HistoryItemWidget(CardWidget):
             meta_parts.append(f"⚠️ {record.quality_deviation}")
 
         self.meta_label = CaptionLabel(" · ".join(meta_parts), self)
-        self.meta_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
+        self.meta_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         font = self.meta_label.font()
         font.setFamily("Consolas")
         font.setStyleHint(QFont.StyleHint.Monospace)
@@ -266,7 +263,7 @@ class HistoryItemWidget(CardWidget):
             return self.tr("{} 分钟前").format(int(diff // 60))
         elif diff < 86400:
             return self.tr("{} 小时前").format(int(diff // 3600))
-        
+
         days = int(diff // 86400)
         if days == 1:
             return self.tr("昨天")

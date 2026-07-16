@@ -239,8 +239,8 @@ class AppUpdateSettingCard(SettingCard):
 
         InfoBar.warning(
             self.tr("检测到测试版本"),
-            f"当前运行的是 {ver} 测试/预发布版本，不支持自动更新。" +
-            self.tr("如需更新请前往 GitHub Releases 下载正式版。"),
+            f"当前运行的是 {ver} 测试/预发布版本，不支持自动更新。"
+            + self.tr("如需更新请前往 GitHub Releases 下载正式版。"),
             duration=10000,
             parent=self.window(),
         )

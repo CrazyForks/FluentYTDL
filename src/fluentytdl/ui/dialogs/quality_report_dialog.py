@@ -20,7 +20,9 @@ class QualityReportDialog(MessageBoxBase):
 
         self.table = TableWidget(self)
         self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels([self.tr("标题"), self.tr("目标"), self.tr("实际"), self.tr("偏差")])
+        self.table.setHorizontalHeaderLabels(
+            [self.tr("标题"), self.tr("目标"), self.tr("实际"), self.tr("偏差")]
+        )
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -53,7 +55,9 @@ class QualityReportDialog(MessageBoxBase):
             self.table.setItem(i, 0, QTableWidgetItem(title))
 
             parts = v.deviation.split("→")
-            target = parts[0].strip().replace(self.tr("目标"), "").strip() if len(parts) > 1 else "-"
+            target = (
+                parts[0].strip().replace(self.tr("目标"), "").strip() if len(parts) > 1 else "-"
+            )
             actual = f"{v.actual_height}p" if v.actual_height else self.tr("未知")
 
             self.table.setItem(i, 1, QTableWidgetItem(target))

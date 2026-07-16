@@ -299,17 +299,26 @@ class MainWindow(FluentWindow):
         self.navigationInterface.setExpandWidth(190)
         # 1. 新建任务
         self.addSubInterface(
-            self.parse_page, FluentIcon.ADD, self.tr("新建任务"), position=NavigationItemPosition.TOP
+            self.parse_page,
+            FluentIcon.ADD,
+            self.tr("新建任务"),
+            position=NavigationItemPosition.TOP,
         )
 
         # 1.1 批量快速下载
         self.addSubInterface(
-            self.quick_parse_page, FluentIcon.ADD_TO, self.tr("批量快速下载"), position=NavigationItemPosition.TOP
+            self.quick_parse_page,
+            FluentIcon.ADD_TO,
+            self.tr("批量快速下载"),
+            position=NavigationItemPosition.TOP,
         )
 
         # 2. VR 下载
         self.addSubInterface(
-            self.vr_parse_page, FluentIcon.GAME, self.tr("VR 下载"), position=NavigationItemPosition.TOP
+            self.vr_parse_page,
+            FluentIcon.GAME,
+            self.tr("VR 下载"),
+            position=NavigationItemPosition.TOP,
         )
 
         # 2.1 频道下载
@@ -322,22 +331,34 @@ class MainWindow(FluentWindow):
 
         # 2.2 字幕下载
         self.addSubInterface(
-            self.subtitle_page, FluentIcon.FONT, self.tr("字幕下载"), position=NavigationItemPosition.TOP
+            self.subtitle_page,
+            FluentIcon.FONT,
+            self.tr("字幕下载"),
+            position=NavigationItemPosition.TOP,
         )
 
         # 2.2 封面下载
         self.addSubInterface(
-            self.cover_page, FluentIcon.PHOTO, self.tr("封面下载"), position=NavigationItemPosition.TOP
+            self.cover_page,
+            FluentIcon.PHOTO,
+            self.tr("封面下载"),
+            position=NavigationItemPosition.TOP,
         )
 
         # 3. 任务列表（统一页面，内部使用 Pivot 过滤）
         self.addSubInterface(
-            self.task_page, FluentIcon.DOWNLOAD, self.tr("任务列表"), position=NavigationItemPosition.TOP
+            self.task_page,
+            FluentIcon.DOWNLOAD,
+            self.tr("任务列表"),
+            position=NavigationItemPosition.TOP,
         )
 
         # 4. 下载历史
         self.addSubInterface(
-            self.history_page, FluentIcon.HISTORY, self.tr("下载历史"), position=NavigationItemPosition.TOP
+            self.history_page,
+            FluentIcon.HISTORY,
+            self.tr("下载历史"),
+            position=NavigationItemPosition.TOP,
         )
 
         self.addSubInterface(
@@ -525,7 +546,7 @@ class MainWindow(FluentWindow):
     def on_youtube_url_detected(self, url: str):
         is_playlist = "list=" in url
         title_msg = self.tr("检测到 YouTube 播放列表") if is_playlist else self.tr("检测到视频链接")
-        
+
         if not self.isVisible():
             self.tray_icon.showMessage(
                 title_msg,
@@ -543,7 +564,7 @@ class MainWindow(FluentWindow):
                 isClosable=True,
                 position=InfoBarPosition.TOP_RIGHT,
                 duration=2000,
-                parent=self
+                parent=self,
             )
 
         action = config_manager.get("clipboard_action_mode", "smart")
@@ -693,7 +714,9 @@ class MainWindow(FluentWindow):
 
         from qfluentwidgets import StateToolTip
 
-        self._quick_add_tooltip = StateToolTip(self.tr("解析中"), self.tr("正在获取资源信息..."), self.window())
+        self._quick_add_tooltip = StateToolTip(
+            self.tr("解析中"), self.tr("正在获取资源信息..."), self.window()
+        )
         self._quick_add_tooltip.move(self._quick_add_tooltip.getSuitablePos())
         self._quick_add_tooltip.show()
 
@@ -1115,7 +1138,9 @@ class MainWindow(FluentWindow):
             parts.append(f"{n_error} 个已失败/已取消")
 
         if MessageBox(
-            self.tr("清空记录"), f"确定要清空 {'、'.join(parts)} 的任务记录吗？\n(不会删除本地文件)", self
+            self.tr("清空记录"),
+            f"确定要清空 {'、'.join(parts)} 的任务记录吗？\n(不会删除本地文件)",
+            self,
         ).exec():
             workers_to_remove = []
             for row in clearable_rows:
@@ -1135,7 +1160,9 @@ class MainWindow(FluentWindow):
 
         if MessageBox(
             self.tr("清空全部任务"),
-            self.tr("确定要清空所有任务记录吗？\n如果任务正在下载中，也会被一并取消。(不会删除本地文件)"),
+            self.tr(
+                "确定要清空所有任务记录吗？\n如果任务正在下载中，也会被一并取消。(不会删除本地文件)"
+            ),
             self,
         ).exec():
             all_rows = list(range(self.task_page.model.rowCount()))
@@ -1375,7 +1402,11 @@ class MainWindow(FluentWindow):
                     # 第一次运行不主动弹强打扰对话框，给个横幅引导即可
                     from qfluentwidgets import InfoBar, InfoBarPosition
 
-                    action = self.tr("登录") if current_source == AuthSourceType.WEBVIEW2 else self.tr("导入")
+                    action = (
+                        self.tr("登录")
+                        if current_source == AuthSourceType.WEBVIEW2
+                        else self.tr("导入")
+                    )
                     InfoBar.warning(
                         self.tr("Cookie 未准备就绪"),
                         f"为了保证下载稳定，建议您先前往设置页进行{action}以获取 Cookie",
@@ -1395,10 +1426,10 @@ class MainWindow(FluentWindow):
                         f"{source_name} 需要管理员权限",
                         f"检测到您使用 {source_name} 作为 Cookie 来源。\n\n"
                         f"Chromium 内核浏览器使用了加密保护，\n"
-                        f"需要以管理员身份运行程序才能提取 Cookie。\n\n" +
-                        self.tr("是否以管理员身份重启程序？\n\n") +
-                        self.tr("提示：您也可以切换到 Firefox/LibreWolf 浏览器，\n") +
-                        self.tr("或使用「登录获取」方式，无需管理员权限。"),
+                        f"需要以管理员身份运行程序才能提取 Cookie。\n\n"
+                        + self.tr("是否以管理员身份重启程序？\n\n")
+                        + self.tr("提示：您也可以切换到 Firefox/LibreWolf 浏览器，\n")
+                        + self.tr("或使用「登录获取」方式，无需管理员权限。"),
                         self,
                     )
                     box.yesButton.setText(self.tr("以管理员身份重启"))

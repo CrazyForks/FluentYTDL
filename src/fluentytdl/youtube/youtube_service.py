@@ -140,6 +140,7 @@ class YoutubeService:
 
         # 平台检测
         from ..utils.url_router import UrlRouter
+
         _platform = UrlRouter.detect_platform(url) if url else "youtube"
         _is_twitter = _platform == "twitter"
 
@@ -153,7 +154,7 @@ class YoutubeService:
 
         auth = options.auth
         net = options.network
-        
+
         # 应用全局网络重试设置
         network_retries = int(config_manager.get("network_retries", 10))
         if net.retries == 10:
@@ -298,7 +299,9 @@ class YoutubeService:
 
                 if sentinel_path.exists():
                     if _is_twitter:
-                        yt_cookie_count = self._count_platform_cookies(sentinel_cookie_file, "twitter")
+                        yt_cookie_count = self._count_platform_cookies(
+                            sentinel_cookie_file, "twitter"
+                        )
                     else:
                         yt_cookie_count = self._count_youtube_related_cookies(sentinel_cookie_file)
 
@@ -1160,8 +1163,9 @@ class YoutubeService:
                         + "\n\n提示: 检测到已启用代理，部分代理/出口 IP 会显著增加平台风控概率。"
                         + "建议在设置中临时关闭代理后重试解析。"
                     )
-                
+
                 from ..utils.url_router import UrlRouter
+
                 if UrlRouter.detect_platform(url) == "twitter":
                     msg += "\n\n提示: X 平台需要登录才能下载部分内容。请在设置中登录 X 平台获取 Cookie。"
                 else:

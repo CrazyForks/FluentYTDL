@@ -67,11 +67,11 @@ class CookieRefreshWorker(QThread):
                     self.tr("未找到") in message or "not found" in message.lower()
                 ):
                     message = (
-                        f"无法从 {browser_name} 提取 Cookie\n\n" +
-                        self.tr("可能的原因：\n") +
-                        f"1. {browser_name} 未安装或未登录 YouTube\n"
-                        f"2. {browser_name} Cookie 数据库被锁定（请关闭浏览器）\n\n" +
-                        self.tr("建议：完全关闭浏览器后重试")
+                        f"无法从 {browser_name} 提取 Cookie\n\n"
+                        + self.tr("可能的原因：\n")
+                        + f"1. {browser_name} 未安装或未登录 YouTube\n"
+                        f"2. {browser_name} Cookie 数据库被锁定（请关闭浏览器）\n\n"
+                        + self.tr("建议：完全关闭浏览器后重试")
                     )
 
                 logger.warning(f"[CookieRefreshWorker] 提取失败: {message}")
@@ -277,7 +277,10 @@ class ComponentSettingCard(SettingCard):
 
         title_text = self.titleLabel.text()
         InfoBar.info(
-            self.tr("安装完成"), f"{title_text} 已成功安装/更新。", duration=5000, parent=self.window()
+            self.tr("安装完成"),
+            f"{title_text} 已成功安装/更新。",
+            duration=5000,
+            parent=self.window(),
         )
 
     def _on_error(self, key, msg):
@@ -382,6 +385,7 @@ class LanguageSelectionDialog(MessageBox):
         col = 0
         for code, name in languages:
             from PySide6.QtCore import QCoreApplication
+
             display_name = QCoreApplication.translate("Subtitle", name)
             checkbox = CheckBox(f"{display_name} ({code})", checkbox_container)
             checkbox.setChecked(code in self.selected_languages)
@@ -402,7 +406,9 @@ class LanguageSelectionDialog(MessageBox):
         scroll = SmoothScrollArea(content_widget)
         checkbox_container.setObjectName("checkboxContainer")
         scroll.setObjectName("scrollArea")
-        scroll.setStyleSheet("QScrollArea#scrollArea { background-color: transparent; border: none; } QWidget#checkboxContainer { background-color: transparent; }")
+        scroll.setStyleSheet(
+            "QScrollArea#scrollArea { background-color: transparent; border: none; } QWidget#checkboxContainer { background-color: transparent; }"
+        )
         scroll.setWidget(checkbox_container)
         scroll.setWidgetResizable(True)
         scroll.setMinimumHeight(250)
@@ -460,9 +466,15 @@ class LanguageMultiSelectCard(SettingCard):
             for code in self.selected_languages[:3]:  # 最多显示3个
                 name = next((n for c, n in self.languages if c == code), code)
                 from PySide6.QtCore import QCoreApplication
+
                 translated_name = QCoreApplication.translate("Subtitle", name)
                 import os
-                with open(os.path.join(os.path.dirname(__file__), "debug_translation.log"), "a", encoding="utf-8") as f:
+
+                with open(
+                    os.path.join(os.path.dirname(__file__), "debug_translation.log"),
+                    "a",
+                    encoding="utf-8",
+                ) as f:
                     f.write(f"Translating: '{name}' -> '{translated_name}'\n")
                 names.append(translated_name)
 
@@ -500,7 +512,9 @@ class AudioLanguageSelectionDialog(MessageBox):
 
     def __init__(self, languages: list[tuple[str, str]], selected: list[str], parent=None):
         super().__init__(
-            self.tr("选择并排序首选音轨语言"), self.tr("选中的语言越靠前，优先级越高。可拖拽调整顺序。"), parent
+            self.tr("选择并排序首选音轨语言"),
+            self.tr("选中的语言越靠前，优先级越高。可拖拽调整顺序。"),
+            parent,
         )
         self.languages = languages
         self.selected_languages_init = selected.copy() if selected else []
@@ -517,6 +531,7 @@ class AudioLanguageSelectionDialog(MessageBox):
         left_layout.setSpacing(12)
         left_layout.addWidget(SubtitleLabel(self.tr("可选语言:"), content_widget))
         from qfluentwidgets import ListWidget
+
         self.available_list = ListWidget(content_widget)
         self.available_list.setMinimumWidth(240)
         self.available_list.setMinimumHeight(250)
@@ -563,6 +578,7 @@ class AudioLanguageSelectionDialog(MessageBox):
         for code in self.selected_languages_init:
             name = lang_dict.get(code, code)
             from PySide6.QtCore import QCoreApplication
+
             display_name = QCoreApplication.translate("Subtitle", name)
             item = QListWidgetItem(f"{display_name} ({code})")
             item.setData(Qt.ItemDataRole.UserRole, code)
@@ -572,6 +588,7 @@ class AudioLanguageSelectionDialog(MessageBox):
         for code, name in self.languages:
             if code not in self.selected_languages_init:
                 from PySide6.QtCore import QCoreApplication
+
                 display_name = QCoreApplication.translate("Subtitle", name)
                 item = QListWidgetItem(f"{display_name} ({code})")
                 item.setData(Qt.ItemDataRole.UserRole, code)
@@ -630,6 +647,7 @@ class AudioLanguageMultiSelectCard(SettingCard):
             for code in self.selected_languages[:3]:
                 name = next((n for c, n in self.languages if c == code), code)
                 from PySide6.QtCore import QCoreApplication
+
                 name = QCoreApplication.translate("Subtitle", name)
                 names.append(name)
             text = " > ".join(names)
@@ -660,8 +678,18 @@ class EmbedTypeComboCard(SettingCard):
 
     # 嵌入类型映射
     EMBED_TYPES = [
-        ("soft", QCoreApplication.translate("EmbedTypeComboCard", "软嵌入（推荐） - 封装到容器，可开关，多语言")),
-        ("external", QCoreApplication.translate("EmbedTypeComboCard", "外置文件 - 独立字幕文件（格式见外部菜单），兼容性佳")),
+        (
+            "soft",
+            QCoreApplication.translate(
+                "EmbedTypeComboCard", "软嵌入（推荐） - 封装到容器，可开关，多语言"
+            ),
+        ),
+        (
+            "external",
+            QCoreApplication.translate(
+                "EmbedTypeComboCard", "外置文件 - 独立字幕文件（格式见外部菜单），兼容性佳"
+            ),
+        ),
     ]
 
     def __init__(

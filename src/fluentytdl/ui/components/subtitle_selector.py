@@ -77,13 +77,17 @@ class SubtitleSelectorWidget(QFrame):
         self.grid_layout.addWidget(BodyLabel(self.tr("选择")), 0, 0, Qt.AlignmentFlag.AlignCenter)
         self.grid_layout.addWidget(BodyLabel(self.tr("语言")), 0, 1, Qt.AlignmentFlag.AlignLeft)
         self.grid_layout.addWidget(BodyLabel(self.tr("类型")), 0, 2, Qt.AlignmentFlag.AlignCenter)
-        self.grid_layout.addWidget(BodyLabel(self.tr("原始格式")), 0, 3, Qt.AlignmentFlag.AlignCenter)
+        self.grid_layout.addWidget(
+            BodyLabel(self.tr("原始格式")), 0, 3, Qt.AlignmentFlag.AlignCenter
+        )
 
         # 添加分割线
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("background-color: rgba(128, 128, 128, 0.2); border: none; max-height: 1px;")
+        line.setStyleSheet(
+            "background-color: rgba(128, 128, 128, 0.2); border: none; max-height: 1px;"
+        )
         self.grid_layout.addWidget(line, 1, 0, 1, 4)
 
         self.scroll_area.setWidget(self.scroll_content)
@@ -164,7 +168,7 @@ class SubtitleSelectorWidget(QFrame):
 
         for idx, track in enumerate(self._tracks):
             row = idx + 2  # 行 0 是表头, 行 1 是分割线
-            
+
             # 1. Checkbox
             cb = CheckBox()
             if (

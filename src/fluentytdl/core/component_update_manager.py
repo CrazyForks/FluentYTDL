@@ -141,9 +141,7 @@ class _ManifestWorker(QThread):
             try:
                 cache_path = user_data_dir() / "update_manifest_cache.json"
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
-                cache_path.write_text(
-                    json.dumps(manifest, ensure_ascii=False), encoding="utf-8"
-                )
+                cache_path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
             except Exception:
                 pass
 
@@ -198,7 +196,7 @@ class _DownloadWorker(QThread):
                     return
             except Exception as e:
                 if attempt < max_retries - 1:
-                    wait = 2 ** attempt  # 1s, 2s
+                    wait = 2**attempt  # 1s, 2s
                     logger.warning(
                         f"[ComponentUpdate] 下载失败（尝试 {attempt + 1}/{max_retries}），"
                         f"{wait}s 后重试: {e}"

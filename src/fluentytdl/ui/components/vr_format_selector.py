@@ -244,7 +244,7 @@ class VRPresetWidget(QWidget):
             self.radios.append(rb)
 
             desc_label = CaptionLabel(desc, container)
-            desc_label.setTextColor(QColor(120, 120, 120), QColor(190, 190, 190))
+            desc_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
             desc_label.setWordWrap(True)
 
             h_layout.addWidget(rb)
@@ -254,7 +254,7 @@ class VRPresetWidget(QWidget):
 
         # 播放提示
         hint_label = CaptionLabel(_VR_PLAYBACK_HINT, self.content_widget)
-        hint_label.setTextColor(QColor(100, 100, 100), QColor(200, 200, 200))
+        hint_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         hint_label.setWordWrap(True)
         self.v_layout.addWidget(hint_label)
 
@@ -311,7 +311,7 @@ class VRFormatTableWidget(QWidget):
         self.hint_label = CaptionLabel(
             self.tr("提示：可组装模式仅显示分离流，分别点选“视频”和“音频”即可组装。"), self
         )
-        self.hint_label.setTextColor(QColor(100, 100, 100), QColor(200, 200, 200))
+        self.hint_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         layout.addWidget(self.hint_label)
 
         # VR 过滤器
@@ -343,17 +343,21 @@ class VRFormatTableWidget(QWidget):
         # Video Section
         from .format_selector import FormatExpandCard
 
-        self.video_container = FormatExpandCard(FluentIcon.VIDEO, "\u89c6\u9891\u6d41", self.split_container)
+        self.video_container = FormatExpandCard(
+            FluentIcon.VIDEO, "\u89c6\u9891\u6d41", self.split_container
+        )
         self._build_video_table()
         self.video_container.set_content(self.video_table)
         split_layout.addWidget(self.video_container)
 
         # Audio Section
-        self.audio_container = FormatExpandCard(FluentIcon.MUSIC, "\u97f3\u9891\u6d41", self.split_container)
+        self.audio_container = FormatExpandCard(
+            FluentIcon.MUSIC, "\u97f3\u9891\u6d41", self.split_container
+        )
         self._build_audio_table()
         self.audio_container.set_content(self.audio_table)
         split_layout.addWidget(self.audio_container)
-        
+
         self.video_container.toggle()
         self.audio_container.toggle()
 
@@ -849,10 +853,20 @@ class VRFormatTableWidget(QWidget):
         is_video_like = content_kind in {"video"}
         if is_video_like:
             self.single_table.setColumnCount(5)
-            self.single_table.setHorizontalHeaderLabels([self.tr("类型"), self.tr("质量"), self.tr("立体"), self.tr("投影"), self.tr("详情")])
+            self.single_table.setHorizontalHeaderLabels(
+                [
+                    self.tr("类型"),
+                    self.tr("质量"),
+                    self.tr("立体"),
+                    self.tr("投影"),
+                    self.tr("详情"),
+                ]
+            )
         else:
             self.single_table.setColumnCount(3)
-            self.single_table.setHorizontalHeaderLabels([self.tr("类型"), self.tr("质量"), self.tr("详情")])
+            self.single_table.setHorizontalHeaderLabels(
+                [self.tr("类型"), self.tr("质量"), self.tr("详情")]
+            )
         try:
             self.single_table.verticalHeader().setDefaultSectionSize(42)
             if is_video_like:
@@ -1079,11 +1093,17 @@ class VRFormatTableWidget(QWidget):
         label = self.summary_label
 
         if mode == 1:
-            label.setText(self.tr("已选：整合流") if self._selected_muxed_id else self.tr("请选择：整合流"))
+            label.setText(
+                self.tr("已选：整合流") if self._selected_muxed_id else self.tr("请选择：整合流")
+            )
         elif mode == 2:
-            label.setText(self.tr("已选：视频流") if self._selected_video_id else self.tr("请选择：视频流"))
+            label.setText(
+                self.tr("已选：视频流") if self._selected_video_id else self.tr("请选择：视频流")
+            )
         elif mode == 3:
-            label.setText(self.tr("已选：音频流") if self._selected_audio_id else self.tr("请选择：音频流"))
+            label.setText(
+                self.tr("已选：音频流") if self._selected_audio_id else self.tr("请选择：音频流")
+            )
         else:
             if self._selected_video_id and self._selected_audio_id:
                 label.setText(self.tr("已选：视频流 + 音频流"))
@@ -1098,7 +1118,9 @@ class VRFormatTableWidget(QWidget):
         if self._selected_video_id:
             for r in self._video_rows:
                 if r["format_id"] == self._selected_video_id:
-                    self.video_container.set_summary(f"{r.get('height', '?')}p · {r.get('vcodec', 'unknown')}")
+                    self.video_container.set_summary(
+                        f"{r.get('height', '?')}p · {r.get('vcodec', 'unknown')}"
+                    )
                     break
         else:
             self.video_container.set_summary(self.tr("未选择"))

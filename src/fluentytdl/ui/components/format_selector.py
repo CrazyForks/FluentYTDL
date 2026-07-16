@@ -118,9 +118,10 @@ def _format_size(value: Any) -> str:
 def _analyze_format_tags(r: dict) -> list[tuple[str, str]]:
     """Generates badge data for format details: [(text, color_style), ...]"""
     from PySide6.QtCore import QCoreApplication
+
     def tr(text: str) -> str:
         return QCoreApplication.translate("FormatSelector", text)
-        
+
     tags = []
 
     # 1. HDR
@@ -357,6 +358,7 @@ class SimplePresetWidget(QWidget):
 
             container.mousePressEvent = on_card_clicked
             from PySide6.QtCore import Qt
+
             container.setCursor(Qt.CursorShape.PointingHandCursor)
 
             self.v_layout.addWidget(container)
@@ -439,7 +441,9 @@ class _ContainerFormatBar(QFrame):
         if self.config_prefix:
             from ...core.config_manager import config_manager
 
-            c_val = config_manager.get(f"{self.config_prefix}_container_override", self.tr("自动推断"))
+            c_val = config_manager.get(
+                f"{self.config_prefix}_container_override", self.tr("自动推断")
+            )
             idx = self.container_combo.findText(c_val)
             if idx >= 0:
                 self.container_combo.setCurrentIndex(idx)
@@ -656,16 +660,23 @@ class VideoFormatSelectorWidget(QWidget):
         form_layout = QHBoxLayout()
         form_layout.addWidget(CaptionLabel(self.tr("下载模式:"), self.advanced_widget))
         self.mode_combo = ComboBox(self.advanced_widget)
-        self.mode_combo.addItems([self.tr("音视频（可组装）"), self.tr("音视频（整合流）"), self.tr("仅视频"), self.tr("仅音频")])
+        self.mode_combo.addItems(
+            [
+                self.tr("音视频（可组装）"),
+                self.tr("音视频（整合流）"),
+                self.tr("仅视频"),
+                self.tr("仅音频"),
+            ]
+        )
         self.mode_combo.currentIndexChanged.connect(self._refresh_table)
         form_layout.addWidget(self.mode_combo, 1)
         adv_layout.addLayout(form_layout)
 
         self.hint_label = CaptionLabel(
-            self.tr("提示：可组装模式仅显示分离流，分别点选“视频”和“音频”即可组装。"), self.advanced_widget
+            self.tr("提示：可组装模式仅显示分离流，分别点选“视频”和“音频”即可组装。"),
+            self.advanced_widget,
         )
         adv_layout.addWidget(self.hint_label)
-
 
         # --- Tables Area ---
 
@@ -681,7 +692,9 @@ class VideoFormatSelectorWidget(QWidget):
         split_layout.setSpacing(10)
 
         # Video Section
-        self.video_card = FormatExpandCard(FluentIcon.VIDEO, self.tr("视频流"), self.split_container)
+        self.video_card = FormatExpandCard(
+            FluentIcon.VIDEO, self.tr("视频流"), self.split_container
+        )
         self.video_table = self._create_table()
         self.video_table.setMinimumHeight(120)
         self.video_table.setMaximumHeight(280)  # 适当放开高度限制以显示更多元素
@@ -715,7 +728,7 @@ class VideoFormatSelectorWidget(QWidget):
             self.hint_label.hide()
             # Important: set current index after all elements are initialized
             self.mode_combo.setCurrentIndex(1)  # Force Mode 1 (muxed streams)
-            
+
             # 移除未使用的大组件，防止撑爆尺寸 (Size Hint)
             self.stack.removeWidget(self.simple_widget)
             adv_layout.removeWidget(self.split_container)
@@ -728,7 +741,7 @@ class VideoFormatSelectorWidget(QWidget):
         self.format_bar = _ContainerFormatBar(config_prefix="single", parent=self)
         self.format_bar.formatChanged.connect(self.selectionChanged)
         layout.addWidget(self.format_bar)
-        
+
         self.view_switcher.currentItemChanged.connect(self._on_mode_changed)
         if self.is_twitter:
             self.view_switcher.hide()
@@ -1228,11 +1241,17 @@ class VideoFormatSelectorWidget(QWidget):
             self.audio_card.set_summary(a_sum)
 
         if mode == 1:
-            label.setText(self.tr("已选：整合流") if self._selected_muxed_id else self.tr("请选择：整合流"))
+            label.setText(
+                self.tr("已选：整合流") if self._selected_muxed_id else self.tr("请选择：整合流")
+            )
         elif mode == 2:
-            label.setText(self.tr("已选：视频流") if self._selected_video_id else self.tr("请选择：视频流"))
+            label.setText(
+                self.tr("已选：视频流") if self._selected_video_id else self.tr("请选择：视频流")
+            )
         elif mode == 3:
-            label.setText(self.tr("已选：音频流") if self._selected_audio_id else self.tr("请选择：音频流"))
+            label.setText(
+                self.tr("已选：音频流") if self._selected_audio_id else self.tr("请选择：音频流")
+            )
         else:
             sel_a = (
                 self._selected_audio_ids

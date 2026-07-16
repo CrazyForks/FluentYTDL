@@ -63,10 +63,10 @@ class VRParsePage(QWidget):
         infoLayout.addWidget(infoTitle)
 
         infoText = CaptionLabel(
-            self.tr("VR180/360 视频在普通模式下只能获取平的单视角画面，且最高仅 1440p。\n") +
-            self.tr("VR 模式使用 android_vr 客户端，可获取完整 VR 投影和最高 8K 分辨率。\n") +
-            self.tr("解析后会自动识别投影类型（Equi / Mesh / EAC）和立体模式（3D / 2D）。\n") +
-            self.tr("注意：VR 模式不支持 Cookies，部分年龄限制视频可能无法下载。"),
+            self.tr("VR180/360 视频在普通模式下只能获取平的单视角画面，且最高仅 1440p。\n")
+            + self.tr("VR 模式使用 android_vr 客户端，可获取完整 VR 投影和最高 8K 分辨率。\n")
+            + self.tr("解析后会自动识别投影类型（Equi / Mesh / EAC）和立体模式（3D / 2D）。\n")
+            + self.tr("注意：VR 模式不支持 Cookies，部分年龄限制视频可能无法下载。"),
             self.infoCard,
         )
         infoText.setWordWrap(True)
@@ -117,15 +117,15 @@ class VRParsePage(QWidget):
 
         # 4. 底部提示
         self.tipsLabel = CaptionLabel(
-            self.tr("适用场景：\n") +
-            self.tr("- VR180 / VR360 视频，需要完整 SBS/OU 数据\n") +
-            self.tr("- 需要超过 1440p 分辨率的 VR 视频（4K/5K/8K）\n") +
-            self.tr("- 普通视频请使用左侧「新建任务」页面"),
+            self.tr("适用场景：\n")
+            + self.tr("- VR180 / VR360 视频，需要完整 SBS/OU 数据\n")
+            + self.tr("- 需要超过 1440p 分辨率的 VR 视频（4K/5K/8K）\n")
+            + self.tr("- 普通视频请使用左侧「新建任务」页面"),
             self,
         )
         self.tipsLabel.setWordWrap(True)
         self.tipsLabel.setMaximumWidth(760)
-        self.tipsLabel.setTextColor(QColor(100, 100, 100), QColor(160, 160, 160))
+        self.tipsLabel.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         self.centerLayout.addWidget(self.tipsLabel)
 
         # Connect to theme changes

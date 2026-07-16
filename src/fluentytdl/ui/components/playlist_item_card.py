@@ -74,7 +74,9 @@ class PlaylistItemCard(QFrame):
                 meta_str = self.tr("时长: {}").format(duration)
             if task.upload_date and task.upload_date != "-":
                 meta_str += (
-                    self.tr(" · 日期: {}").format(task.upload_date) if meta_str else self.tr("日期: {}").format(task.upload_date)
+                    self.tr(" · 日期: {}").format(task.upload_date)
+                    if meta_str
+                    else self.tr("日期: {}").format(task.upload_date)
                 )
             if not meta_str:
                 meta_str = self.tr("待加载...")
@@ -83,7 +85,7 @@ class PlaylistItemCard(QFrame):
         if task.has_error:
             self.meta_label.setTextColor(QColor("#C42B1C"), QColor("#FF99A4"))
         else:
-            self.meta_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
+            self.meta_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
 
         font = self.meta_label.font()
         font.setFamily("Consolas")
@@ -124,7 +126,7 @@ class PlaylistItemCard(QFrame):
             self.title_label.setTextColor(QColor("#C42B1C"), QColor("#FF99A4"))
         elif is_parsing:
             self.status_label.setText(msg or self.tr("解析中..."))
-            self.status_label.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
+            self.status_label.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
             self.title_label.setTextColor(QColor(0, 0, 0), QColor(255, 255, 255))
         else:
             self.status_label.setText(msg or self.tr("待下载"))

@@ -49,23 +49,23 @@ class CookieRepairDialog(MessageBoxBase):
         # 根据验证模式动态调整说明文本
         if self._auth_source == "webview2":
             desc_text = (
-                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n") +
-                self.tr("• 重新登录：点击下方按钮在浏览器中重新登录 YouTube\n") +
-                self.tr("• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并导入")
+                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n")
+                + self.tr("• 重新登录：点击下方按钮在浏览器中重新登录 YouTube\n")
+                + self.tr("• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并导入")
             )
         elif self._auth_source == "file":
             desc_text = (
-                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n") +
-                self.tr("• 重新导入：选择更新的 Cookie 文件 (Netscape 格式)\n") +
-                self.tr("• 推荐使用浏览器扩展 Get cookies.txt LOCALLY 导出\n") +
-                self.tr("• 或切换到「登录获取」模式，无需手动导出")
+                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n")
+                + self.tr("• 重新导入：选择更新的 Cookie 文件 (Netscape 格式)\n")
+                + self.tr("• 推荐使用浏览器扩展 Get cookies.txt LOCALLY 导出\n")
+                + self.tr("• 或切换到「登录获取」模式，无需手动导出")
             )
         else:
             desc_text = (
-                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n") +
-                self.tr("• 自动修复：尝试重新提取 Cookie (Chrome/Edge 若失败请使用下方方案)\n") +
-                self.tr("• 强烈建议：将设置页面的提取来源换为 Firefox 或 LibreWolf\n") +
-                self.tr("• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并手动导入")
+                self.tr("YouTube 需要重新验证身份，请选择以下方式修复：\n\n")
+                + self.tr("• 自动修复：尝试重新提取 Cookie (Chrome/Edge 若失败请使用下方方案)\n")
+                + self.tr("• 强烈建议：将设置页面的提取来源换为 Firefox 或 LibreWolf\n")
+                + self.tr("• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并手动导入")
             )
         self.desc_label = BodyLabel(desc_text, self)
         self.desc_label.setWordWrap(True)
@@ -73,13 +73,15 @@ class CookieRepairDialog(MessageBoxBase):
 
         # 错误详情（可折叠）
         if self.error_message:
-            self.error_label = BodyLabel(f"错误详情：\n{self._truncate_error(self.error_message)}", self)
+            self.error_label = BodyLabel(
+                f"错误详情：\n{self._truncate_error(self.error_message)}", self
+            )
             self.error_label.setWordWrap(True)
-            
+
             # 适配暗黑模式的错误颜色
             bg_color = "rgba(255, 255, 255, 0.08)" if isDarkTheme() else "rgba(255, 0, 0, 0.05)"
             text_color = "#ff99a4" if isDarkTheme() else "#d13438"
-            
+
             self.error_label.setStyleSheet(
                 f"background-color: {bg_color}; "
                 "padding: 8px; "
@@ -97,13 +99,13 @@ class CookieRepairDialog(MessageBoxBase):
             self.yesButton.setText(self.tr("重新登录"))
         else:
             self.yesButton.setText(self.tr("自动修复"))
-            
+
         try:
             self.yesButton.clicked.disconnect()
         except RuntimeError:
             pass
         self.yesButton.clicked.connect(self._on_auto_repair)
-        
+
         try:
             self.cancelButton.clicked.disconnect()
         except RuntimeError:
@@ -113,7 +115,7 @@ class CookieRepairDialog(MessageBoxBase):
         # 自定义 手动导入 按钮
         self.manual_btn = PushButton(self.tr("手动导入 Cookie"), self)
         self.manual_btn.clicked.connect(self._on_manual_import)
-        
+
         # 将其插入到 cancelButton 和 yesButton 之间
         self.buttonLayout.insertWidget(1, self.manual_btn, 1, Qt.AlignmentFlag.AlignVCenter)
 

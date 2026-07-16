@@ -124,13 +124,17 @@ class SubtitlePickerDialog(MessageBoxBase):
                     self._embed_combo.setCurrentIndex(1)
             elif container == "mp4" and lang_count > 1:
                 self._compat_label.setText(
-                    self.tr("⚠ MP4 容器使用 mov_text 编码，部分播放器对多轨字幕支持不佳，建议同时使用外置字幕或选择 MKV 容器。")
+                    self.tr(
+                        "⚠ MP4 容器使用 mov_text 编码，部分播放器对多轨字幕支持不佳，建议同时使用外置字幕或选择 MKV 容器。"
+                    )
                 )
                 self._compat_label.setStyleSheet("color: #E2C08D;")
                 self._compat_label.show()
         else:
             if not self._container:
-                self._compat_label.setText(self.tr("💡 将根据字幕需求自动选择最佳容器 (MKV/MP4/WebM)。"))
+                self._compat_label.setText(
+                    self.tr("💡 将根据字幕需求自动选择最佳容器 (MKV/MP4/WebM)。")
+                )
                 self._compat_label.setStyleSheet("color: #8D9BE2;")
                 self._compat_label.show()
             else:

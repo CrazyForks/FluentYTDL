@@ -308,7 +308,7 @@ class DownloadConfigWindow(FramelessWindow):
         # === UI Init ===
         self.setWindowTitle(self.tr("新建任务"))
         init_w, init_h = 600, 400
-        
+
         # 解除硬限制，完全由几何动画或手动设定控制
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
@@ -497,6 +497,7 @@ class DownloadConfigWindow(FramelessWindow):
         # Helper for auth panel hint labels
         def create_hint_label(text: str, parent: QWidget):
             from PySide6.QtWidgets import QFrame
+
             container = QFrame(parent)
             container.setStyleSheet(
                 "QFrame { background: rgba(128, 128, 128, 0.1); border-radius: 6px; }"
@@ -514,7 +515,9 @@ class DownloadConfigWindow(FramelessWindow):
         dle_lay.setContentsMargins(0, 4, 0, 0)
         dle_lay.setSpacing(10)
         dle_hint = create_hint_label(
-            self.tr("将打开独立浏览器窗口，请登录 YouTube 账号。\n登录完成后将自动提取 Cookie 并重新解析。"),
+            self.tr(
+                "将打开独立浏览器窗口，请登录 YouTube 账号。\n登录完成后将自动提取 Cookie 并重新解析。"
+            ),
             dle_panel,
         )
         dle_lay.addWidget(dle_hint)
@@ -538,8 +541,8 @@ class DownloadConfigWindow(FramelessWindow):
         extract_lay.setContentsMargins(0, 4, 0, 0)
         extract_lay.setSpacing(10)
         extract_hint = create_hint_label(
-            self.tr("从本地已登录的浏览器中直接提取 Cookie。\n") +
-            self.tr("Chromium 内核浏览器 (Edge/Chrome) 可能需要管理员权限。"),
+            self.tr("从本地已登录的浏览器中直接提取 Cookie。\n")
+            + self.tr("Chromium 内核浏览器 (Edge/Chrome) 可能需要管理员权限。"),
             extract_panel,
         )
         extract_lay.addWidget(extract_hint)
@@ -575,8 +578,8 @@ class DownloadConfigWindow(FramelessWindow):
         import_lay.setContentsMargins(0, 4, 0, 0)
         import_lay.setSpacing(10)
         import_hint = create_hint_label(
-            self.tr("选择已有的 cookies.txt 文件 (Netscape 格式)。\n") +
-            self.tr("可使用浏览器扩展 (如 Get cookies.txt LOCALLY) 导出。"),
+            self.tr("选择已有的 cookies.txt 文件 (Netscape 格式)。\n")
+            + self.tr("可使用浏览器扩展 (如 Get cookies.txt LOCALLY) 导出。"),
             import_panel,
         )
         import_lay.addWidget(import_hint)
@@ -591,8 +594,8 @@ class DownloadConfigWindow(FramelessWindow):
         update_lay.setContentsMargins(0, 4, 0, 0)
         update_lay.setSpacing(10)
         update_hint = create_hint_label(
-            self.tr("当前解析失败可能受限于平台最新的反爬风控机制（如 poToken 等）。\n") +
-            self.tr("建议立即检测并更新 yt-dlp 核心解析组件。"),
+            self.tr("当前解析失败可能受限于平台最新的反爬风控机制（如 poToken 等）。\n")
+            + self.tr("建议立即检测并更新 yt-dlp 核心解析组件。"),
             update_panel,
         )
         update_lay.addWidget(update_hint)
@@ -643,10 +646,10 @@ class DownloadConfigWindow(FramelessWindow):
         net_layout.setContentsMargins(0, 8, 0, 0)
         net_layout.setSpacing(8)
         self._netDiagLabel = CaptionLabel(
-            self.tr("无法正常访问 YouTube，可能的原因：\n") +
-            self.tr("• 未配置或未启动代理软件\n") +
-            self.tr("• 代理节点被 YouTube 封锁 / 限流\n") +
-            self.tr("• DNS 被污染或 SSL 证书被干扰"),
+            self.tr("无法正常访问 YouTube，可能的原因：\n")
+            + self.tr("• 未配置或未启动代理软件\n")
+            + self.tr("• 代理节点被 YouTube 封锁 / 限流\n")
+            + self.tr("• DNS 被污染或 SSL 证书被干扰"),
             self.networkDiagWidget,
         )
         net_layout.addWidget(self._netDiagLabel)
@@ -821,7 +824,9 @@ class DownloadConfigWindow(FramelessWindow):
         layout.addWidget(title)
 
         sub_enabled = config_manager.get_subtitle_config().enabled
-        self.subtitle_check = self._add_labeled_toggle(layout, container, self.tr("下载字幕"), sub_enabled)
+        self.subtitle_check = self._add_labeled_toggle(
+            layout, container, self.tr("下载字幕"), sub_enabled
+        )
 
         # 新增：字幕精选按钮（仅在字幕开关打开时可用）
         self.subtitle_pick_btn = PushButton(self.tr("选择字幕…"), container)
@@ -835,10 +840,14 @@ class DownloadConfigWindow(FramelessWindow):
         )
 
         dl_thumb = bool(config_manager.get("download_thumbnail", False))
-        self.cover_check = self._add_labeled_toggle(layout, container, self.tr("独立封面"), dl_thumb)
+        self.cover_check = self._add_labeled_toggle(
+            layout, container, self.tr("独立封面"), dl_thumb
+        )
 
         em_thumb = bool(config_manager.get("embed_thumbnail", False))
-        self.embed_check = self._add_labeled_toggle(layout, container, self.tr("嵌入视频"), em_thumb)
+        self.embed_check = self._add_labeled_toggle(
+            layout, container, self.tr("嵌入视频"), em_thumb
+        )
 
         self.cover_check.checkedChanged.connect(
             lambda checked: self.embed_check.setChecked(False) if checked else None
@@ -873,9 +882,12 @@ class DownloadConfigWindow(FramelessWindow):
             from ...processing.subtitle_manager import COMMON_SUBTITLE_LANGUAGES
 
             self.playlist_subtitle_lang_combo = ComboBox(container)
-            self.playlist_subtitle_lang_combo.addItem(self.tr("智能选择 (默认)"), userData="__smart__")
+            self.playlist_subtitle_lang_combo.addItem(
+                self.tr("智能选择 (默认)"), userData="__smart__"
+            )
             for code, name in COMMON_SUBTITLE_LANGUAGES:
                 from PySide6.QtCore import QCoreApplication
+
                 display_name = QCoreApplication.translate("Subtitle", name)
                 self.playlist_subtitle_lang_combo.addItem(display_name, userData=code)
 
@@ -1022,25 +1034,25 @@ class DownloadConfigWindow(FramelessWindow):
             w, h = 760, 520
             y_offset = 110
             x_offset = 0
-            
+
         target_geo = self._get_target_geometry(w, h, y_offset, x_offset)
-        
+
         from PySide6.QtCore import QEasingCurve, QPropertyAnimation
-        
+
         # 动画期间放开尺寸限制
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
-        
+
         self.geo_anim = QPropertyAnimation(self, b"geometry")
         self.geo_anim.setDuration(250)
         self.geo_anim.setStartValue(self.geometry())
         self.geo_anim.setEndValue(target_geo)
         self.geo_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        
+
         def on_anim_finished():
             self.setMinimumWidth(w)
             self.setMaximumWidth(w + 60)
-            
+
         self.geo_anim.finished.connect(on_anim_finished)
         self.geo_anim.start()
 
@@ -1048,13 +1060,13 @@ class DownloadConfigWindow(FramelessWindow):
         from PySide6.QtCore import QRect
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import QApplication
-        
+
         main_window = None
         for widget in QApplication.topLevelWidgets():
             if widget.objectName() == "MainWindow" or type(widget).__name__ == "MainWindow":
                 main_window = widget
                 break
-                
+
         if main_window:
             geo = main_window.geometry()
             cx = geo.center().x()
@@ -1063,16 +1075,16 @@ class DownloadConfigWindow(FramelessWindow):
             screen = QGuiApplication.primaryScreen().availableGeometry()
             cx = screen.center().x()
             cy = screen.center().y()
-        
+
         # 严格计算左上角坐标，并应用独立的水平偏移
         x = cx - w // 2 + x_offset
         # 根据独立的 y_offset 偏移视觉中心
         y = cy - h // 2 - y_offset
-        
+
         # 防止移出屏幕顶部
         if y < 0:
             y = 0
-            
+
         return QRect(x, y, w, h)
 
     def _stop_background_parsing(self) -> None:
@@ -1213,7 +1225,9 @@ class DownloadConfigWindow(FramelessWindow):
             for c in self._channel_caches.values()
             if c is not self._channel_caches.get("all")
         ):
-            self.on_parse_error({"title": self.tr("解析失败"), "content": self.tr("未能找到任何频道内容。")})
+            self.on_parse_error(
+                {"title": self.tr("解析失败"), "content": self.tr("未能找到任何频道内容。")}
+            )
             return
 
         # Set combined into the first loaded tab's dict as base
@@ -1242,9 +1256,9 @@ class DownloadConfigWindow(FramelessWindow):
         """询问用户是否切换回普通模式"""
         box = MessageBox(
             self.tr("检测到普通视频"),
-            self.tr("检测到当前链接似乎是普通视频，但您正在使用 VR 模式解析。\n\n") +
-            self.tr("VR 模式可能无法正确获取普通视频的格式，且不支持部分功能。\n") +
-            self.tr("建议切换回普通模式。"),
+            self.tr("检测到当前链接似乎是普通视频，但您正在使用 VR 模式解析。\n\n")
+            + self.tr("VR 模式可能无法正确获取普通视频的格式，且不支持部分功能。\n")
+            + self.tr("建议切换回普通模式。"),
             self,
         )
         box.yesButton.setText(self.tr("切换回普通模式"))
@@ -1354,8 +1368,8 @@ class DownloadConfigWindow(FramelessWindow):
 
             if not cookie_sentinel.exists:
                 self._cookieWarningLabel.setText(
-                    self.tr("⚠️ 尚未获取 Cookie — 解析可能因登录要求而失败。") +
-                    self.tr("建议先在「设置 > 账户」中获取 Cookie。")
+                    self.tr("⚠️ 尚未获取 Cookie — 解析可能因登录要求而失败。")
+                    + self.tr("建议先在「设置 > 账户」中获取 Cookie。")
                 )
                 self._cookieWarningLabel.show()
                 return
@@ -1376,7 +1390,9 @@ class DownloadConfigWindow(FramelessWindow):
                         f"⏳ Cookie 将在 {mins} 分钟后过期，建议提前刷新。"
                     )
                 else:
-                    self._cookieWarningLabel.setText(self.tr("⚠️ Cookie 已过期，建议前往设置页刷新。"))
+                    self._cookieWarningLabel.setText(
+                        self.tr("⚠️ Cookie 已过期，建议前往设置页刷新。")
+                    )
                 self._cookieWarningLabel.show()
         except Exception:
             pass  # 预检失败不影响正常流程
@@ -1442,7 +1458,9 @@ class DownloadConfigWindow(FramelessWindow):
             friendly_title = diag.user_title
             friendly_content = diag.user_message
 
-        title = friendly_title if friendly_title else str(err_data.get("title") or self.tr("解析失败"))
+        title = (
+            friendly_title if friendly_title else str(err_data.get("title") or self.tr("解析失败"))
+        )
         content = friendly_content if friendly_content else str(err_data.get("content") or "")
         suggestion = str(err_data.get("suggestion") or "")
         technical_detail = str(err_data.get("technical_detail") or raw_error)
@@ -1590,13 +1608,15 @@ class DownloadConfigWindow(FramelessWindow):
             self._probeBtn.setText(self.tr("检测网络连通性"))
             if reachable:
                 self._netProbeResult.setText(
-                    self.tr("✅ YouTube 可达 — 网络正常。\n") +
-                    self.tr("错误可能是 Cookie 失效导致，请尝试重新获取 Cookie。")
+                    self.tr("✅ YouTube 可达 — 网络正常。\n")
+                    + self.tr("错误可能是 Cookie 失效导致，请尝试重新获取 Cookie。")
                 )
                 # 网络通但报了错 → 可能其实是 Cookie 问题，显示重试面板
                 self.retryWidget.show()
             else:
-                self._netProbeResult.setText(self.tr("❌ 无法连接 YouTube — 请检查代理/VPN 是否正常运行。"))
+                self._netProbeResult.setText(
+                    self.tr("❌ 无法连接 YouTube — 请检查代理/VPN 是否正常运行。")
+                )
 
         self._probe_worker.finished.connect(_on_done, Qt.ConnectionType.QueuedConnection)
         self._probe_worker.start()
@@ -1641,7 +1661,11 @@ class DownloadConfigWindow(FramelessWindow):
         if 0 <= idx < len(self._webview2_account_ids):
             auth_service.set_current_webview2_account(self._webview2_account_ids[idx])
 
-        account = auth_service._webview2_accounts.get(self._webview2_account_ids[idx]) if (0 <= idx < len(self._webview2_account_ids)) else None
+        account = (
+            auth_service._webview2_accounts.get(self._webview2_account_ids[idx])
+            if (0 <= idx < len(self._webview2_account_ids))
+            else None
+        )
         platform = account.platform if account else "youtube"
         account_name = account.localized_name if account else self.tr("默认账号")
 
@@ -1680,12 +1704,14 @@ class DownloadConfigWindow(FramelessWindow):
                     cur_acc = auth_service.get_current_webview2_account(platform=platform)
                     acc_cookie = cur_acc.cached_cookie_path if cur_acc else self.tr("未知")
                     self._dleStatusLabel.setText(
-                        self.tr("✅ {} 登录成功，正在重新解析...\n账号文件: {}\n统一文件: {}").format(
-                            account_name, acc_cookie, cookie_sentinel.cookie_path
-                        )
+                        self.tr(
+                            "✅ {} 登录成功，正在重新解析...\n账号文件: {}\n统一文件: {}"
+                        ).format(account_name, acc_cookie, cookie_sentinel.cookie_path)
                     )
                 except Exception:
-                    self._dleStatusLabel.setText(self.tr("✅ {} 登录成功，正在重新解析...").format(account_name))
+                    self._dleStatusLabel.setText(
+                        self.tr("✅ {} 登录成功，正在重新解析...").format(account_name)
+                    )
                 self._retry_parse_with_auth()
             else:
                 clean = msg
@@ -1707,7 +1733,11 @@ class DownloadConfigWindow(FramelessWindow):
             self._webview2AccountCombo.blockSignals(True)
             self._webview2AccountCombo.clear()
             for acc in accounts:
-                plat_name = "YouTube" if acc.platform == "youtube" else ("X" if acc.platform == "twitter" else acc.platform.capitalize())
+                plat_name = (
+                    "YouTube"
+                    if acc.platform == "youtube"
+                    else ("X" if acc.platform == "twitter" else acc.platform.capitalize())
+                )
                 label = f"[{plat_name}] {acc.localized_name}"
                 if acc.is_default:
                     label += self.tr(" (默认)")
@@ -1822,7 +1852,9 @@ class DownloadConfigWindow(FramelessWindow):
             self._updateRetryBtn.setEnabled(True)
             self._updateRing.hide()
             if data.get("latest") == "unknown":
-                self._updateStatusLabel.setText(self.tr("❌ 检查更新失败，请检查网络连接或更换组件更新源。"))
+                self._updateStatusLabel.setText(
+                    self.tr("❌ 检查更新失败，请检查网络连接或更换组件更新源。")
+                )
             else:
                 self._updateStatusLabel.setText(
                     self.tr("✅ 当前已是最新版本或配置未变更，建议尝试更换代理节点。")
@@ -1854,10 +1886,10 @@ class DownloadConfigWindow(FramelessWindow):
     def setup_content_ui(self, info: dict[str, Any]) -> None:
         # 1. Top Info Card
         from PySide6.QtWidgets import QSizePolicy
-        
+
         top_card = CardWidget(self.contentWidget)
         top_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        
+
         top_h = QHBoxLayout(top_card)
         top_h.setContentsMargins(16, 16, 16, 16)
         top_h.setSpacing(16)
@@ -1924,14 +1956,17 @@ class DownloadConfigWindow(FramelessWindow):
         is_twitter = False
         try:
             from ...utils.validators import UrlValidator
+
             if UrlValidator.is_x_url(self.url):
                 is_twitter = True
         except Exception:
             pass
 
-        self.selector_widget = VideoFormatSelectorWidget(info, self.contentWidget, is_twitter=is_twitter)
+        self.selector_widget = VideoFormatSelectorWidget(
+            info, self.contentWidget, is_twitter=is_twitter
+        )
         self.contentLayout.addWidget(self.selector_widget)
-        
+
         if not is_twitter:
             self.options_container = self._build_single_option_switches()
             self.contentLayout.addWidget(self.options_container)
@@ -1955,7 +1990,7 @@ class DownloadConfigWindow(FramelessWindow):
         self.contentLayout.addWidget(self.selector_widget)
 
     # === 播放列表 UI ===
-    
+
     def setup_twitter_playlist_ui(self, info: dict[str, Any]) -> None:
         title = str(info.get("title") or self.tr("推文媒体列表"))
         count = 0
@@ -1965,8 +2000,9 @@ class DownloadConfigWindow(FramelessWindow):
 
         self.titleLabel.setText(self.tr("推文媒体：{}（{} 条）").format(title, count))
         self.titleLabel.show()
-        
+
         from qfluentwidgets import SmoothScrollArea
+
         scroll_area = SmoothScrollArea(self.contentWidget)
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(SmoothScrollArea.Shape.NoFrame)
@@ -1990,17 +2026,17 @@ class DownloadConfigWindow(FramelessWindow):
         for i, entry in enumerate(entries):
             if not isinstance(entry, dict):
                 continue
-                
+
             card = CardWidget(scroll_content)
             card_layout = QVBoxLayout(card)
             card_layout.setContentsMargins(16, 16, 16, 16)
             card_layout.setSpacing(12)
-            
+
             # Header: Thumbnail + Title
             header_layout = QHBoxLayout()
             header_layout.setContentsMargins(0, 0, 0, 0)
             header_layout.setSpacing(12)
-            
+
             thumb_label = ImageLabel(card)
             thumb_label.setFixedSize(120, 68)
             thumb_label.setBorderRadius(4, 4, 4, 4)
@@ -2011,20 +2047,20 @@ class DownloadConfigWindow(FramelessWindow):
                 self.image_loader.load(thumb_url, target_size=(120, 68), radius=4)
             else:
                 thumb_label.setStyleSheet("background: rgba(0,0,0,0.1); border-radius: 4px;")
-                
+
             header_layout.addWidget(thumb_label)
-            
+
             title_text = entry.get("title") or f"媒体片段 {i + 1}"
             title_label = SubtitleLabel(title_text, card)
             title_label.setWordWrap(True)
             title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             header_layout.addWidget(title_label, 1)
-            
+
             card_layout.addLayout(header_layout)
 
             selector = VideoFormatSelectorWidget(entry, card, is_twitter=True)
             card_layout.addWidget(selector)
-            
+
             scroll_layout.addWidget(card)
             self._twitter_selectors.append((entry, selector))
 
@@ -2178,22 +2214,23 @@ class DownloadConfigWindow(FramelessWindow):
             self.applyPresetBtn.hide()
 
         toolbar.addStretch(1)
-        
+
         # 并发控制
         self.concurrency_label = CaptionLabel(self.tr("解析并发:"), self.contentWidget)
         self.concurrency_combo = ComboBox(self.contentWidget)
         self.concurrency_combo.addItems(["1", "2", "3", "5", "8", "12", "16"])
-        
+
         from ...core.config_manager import config_manager
+
         curr_val = int(config_manager.get("playlist_extract_concurrency", 2))
         try:
             idx = ["1", "2", "3", "5", "8", "12", "16"].index(str(curr_val))
             self.concurrency_combo.setCurrentIndex(idx)
         except ValueError:
-            self.concurrency_combo.setCurrentIndex(1) # fallback to 2
-            
+            self.concurrency_combo.setCurrentIndex(1)  # fallback to 2
+
         self.concurrency_combo.currentIndexChanged.connect(self._on_concurrency_changed)
-        
+
         toolbar.addWidget(self.concurrency_label)
         toolbar.addWidget(self.concurrency_combo)
 
@@ -2223,6 +2260,7 @@ class DownloadConfigWindow(FramelessWindow):
         self._playlist_model = playlist_model
         self._playlist_delegate = playlist_delegate
         from ...core.config_manager import config_manager
+
         concurrency = int(config_manager.get("playlist_extract_concurrency", 2))
         self._extract_manager = AsyncExtractManager(max_concurrent=concurrency, parent=self)
 
@@ -2374,6 +2412,7 @@ class DownloadConfigWindow(FramelessWindow):
             return None
 
         from ...core.config_manager import config_manager
+
         concurrency = int(config_manager.get("playlist_extract_concurrency", 3))
         scheduler = PlaylistScheduler(
             extract_manager=mgr,
@@ -2492,7 +2531,9 @@ class DownloadConfigWindow(FramelessWindow):
                 {},
             )
             if not base_info:
-                self.on_parse_error({"title": self.tr("切换失败"), "content": self.tr("找不到有效的频道数据。")})
+                self.on_parse_error(
+                    {"title": self.tr("切换失败"), "content": self.tr("找不到有效的频道数据。")}
+                )
                 return
 
             info_dict = dict(base_info)
@@ -2553,7 +2594,9 @@ class DownloadConfigWindow(FramelessWindow):
 
     def _current_playlist_preset_height(self) -> int | None:
         preset_text = (
-            self.preset_combo.currentText() if self.preset_combo is not None else self.tr("最高质量(自动)")
+            self.preset_combo.currentText()
+            if self.preset_combo is not None
+            else self.tr("最高质量(自动)")
         )
         height_map = {
             self.tr("2160p(严格)"): 2160,
@@ -2672,19 +2715,24 @@ class DownloadConfigWindow(FramelessWindow):
         if override is not None:
             aw.set_loading(False)
             from .format_selector import resolve_global_format
+
             fmt_str, _ = resolve_global_format(data.get("detail"), override)
-            
-            parts = fmt_str.split('+')
+
+            parts = fmt_str.split("+")
             vid = parts[0] if len(parts) > 0 else ""
             aid = parts[1] if len(parts) > 1 else ""
-            
+
             # Get the full unfiltered formats list from detail
             detail_info = data.get("detail") or {}
             full_fmts = detail_info.get("formats") or []
-            
-            v_fmt = next((f for f in full_fmts if str(f.get("format_id") or f.get("id")) == vid), None)
-            a_fmt = next((f for f in full_fmts if str(f.get("format_id") or f.get("id")) == aid), None)
-            
+
+            v_fmt = next(
+                (f for f in full_fmts if str(f.get("format_id") or f.get("id")) == vid), None
+            )
+            a_fmt = next(
+                (f for f in full_fmts if str(f.get("format_id") or f.get("id")) == aid), None
+            )
+
             if not v_fmt and not a_fmt and override.download_type != "audio_only":
                 pid = getattr(override, "preset_id", None)
                 preset_map = {
@@ -2718,26 +2766,40 @@ class DownloadConfigWindow(FramelessWindow):
                 return
 
             if override.download_type == "audio_only":
-                a_fmt = next((f for f in full_fmts if str(f.get("format_id") or f.get("id")) == vid), None)
-                aw.qualityButton.setText(_format_audio_brief(a_fmt) if a_fmt else self.tr("音频(自动)"))
+                a_fmt = next(
+                    (f for f in full_fmts if str(f.get("format_id") or f.get("id")) == vid), None
+                )
+                aw.qualityButton.setText(
+                    _format_audio_brief(a_fmt) if a_fmt else self.tr("音频(自动)")
+                )
                 if a_fmt:
-                    aw.infoLabel.setText(_format_info_line("", a_fmt.get("filesize") or a_fmt.get("filesize_approx"), a_fmt.get("ext")))
+                    aw.infoLabel.setText(
+                        _format_info_line(
+                            "",
+                            a_fmt.get("filesize") or a_fmt.get("filesize_approx"),
+                            a_fmt.get("ext"),
+                        )
+                    )
                 else:
                     aw.infoLabel.setText("-")
             else:
                 v_h = v_fmt.get("height") if v_fmt else None
                 v_text = f"{v_h}p" if v_h else self.tr("最佳画质")
-                a_text = _format_audio_brief(a_fmt) if a_fmt else ("" if override.download_type == "video_only" else self.tr("音频(自动)"))
-                
+                a_text = (
+                    _format_audio_brief(a_fmt)
+                    if a_fmt
+                    else ("" if override.download_type == "video_only" else self.tr("音频(自动)"))
+                )
+
                 if override.download_type == "video_only":
                     aw.qualityButton.setText(v_text)
                 else:
                     aw.qualityButton.setText(f"{v_text} + {a_text}")
-                
+
                 v_size = v_fmt.get("filesize") or v_fmt.get("filesize_approx") if v_fmt else None
                 v_ext = v_fmt.get("ext") if v_fmt else None
                 v_line = _format_info_line(self.tr("视频 "), v_size, v_ext) if v_fmt else ""
-                
+
                 a_line = ""
                 if a_fmt:
                     a_size = a_fmt.get("filesize") or a_fmt.get("filesize_approx")
@@ -2827,10 +2889,14 @@ class DownloadConfigWindow(FramelessWindow):
                         chosen_fmt = f
                         break
                 v_line = _format_info_line(
-                    self.tr("视频 "), (chosen_fmt or {}).get("filesize"), (chosen_fmt or {}).get("ext")
+                    self.tr("视频 "),
+                    (chosen_fmt or {}).get("filesize"),
+                    (chosen_fmt or {}).get("ext"),
                 )
                 a_line = _format_info_line(
-                    self.tr("音频 "), (chosen_audio or {}).get("filesize"), (chosen_audio or {}).get("ext")
+                    self.tr("音频 "),
+                    (chosen_audio or {}).get("filesize"),
+                    (chosen_audio or {}).get("ext"),
                 )
                 aw.infoLabel.setText(v_line + "\n" + a_line)
                 return
@@ -2882,7 +2948,9 @@ class DownloadConfigWindow(FramelessWindow):
 
             # 显示详细信息（包含音频信息）
             v_line = _format_info_line(
-                self.tr("视频 "), best.get("filesize") or best.get("filesize_approx"), best.get("ext")
+                self.tr("视频 "),
+                best.get("filesize") or best.get("filesize_approx"),
+                best.get("ext"),
             )
             a_line = ""
             if chosen_audio:
@@ -2974,6 +3042,7 @@ class DownloadConfigWindow(FramelessWindow):
         if 0 <= index < len(vals):
             new_val = vals[index]
             from ...core.config_manager import config_manager
+
             config_manager.set("playlist_extract_concurrency", new_val)
             if self._extract_manager:
                 self._extract_manager.set_concurrency(new_val)
@@ -3218,7 +3287,7 @@ class DownloadConfigWindow(FramelessWindow):
         if not u:
             return
         self._thumb_cache[u] = pixmap
-        
+
         # 1. 尝试匹配推特实体化列表的缩略图
         if hasattr(self, "_twitter_thumb_labels"):
             tw_label = self._twitter_thumb_labels.get(u)
@@ -3531,7 +3600,9 @@ class DownloadConfigWindow(FramelessWindow):
                     super().__init__(parent)
                     self.titleLabel = SubtitleLabel(self.tr("多音轨容器兼容性警告"), self)
                     self.viewLayout.addWidget(self.titleLabel)
-                    self.msgLabel = BodyLabel(audio_conflict + self.tr("\n\n请选择解决方案："), self)
+                    self.msgLabel = BodyLabel(
+                        audio_conflict + self.tr("\n\n请选择解决方案："), self
+                    )
                     self.msgLabel.setWordWrap(True)
                     self.viewLayout.addWidget(self.msgLabel)
                     self.widget.setMinimumWidth(400)
@@ -3709,6 +3780,7 @@ class DownloadConfigWindow(FramelessWindow):
             is_twitter = False
             try:
                 from ...utils.validators import UrlValidator
+
                 is_twitter = UrlValidator.is_x_url(url)
             except Exception:
                 pass
@@ -3846,7 +3918,7 @@ class DownloadConfigWindow(FramelessWindow):
                 url = _infer_entry_url(entry) or self.url
                 title = entry.get("title") or self.tr("未命名推文媒体")
                 thumb = entry.get("thumbnail") or ""
-                
+
                 ydl_opts = {}
                 ydl_opts["writethumbnail"] = False
                 ydl_opts["embedthumbnail"] = False
@@ -3854,7 +3926,7 @@ class DownloadConfigWindow(FramelessWindow):
                 ydl_opts["writesubtitles"] = False
                 ydl_opts["embedsubtitles"] = False
                 ydl_opts["__fluentytdl_keep_thumbnail"] = False
-                
+
                 sel = selector.get_selection_result()
                 if sel and sel.get("format"):
                     ydl_opts["format"] = sel["format"]
@@ -3866,7 +3938,7 @@ class DownloadConfigWindow(FramelessWindow):
                 else:
                     ydl_opts["format"] = "bestvideo+bestaudio/best"
                     ydl_opts["__fluentytdl_format_note"] = self.tr("最佳画质")
-                    
+
                 self._apply_download_dir_to_opts(ydl_opts)
                 tasks.append((title, url, ydl_opts, thumb))
             return tasks
@@ -4033,7 +4105,9 @@ class DownloadConfigWindow(FramelessWindow):
                 )
                 if bool(row_data.get("manual_override")) and row_data.get("override_format_id"):
                     row_opts["format"] = f"{row_data['override_format_id']}+bestaudio/best"
-                    row_opts["__fluentytdl_format_note"] = row_data.get("override_text") or self.tr("自定义")
+                    row_opts["__fluentytdl_format_note"] = row_data.get("override_text") or self.tr(
+                        "自定义"
+                    )
                 else:
                     row_opts["format"] = vr_preset_fmt or "bestvideo+bestaudio/best"
                     row_opts.update(vr_preset_args)
@@ -4080,9 +4154,9 @@ class DownloadConfigWindow(FramelessWindow):
                     row_opts["__fluentytdl_format_note"] = self.tr("纯音频")
                     if aud_manual_fid:
                         row_opts["format"] = aud_manual_fid
-                        row_opts["__fluentytdl_format_note"] = (
-                            row_data.get("audio_override_text") or self.tr("自定义音频")
-                        )
+                        row_opts["__fluentytdl_format_note"] = row_data.get(
+                            "audio_override_text"
+                        ) or self.tr("自定义音频")
                     elif aud_fid:
                         row_opts["format"] = aud_fid
                     else:
@@ -4092,9 +4166,9 @@ class DownloadConfigWindow(FramelessWindow):
                 elif mode == 1:  # Video only
                     if ov_fid:
                         row_opts["format"] = ov_fid
-                        row_opts["__fluentytdl_format_note"] = (
-                            row_data.get("override_text") or self.tr("自定义视频")
-                        )
+                        row_opts["__fluentytdl_format_note"] = row_data.get(
+                            "override_text"
+                        ) or self.tr("自定义视频")
                     else:
                         h = self._current_playlist_preset_height()
                         if h:
@@ -4109,9 +4183,9 @@ class DownloadConfigWindow(FramelessWindow):
                         target_audio = (
                             aud_manual_fid if row_data.get("audio_manual_override") else aud_fid
                         )
-                        row_opts["__fluentytdl_format_note"] = (
-                            row_data.get("override_text") or self.tr("自定义")
-                        )
+                        row_opts["__fluentytdl_format_note"] = row_data.get(
+                            "override_text"
+                        ) or self.tr("自定义")
                         if target_audio:
                             row_opts["format"] = f"{ov_fid}+{target_audio}"
                             row_opts["merge_output_format"] = "mkv"
@@ -4257,8 +4331,6 @@ class DownloadConfigWindow(FramelessWindow):
             tasks.append((title, url, row_opts, thumb))
 
         return tasks
-
-
 
     def _update_style(self):
         from PySide6.QtGui import QColor

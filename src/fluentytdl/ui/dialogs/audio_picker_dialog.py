@@ -82,7 +82,16 @@ class AudioPickerDialog(MessageBoxBase):
         # 音轨列表表格
         self.table = TableWidget(self)
         self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels([self.tr("选择"), self.tr("语言"), self.tr("类型"), self.tr("编码"), self.tr("码率"), self.tr("大小")])
+        self.table.setHorizontalHeaderLabels(
+            [
+                self.tr("选择"),
+                self.tr("语言"),
+                self.tr("类型"),
+                self.tr("编码"),
+                self.tr("码率"),
+                self.tr("大小"),
+            ]
+        )
         self.table.verticalHeader().setVisible(False)
         self.table.setBorderVisible(True)
         self.table.setBorderRadius(8)
@@ -258,7 +267,9 @@ class AudioPickerDialog(MessageBoxBase):
                 self._compat_label.show()
             elif count > 1 and container == "mp4":
                 self._compat_label.setText(
-                    self.tr("⚠ 警告: MP4 容器对多音轨支持不佳，可能会在部分播放器中无法切换音频或出现异常。\n如果您继续使用 MP4，建议仅供测试使用。")
+                    self.tr(
+                        "⚠ 警告: MP4 容器对多音轨支持不佳，可能会在部分播放器中无法切换音频或出现异常。\n如果您继续使用 MP4，建议仅供测试使用。"
+                    )
                 )
                 self._compat_label.setStyleSheet("color: #E2C08D;")
                 self._compat_label.show()

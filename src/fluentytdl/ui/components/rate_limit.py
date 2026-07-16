@@ -6,6 +6,7 @@ FluentYTDL 动态限速控制组件
 - 支持单任务和全局限速
 - 预设快捷按钮
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -92,7 +93,9 @@ class RateLimitSlider(QWidget):
             # 标签行
             label_layout = QHBoxLayout()
             self.titleLabel = BodyLabel(self.tr("下载限速"), self)
-            self.valueLabel = CaptionLabel(QCoreApplication.translate("RateLimitSlider", "不限速"), self)
+            self.valueLabel = CaptionLabel(
+                QCoreApplication.translate("RateLimitSlider", "不限速"), self
+            )
             self.valueLabel.setStyleSheet("color: #0078D4;")
             label_layout.addWidget(self.titleLabel)
             label_layout.addStretch()
@@ -123,7 +126,9 @@ class RateLimitSlider(QWidget):
 
         if self._compact:
             # 紧凑模式：值标签在右侧
-            self.valueLabel = CaptionLabel(QCoreApplication.translate("RateLimitSlider", "不限速"), self)
+            self.valueLabel = CaptionLabel(
+                QCoreApplication.translate("RateLimitSlider", "不限速"), self
+            )
             self.valueLabel.setFixedWidth(70)
             self.valueLabel.setStyleSheet("color: #0078D4;")
             slider_layout.addWidget(self.valueLabel)

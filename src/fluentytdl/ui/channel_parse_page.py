@@ -60,9 +60,9 @@ class ChannelParsePage(QWidget):
         infoLayout.addWidget(infoTitle)
 
         infoText = CaptionLabel(
-            self.tr("粘贴 YouTube 频道链接，自动解析频道内所有视频。\n") +
-            self.tr("支持切换「视频」和「Shorts」标签页，以及按时间正序/倒序排列。\n") +
-            self.tr("解析采用渐进式加载，先展示标题和封面，滚动到可视区域时再获取详细格式。"),
+            self.tr("粘贴 YouTube 频道链接，自动解析频道内所有视频。\n")
+            + self.tr("支持切换「视频」和「Shorts」标签页，以及按时间正序/倒序排列。\n")
+            + self.tr("解析采用渐进式加载，先展示标题和封面，滚动到可视区域时再获取详细格式。"),
             self.infoCard,
         )
         infoText.setWordWrap(True)
@@ -127,16 +127,15 @@ class ChannelParsePage(QWidget):
 
         # 4. 底部提示
         self.tipsLabel = CaptionLabel(
-            self.tr("支持的频道 URL 格式：\n") +
-            "- https://www.youtube.com/@ChannelName\n"
+            self.tr("支持的频道 URL 格式：\n") + "- https://www.youtube.com/@ChannelName\n"
             "- https://www.youtube.com/channel/UCxxxxxxxxx\n"
-            "- https://www.youtube.com/c/ChannelName\n" +
-            self.tr("- 单个视频请使用左侧「新建任务」页面"),
+            "- https://www.youtube.com/c/ChannelName\n"
+            + self.tr("- 单个视频请使用左侧「新建任务」页面"),
             self,
         )
         self.tipsLabel.setWordWrap(True)
         self.tipsLabel.setMaximumWidth(760)
-        self.tipsLabel.setTextColor(QColor(100, 100, 100), QColor(160, 160, 160))
+        self.tipsLabel.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         self.centerLayout.addWidget(self.tipsLabel)
 
         # Connect to theme changes

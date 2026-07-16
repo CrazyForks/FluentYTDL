@@ -9,7 +9,6 @@ from PySide6.QtCore import QCoreApplication, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import (
-    BodyLabel,
     CaptionLabel,
     CardWidget,
     FluentIcon,
@@ -17,6 +16,7 @@ from qfluentwidgets import (
     InfoBarPosition,
     MessageBox,
     ProgressBar,
+    StrongBodyLabel,
     ToolTipFilter,
     ToolTipPosition,
     TransparentToolButton,
@@ -155,7 +155,7 @@ class DownloadItemCard(CardWidget):
         self.infoLayout.setSpacing(4)
         self.infoLayout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        self.titleLabel = BodyLabel(self.title_text, self)
+        self.titleLabel = StrongBodyLabel(self.title_text, self)
         self.titleLabel.setWordWrap(False)
 
         self.progressBar = ProgressBar(self)
@@ -163,7 +163,7 @@ class DownloadItemCard(CardWidget):
         self.progressBar.setFixedHeight(4)
 
         self.statusLabel = CaptionLabel(self.tr("等待开始..."), self)
-        self.statusLabel.setTextColor(QColor(120, 120, 120), QColor(150, 150, 150))
+        self.statusLabel.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
 
         self.infoLayout.addWidget(self.titleLabel)
         self.infoLayout.addWidget(self.progressBar)
@@ -523,8 +523,7 @@ class DownloadItemCard(CardWidget):
         box = MessageBox(
             self.tr("预设质量不可用"),
             f"当前任务预设为 {current_height}p，但该视频可能不提供该档位。\n\n"
-            f"错误信息：{err_msg}\n\n" +
-            self.tr("可选择自动降低档位重试，或手动调整格式。"),
+            f"错误信息：{err_msg}\n\n" + self.tr("可选择自动降低档位重试，或手动调整格式。"),
             parent=self.window(),
         )
         box.yesButton.setText(self.tr("自动降档重试"))
@@ -561,7 +560,9 @@ class DownloadItemCard(CardWidget):
                 self.actionBtn.setIcon(FluentIcon.PAUSE)
                 self.actionBtn.setToolTip(self.tr("暂停任务"))
                 self.statusLabel.setText(
-                    self.tr("已手动调整格式，开始下载...") if started else self.tr("已手动调整格式，排队中...")
+                    self.tr("已手动调整格式，开始下载...")
+                    if started
+                    else self.tr("已手动调整格式，排队中...")
                 )
             return
 

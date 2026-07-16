@@ -98,6 +98,7 @@ class PlaylistProgressTracker:
         """生成给 CleanLogger / DownloadItemDelegate 使用的进度文本。"""
         if self.total_items == 0:
             from PySide6.QtCore import QCoreApplication
+
             return QCoreApplication.translate("PlaylistProgress", "正在解析播放列表...")
 
         title_part = self.current_title or "..."

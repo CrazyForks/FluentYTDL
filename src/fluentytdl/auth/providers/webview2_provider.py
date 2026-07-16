@@ -140,13 +140,34 @@ def _webview_subprocess(
     _log(f"login_url={login_url}, cache_dir={cache_dir}, timeout={timeout}")
     _log(f"start_hidden={start_hidden}, reveal_after={reveal_after_seconds}")
 
+    # ── 注入自定义代理配置 (必须在 import webview 之前执行) ──
+    try:
+        from ...core.config_manager import config_manager
+
+        proxy_mode = str(config_manager.get("proxy_mode") or "off").lower().strip()
+        proxy_url = str(config_manager.get("proxy_url") or "").strip()
+
+        if proxy_mode in ("http", "socks5") and proxy_url:
+            scheme = "socks5" if proxy_mode == "socks5" else "http"
+            proxy_full = f"{scheme}://{proxy_url}"
+            os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = f"--proxy-server={proxy_full}"
+            _log(f"已注入自定义代理: {proxy_full}")
+        elif proxy_mode == "system":
+            os.environ.pop("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", None)
+            _log("使用系统代理")
+        else:
+            os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--no-proxy-server"
+            _log("强制直连 (禁用代理)")
+    except Exception as e:
+        _log(f"代理配置注入失败: {e}")
+
     # ── 导入 pywebview ──
     try:
         import webview
-        
+
         # 强制所有 target="_blank" 或新窗口请求都在当前 pywebview 窗口内打开
         # 防止 X (Twitter) 的 Google 登录跳转到系统默认浏览器
-        webview.settings['OPEN_EXTERNAL_LINKS_IN_BROWSER'] = False
+        webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = False
 
         _log(
             f"import webview 成功: {webview.__version__ if hasattr(webview, '__version__') else '?'}"
@@ -160,32 +181,11 @@ def _webview_subprocess(
         _send_and_close({"error": error_msg})
         return
 
-    # ── 注入自定义代理配置 ──
-    try:
-        # 子进程独立导入 config_manager
-        from ...core.config_manager import config_manager
-        
-        proxy_mode = str(config_manager.get("proxy_mode") or "off").lower().strip()
-        proxy_url = str(config_manager.get("proxy_url") or "").strip()
-        
-        if proxy_mode in ("http", "socks5") and proxy_url:
-            scheme = "socks5" if proxy_mode == "socks5" else "http"
-            proxy_full = f"{scheme}://{proxy_url}"
-            # WebView2 通过附加参数注入代理
-            os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = f"--proxy-server={proxy_full}"
-            _log(f"已注入自定义代理: {proxy_full}")
-        elif proxy_mode == "system":
-            os.environ.pop("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", None)
-            _log("使用系统代理")
-        else:
-            os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--no-proxy-server"
-            _log("强制直连 (禁用代理)")
-    except Exception as e:
-        _log(f"代理配置注入失败: {e}")
-
     # ── 创建窗口 ──
     window_kwargs = {
-        "title": "FluentYTDL - YouTube 安全登录" if platform == "youtube" else "FluentYTDL - X (Twitter) 安全登录",
+        "title": "FluentYTDL - YouTube 安全登录"
+        if platform == "youtube"
+        else "FluentYTDL - X (Twitter) 安全登录",
         "url": login_url,
         "width": 900,
         "height": 700,
@@ -218,7 +218,9 @@ def _webview_subprocess(
                 current_url = win.get_current_url() or ""
 
                 if not revealed and elapsed >= reveal_after_seconds:
-                    _log(f"[{elapsed}s] 超过 {reveal_after_seconds}s 未检测到有效登录态，主动显示窗口让用户登录...")
+                    _log(
+                        f"[{elapsed}s] 超过 {reveal_after_seconds}s 未检测到有效登录态，主动显示窗口让用户登录..."
+                    )
                     try:
                         win.show()
                     except Exception as e:
@@ -432,7 +434,15 @@ class WebView2CookieProvider:
 
         process = multiprocessing.Process(
             target=_webview_subprocess,
-            args=(cookie_queue, login_url, cache_dir, timeout, start_hidden, reveal_after_seconds, platform),
+            args=(
+                cookie_queue,
+                login_url,
+                cache_dir,
+                timeout,
+                start_hidden,
+                reveal_after_seconds,
+                platform,
+            ),
             daemon=True,
         )
 

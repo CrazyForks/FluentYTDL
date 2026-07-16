@@ -214,9 +214,10 @@ class UnifiedTaskListPage(QWidget):
         self.header_layout.addWidget(self.concurrent_box, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self.header_layout.addSpacing(16)
-        
+
         # === 排序切换按钮 ===
         from qfluentwidgets import ToolButton
+
         self.sort_button = ToolButton(FluentIcon.UP, self)
         self.sort_button.setToolTip(self.tr("切换排序 (最新/最早)"))
         self.sort_button.clicked.connect(self._on_sort_clicked)
@@ -430,6 +431,7 @@ class UnifiedTaskListPage(QWidget):
     def _on_sort_clicked(self):
         from PySide6.QtCore import Qt
         from qfluentwidgets import FluentIcon
+
         if self.proxy_model.sortOrder() == Qt.SortOrder.AscendingOrder:
             self.proxy_model.sort(0, Qt.SortOrder.DescendingOrder)
             self.sort_button.setIcon(FluentIcon.DOWN)
@@ -463,10 +465,16 @@ class UnifiedTaskListPage(QWidget):
                     "running": ("⏳", self.tr("没有正在下载的任务"), self.tr("当前无活跃下载")),
                     "queued": ("📋", self.tr("没有排队中的任务"), self.tr("所有任务已开始")),
                     "paused": ("⏸️", self.tr("没有暂停的任务"), self.tr("所有任务运行中")),
-                    "completed": ("✅", self.tr("没有已完成的任务"), self.tr("完成的任务会显示在这里")),
+                    "completed": (
+                        "✅",
+                        self.tr("没有已完成的任务"),
+                        self.tr("完成的任务会显示在这里"),
+                    ),
                     "error": ("❌", self.tr("没有失败的任务"), self.tr("太棒了，一切顺利！")),
                 }
-                icon, title, subtitle = messages.get(self._current_filter, ("🍃", self.tr("暂无任务"), ""))
+                icon, title, subtitle = messages.get(
+                    self._current_filter, ("🍃", self.tr("暂无任务"), "")
+                )
                 self.empty_icon.setText(icon)
                 self.empty_title.setText(title)
                 self.empty_desc.setText(subtitle)

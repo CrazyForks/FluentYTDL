@@ -189,6 +189,7 @@ class WebView2Account:
     @property
     def localized_name(self) -> str:
         from PySide6.QtCore import QCoreApplication
+
         if self.display_name in ("默认账号", "Default"):
             return QCoreApplication.translate("WebView2Account", "默认账号")
         return self.display_name
@@ -259,6 +260,7 @@ class AuthService:
     def current_source_display(self) -> str:
         """当前验证源的显示名称"""
         from PySide6.QtCore import QCoreApplication
+
         names = {
             AuthSourceType.NONE: QCoreApplication.translate("AuthService", "未启用"),
             AuthSourceType.EDGE: QCoreApplication.translate("AuthService", "Edge 浏览器"),
@@ -631,15 +633,15 @@ class AuthService:
     ) -> dict[str, str | None]:
         """
         一次性从当前浏览器提取所有平台的 Cookie
-        
+
         Args:
             callback: 进度回调 (platform_label, status_msg) 供 UI 显示进度
-        
+
         Returns:
             {"youtube": cookie_file_path_or_none, "twitter": cookie_file_path_or_none}
         """
         results = {}
-        
+
         for platform, label in [("youtube", "YouTube"), ("twitter", "X (Twitter)")]:
             if callback:
                 callback(label, "正在提取...")
@@ -656,7 +658,7 @@ class AuthService:
                 results[platform] = None
                 if callback:
                     callback(label, f"❌ 提取失败: {e}")
-        
+
         return results
 
     def _extract_and_cache(
@@ -999,7 +1001,7 @@ class AuthService:
         elif platform == "twitter":
             required = X_REQUIRED_COOKIES
             missing = required - found
-            
+
             if missing:
                 return {
                     "valid": False,
@@ -1148,12 +1150,12 @@ class AuthService:
     ) -> WebView2Account:
         """创建 WebView2 账号"""
         display_name = display_name.strip() or "未命名账号"
-        
+
         # 检查是否重复命名（全局范围检查，防止跨平台混淆）
         for existing in self._webview2_accounts.values():
             if existing.display_name == display_name:
                 raise ValueError(f"已存在名为 '{display_name}' 的账号，请使用其他名称")
-                
+
         account_id = uuid4().hex
         profile_dir, cache_file = self._build_webview2_account_paths(account_id, platform)
         account = WebView2Account(
@@ -1162,7 +1164,9 @@ class AuthService:
             platform=platform,
             profile_dir=str(profile_dir),
             cached_cookie_path=str(cache_file),
-            is_default=(sum(1 for a in self._webview2_accounts.values() if a.platform == platform) == 0),
+            is_default=(
+                sum(1 for a in self._webview2_accounts.values() if a.platform == platform) == 0
+            ),
             notes=notes,
         )
         self._webview2_accounts[account_id] = account
@@ -1211,7 +1215,9 @@ class AuthService:
         if not account:
             return False
 
-        same_platform_count = sum(1 for a in self._webview2_accounts.values() if a.platform == account.platform)
+        same_platform_count = sum(
+            1 for a in self._webview2_accounts.values() if a.platform == account.platform
+        )
         if same_platform_count <= 1:
             logger.warning(f"至少需要保留一个 {account.platform} WebView2 账号，拒绝删除")
             return False
@@ -1227,13 +1233,23 @@ class AuthService:
 
         if account_id == self._current_webview2_account_ids.get(account.platform):
             self._current_webview2_account_ids[account.platform] = next(
-                (a.account_id for a in self._webview2_accounts.values() if a.platform == account.platform), None
+                (
+                    a.account_id
+                    for a in self._webview2_accounts.values()
+                    if a.platform == account.platform
+                ),
+                None,
             )
             self._save_config()
 
         # 保证始终有一个同平台的默认账号
-        if not any(a.is_default for a in self._webview2_accounts.values() if a.platform == account.platform):
-            first = next((a for a in self._webview2_accounts.values() if a.platform == account.platform), None)
+        if not any(
+            a.is_default for a in self._webview2_accounts.values() if a.platform == account.platform
+        ):
+            first = next(
+                (a for a in self._webview2_accounts.values() if a.platform == account.platform),
+                None,
+            )
             if first:
                 first.is_default = True
 
@@ -1252,7 +1268,9 @@ class AuthService:
         self._sync_current_webview2_cookie_to_unified_cookiefile(platform=account.platform)
         return True
 
-    def _sync_current_webview2_cookie_to_unified_cookiefile(self, platform: str = "youtube") -> bool:
+    def _sync_current_webview2_cookie_to_unified_cookiefile(
+        self, platform: str = "youtube"
+    ) -> bool:
         """将当前 WebView2 账号的 Cookie 覆盖同步到对应的统一 Cookie 文件"""
         account = self.get_current_webview2_account(platform)
         if not account or not account.cached_cookie_path:
@@ -1272,7 +1290,6 @@ class AuthService:
             self._update_status_from_file(str(src), platform)
             cookie_sentinel._save_meta(
                 f"webview2:{account.account_id}", self._last_status.cookie_count, platform
-
             )
             logger.info(
                 f"已切换到 WebView2 账号 {account.localized_name}，并同步 Cookie 到 {target_path}"
@@ -1403,7 +1420,7 @@ class AuthService:
         for account in self._webview2_accounts.values():
             old_root = self._webview2_accounts_dir / account.account_id
             new_root = self._webview2_accounts_dir / account.platform / account.account_id
-            
+
             # 如果旧目录存在，并且新目录不存在，执行移动
             if old_root.exists() and not new_root.exists():
                 try:
@@ -1416,7 +1433,7 @@ class AuthService:
                     logger.info(f"已将账号目录隔离至新路径: {new_root}")
                 except Exception as e:
                     logger.warning(f"迁移账号目录失败 {account.account_id}: {e}")
-        
+
         if changed:
             self._save_webview2_accounts()
 

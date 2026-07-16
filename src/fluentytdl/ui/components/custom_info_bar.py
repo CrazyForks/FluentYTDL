@@ -36,10 +36,11 @@ class InfoBar:
                 InfoInfoBar QLabel { color: #d1d1ff !important; }
             """
             )
-            
+
         # Optional layout tweak for vertically centering text if there's still a chin
         try:
             from PySide6.QtCore import Qt
+
             if hasattr(widget, "textLayout"):
                 widget.textLayout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         except Exception:

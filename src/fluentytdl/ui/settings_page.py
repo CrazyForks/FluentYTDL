@@ -85,11 +85,11 @@ class CookieRefreshWorker(QThread):
                     "未找到" in message or "not found" in message.lower()
                 ):
                     message = (
-                        f"无法从 {browser_name} 提取 Cookie\n\n" +
-                        self.tr("可能的原因：\n") +
-                        f"1. {browser_name} 未安装或未登录相关平台\n"
-                        f"2. {browser_name} Cookie 数据库被锁定（请关闭浏览器）\n\n" +
-                        self.tr("建议：完全关闭浏览器后重试")
+                        f"无法从 {browser_name} 提取 Cookie\n\n"
+                        + self.tr("可能的原因：\n")
+                        + f"1. {browser_name} 未安装或未登录相关平台\n"
+                        f"2. {browser_name} Cookie 数据库被锁定（请关闭浏览器）\n\n"
+                        + self.tr("建议：完全关闭浏览器后重试")
                     )
 
                 logger.warning(f"[CookieRefreshWorker] 提取失败: {message}")
@@ -203,7 +203,9 @@ class ComponentSettingCard(SettingCard):
 
             shutil.copy2(src, target_path)
 
-            InfoBar.info(self.tr("导入成功"), self.tr("已手动导入 {}").format(exe_name), parent=self.window())
+            InfoBar.info(
+                self.tr("导入成功"), self.tr("已手动导入 {}").format(exe_name), parent=self.window()
+            )
             # Refresh version info
             dependency_manager.check_update(self.component_key)
 
@@ -215,9 +217,12 @@ class ComponentSettingCard(SettingCard):
             path = dependency_manager.get_target_dir(self.component_key)
             if path.exists():
                 import os
+
                 os.startfile(path)
             else:
-                InfoBar.warning(self.tr("目录不存在"), self.tr("{} 尚未创建").format(path), parent=self.window())
+                InfoBar.warning(
+                    self.tr("目录不存在"), self.tr("{} 尚未创建").format(path), parent=self.window()
+                )
         except Exception as e:
             InfoBar.error(self.tr("错误"), str(e), parent=self.window())
 
@@ -253,7 +258,9 @@ class ComponentSettingCard(SettingCard):
                 self.actionButton.setText(self.tr("检查更新"))
                 InfoBar.error(
                     self.tr("检查失败"),
-                    self.tr("无法获取 {} 的最新版本信息，请检查网络连接或更换镜像源。").format(title_text),
+                    self.tr("无法获取 {} 的最新版本信息，请检查网络连接或更换镜像源。").format(
+                        title_text
+                    ),
                     duration=5000,
                     parent=self.window(),
                 )
@@ -297,7 +304,10 @@ class ComponentSettingCard(SettingCard):
 
         title_text = self.titleLabel.text()
         InfoBar.info(
-            self.tr("安装完成"), self.tr("{} 已成功安装/更新。").format(title_text), duration=5000, parent=self.window()
+            self.tr("安装完成"),
+            self.tr("{} 已成功安装/更新。").format(title_text),
+            duration=5000,
+            parent=self.window(),
         )
 
     def _on_error(self, key, msg):
@@ -308,7 +318,9 @@ class ComponentSettingCard(SettingCard):
         self.actionButton.setText(self.tr("检查更新"))  # Reset
 
         title_text = self.titleLabel.text()
-        InfoBar.error(self.tr("{} 错误").format(title_text), msg, duration=15000, parent=self.window())
+        InfoBar.error(
+            self.tr("{} 错误").format(title_text), msg, duration=15000, parent=self.window()
+        )
 
 
 class InlineComboBoxCard(SettingCard):
@@ -327,10 +339,13 @@ class InlineComboBoxCard(SettingCard):
         for text in texts:
             self.comboBox.addItem(text)
 
+
 class InlineSpinBoxCard(SettingCard):
     """A fluent setting card with a right-aligned SpinBox."""
 
-    def __init__(self, icon, title: str, content: str | None, min_val: int, max_val: int, parent=None):
+    def __init__(
+        self, icon, title: str, content: str | None, min_val: int, max_val: int, parent=None
+    ):
         super().__init__(icon, title, content, parent)
         self.spinBox = SpinBox(self)
         self.spinBox.setRange(min_val, max_val)
@@ -391,6 +406,7 @@ class LanguageSelectionDialog(MessageBox):
         col = 0
         for code, name in languages:
             from PySide6.QtCore import QCoreApplication
+
             display_name = QCoreApplication.translate("Subtitle", name)
             checkbox = CheckBox(f"{display_name} ({code})", checkbox_container)
             checkbox.setChecked(code in self.selected_languages)
@@ -411,7 +427,9 @@ class LanguageSelectionDialog(MessageBox):
         scroll = SmoothScrollArea(content_widget)
         checkbox_container.setObjectName("checkboxContainer")
         scroll.setObjectName("scrollArea")
-        scroll.setStyleSheet("QScrollArea#scrollArea { background-color: transparent; border: none; } QWidget#checkboxContainer { background-color: transparent; }")
+        scroll.setStyleSheet(
+            "QScrollArea#scrollArea { background-color: transparent; border: none; } QWidget#checkboxContainer { background-color: transparent; }"
+        )
         scroll.setWidget(checkbox_container)
         scroll.setWidgetResizable(True)
         scroll.setMinimumHeight(250)
@@ -469,6 +487,7 @@ class LanguageMultiSelectCard(SettingCard):
             for code in self.selected_languages[:3]:  # 最多显示3个
                 name = next((n for c, n in self.languages if c == code), code)
                 from PySide6.QtCore import QCoreApplication
+
                 name = QCoreApplication.translate("Subtitle", name)
                 names.append(name)
 
@@ -506,7 +525,9 @@ class AudioLanguageSelectionDialog(MessageBox):
 
     def __init__(self, languages: list[tuple[str, str]], selected: list[str], parent=None):
         super().__init__(
-            self.tr("选择并排序首选音轨语言"), self.tr("选中的语言越靠前，优先级越高。可拖拽调整顺序。"), parent
+            self.tr("选择并排序首选音轨语言"),
+            self.tr("选中的语言越靠前，优先级越高。可拖拽调整顺序。"),
+            parent,
         )
         self.languages = languages
         self.selected_languages_init = selected.copy() if selected else []
@@ -523,6 +544,7 @@ class AudioLanguageSelectionDialog(MessageBox):
         left_layout.setSpacing(12)
         left_layout.addWidget(SubtitleLabel(self.tr("可选语言:"), content_widget))
         from qfluentwidgets import ListWidget
+
         self.available_list = ListWidget(content_widget)
         self.available_list.setMinimumWidth(240)
         self.available_list.setMinimumHeight(250)
@@ -569,6 +591,7 @@ class AudioLanguageSelectionDialog(MessageBox):
         for code in self.selected_languages_init:
             name = lang_dict.get(code, code)
             from PySide6.QtCore import QCoreApplication
+
             display_name = QCoreApplication.translate("Subtitle", name)
             item = QListWidgetItem(f"{display_name} ({code})")
             item.setData(Qt.ItemDataRole.UserRole, code)
@@ -578,6 +601,7 @@ class AudioLanguageSelectionDialog(MessageBox):
         for code, name in self.languages:
             if code not in self.selected_languages_init:
                 from PySide6.QtCore import QCoreApplication
+
                 display_name = QCoreApplication.translate("Subtitle", name)
                 item = QListWidgetItem(f"{display_name} ({code})")
                 item.setData(Qt.ItemDataRole.UserRole, code)
@@ -636,6 +660,7 @@ class AudioLanguageMultiSelectCard(SettingCard):
             for code in self.selected_languages[:3]:
                 name = next((n for c, n in self.languages if c == code), code)
                 from PySide6.QtCore import QCoreApplication
+
                 name = QCoreApplication.translate("Subtitle", name)
                 names.append(name)
             text = " > ".join(names)
@@ -681,8 +706,18 @@ class EmbedTypeComboCard(SettingCard):
 
     # 嵌入类型映射
     EMBED_TYPES = [
-        ("soft", QCoreApplication.translate("EmbedTypeComboCard", "软嵌入（推荐） - 封装到容器，可开关，多语言")),
-        ("external", QCoreApplication.translate("EmbedTypeComboCard", "外置文件 - 独立.srt，易编辑，兼容性最佳")),
+        (
+            "soft",
+            QCoreApplication.translate(
+                "EmbedTypeComboCard", "软嵌入（推荐） - 封装到容器，可开关，多语言"
+            ),
+        ),
+        (
+            "external",
+            QCoreApplication.translate(
+                "EmbedTypeComboCard", "外置文件 - 独立.srt，易编辑，兼容性最佳"
+            ),
+        ),
     ]
 
     def __init__(
@@ -1034,20 +1069,33 @@ class SettingsPage(QWidget):
         self.playlistExtractConcurrencyCard = InlineComboBoxCard(
             FluentIcon.SYNC,
             self.tr("播放列表解析并发"),
-            self.tr("控制进入解析页后同时获取视频详情的数量。过高可能触发 YouTube IP 限制 (默认: 2)"),
+            self.tr(
+                "控制进入解析页后同时获取视频详情的数量。过高可能触发 YouTube IP 限制 (默认: 2)"
+            ),
             ["1", "2", "3", "5", "8", "12", "16"],
             self.downloadGroup,
         )
         current_extract_concurrency = config_manager.get("playlist_extract_concurrency", 2)
         mapping_ext = {1: 0, 2: 1, 3: 2, 5: 3, 8: 4, 12: 5, 16: 6}
-        self.playlistExtractConcurrencyCard.comboBox.setCurrentIndex(mapping_ext.get(int(current_extract_concurrency), 1))
-        self.playlistExtractConcurrencyCard.comboBox.currentIndexChanged.connect(self._on_playlist_extract_concurrency_changed)
+        self.playlistExtractConcurrencyCard.comboBox.setCurrentIndex(
+            mapping_ext.get(int(current_extract_concurrency), 1)
+        )
+        self.playlistExtractConcurrencyCard.comboBox.currentIndexChanged.connect(
+            self._on_playlist_extract_concurrency_changed
+        )
 
         self.failedTaskRetentionCard = InlineComboBoxCard(
             FluentIcon.HISTORY,
             self.tr("失败任务保留时间"),
             self.tr("设置下载失败的任务记录自动清理时间 (默认: 3 天)"),
-            [self.tr("1 天"), self.tr("3 天"), self.tr("7 天"), self.tr("15 天"), self.tr("30 天"), self.tr("永久保留")],
+            [
+                self.tr("1 天"),
+                self.tr("3 天"),
+                self.tr("7 天"),
+                self.tr("15 天"),
+                self.tr("30 天"),
+                self.tr("永久保留"),
+            ],
             self.downloadGroup,
         )
         current_retention = config_manager.get("failed_task_retention_days", 3)
@@ -1117,12 +1165,17 @@ class SettingsPage(QWidget):
             self.formatMemoryGroup,
         )
         c_val = config_manager.get("single_container_override", "自动推断")
-        idx = self.singleContainerCard.comboBox.findText(self.tr(c_val) if c_val == "自动推断" else c_val)
+        idx = self.singleContainerCard.comboBox.findText(
+            self.tr(c_val) if c_val == "自动推断" else c_val
+        )
         if idx >= 0:
             self.singleContainerCard.comboBox.setCurrentIndex(idx)
         self.singleContainerCard.comboBox.currentIndexChanged.connect(
             lambda i: config_manager.set(
-                "single_container_override", "自动推断" if self.singleContainerCard.comboBox.currentText() == self.tr("自动推断") else self.singleContainerCard.comboBox.currentText()
+                "single_container_override",
+                "自动推断"
+                if self.singleContainerCard.comboBox.currentText() == self.tr("自动推断")
+                else self.singleContainerCard.comboBox.currentText(),
             )
         )
 
@@ -1134,12 +1187,17 @@ class SettingsPage(QWidget):
             self.formatMemoryGroup,
         )
         a_val = config_manager.get("single_audio_override", "自动推断")
-        idx = self.singleAudioCard.comboBox.findText(self.tr(a_val) if a_val == "自动推断" else a_val)
+        idx = self.singleAudioCard.comboBox.findText(
+            self.tr(a_val) if a_val == "自动推断" else a_val
+        )
         if idx >= 0:
             self.singleAudioCard.comboBox.setCurrentIndex(idx)
         self.singleAudioCard.comboBox.currentIndexChanged.connect(
             lambda i: config_manager.set(
-                "single_audio_override", "自动推断" if self.singleAudioCard.comboBox.currentText() == self.tr("自动推断") else self.singleAudioCard.comboBox.currentText()
+                "single_audio_override",
+                "自动推断"
+                if self.singleAudioCard.comboBox.currentText() == self.tr("自动推断")
+                else self.singleAudioCard.comboBox.currentText(),
             )
         )
 
@@ -1151,12 +1209,17 @@ class SettingsPage(QWidget):
             self.formatMemoryGroup,
         )
         pc_val = config_manager.get("playlist_container_override", "自动推断")
-        idx = self.playlistContainerCard.comboBox.findText(self.tr(pc_val) if pc_val == "自动推断" else pc_val)
+        idx = self.playlistContainerCard.comboBox.findText(
+            self.tr(pc_val) if pc_val == "自动推断" else pc_val
+        )
         if idx >= 0:
             self.playlistContainerCard.comboBox.setCurrentIndex(idx)
         self.playlistContainerCard.comboBox.currentIndexChanged.connect(
             lambda i: config_manager.set(
-                "playlist_container_override", "自动推断" if self.playlistContainerCard.comboBox.currentText() == self.tr("自动推断") else self.playlistContainerCard.comboBox.currentText()
+                "playlist_container_override",
+                "自动推断"
+                if self.playlistContainerCard.comboBox.currentText() == self.tr("自动推断")
+                else self.playlistContainerCard.comboBox.currentText(),
             )
         )
 
@@ -1220,7 +1283,9 @@ class SettingsPage(QWidget):
         self.qualityGuardFfprobeCard = InlineSwitchCard(
             FluentIcon.VIDEO,
             self.tr("FFprobe 精准物理核验"),
-            self.tr("当系统无法从下载日志中提取实际分辨率时，强制调用 ffprobe 探测已下载视频文件的物理尺寸"),
+            self.tr(
+                "当系统无法从下载日志中提取实际分辨率时，强制调用 ffprobe 探测已下载视频文件的物理尺寸"
+            ),
             parent=self.qualityGuardGroup,
         )
         self.qualityGuardFfprobeCard.switchButton.setChecked(
@@ -1241,7 +1306,9 @@ class SettingsPage(QWidget):
         self.quickPlaylistExpandThresholdCard = InlineComboBoxCard(
             FluentIcon.FOLDER,
             self.tr("自动策略展开阈值"),
-            self.tr("当使用“自动判断”策略时，播放列表视频数超过此阈值将强制逐条展开，否则作为一个单任务"),
+            self.tr(
+                "当使用“自动判断”策略时，播放列表视频数超过此阈值将强制逐条展开，否则作为一个单任务"
+            ),
             ["10", "30", "50", "100", "200"],
             self.quickModeGroup,
         )
@@ -1258,7 +1325,9 @@ class SettingsPage(QWidget):
         self.quickMaxTotalTasksCard = InlineComboBoxCard(
             FluentIcon.TILES,
             self.tr("任务入队数安全上限"),
-            self.tr("限制单词快速添加能塞入队列的最大任务数量，防止因过多任务导致卡死或触发严重风控"),
+            self.tr(
+                "限制单词快速添加能塞入队列的最大任务数量，防止因过多任务导致卡死或触发严重风控"
+            ),
             ["100", "300", "500", "1000", self.tr("无限制")],
             self.quickModeGroup,
         )
@@ -1311,7 +1380,12 @@ class SettingsPage(QWidget):
             FluentIcon.GLOBE,
             self.tr("代理模式"),
             self.tr("选择网络连接方式"),
-            [self.tr("不使用代理"), self.tr("使用系统代理"), self.tr("手动 HTTP 代理"), self.tr("手动 SOCKS5 代理")],
+            [
+                self.tr("不使用代理"),
+                self.tr("使用系统代理"),
+                self.tr("手动 HTTP 代理"),
+                self.tr("手动 SOCKS5 代理"),
+            ],
             self.networkGroup,
         )
         self.proxyModeCard.comboBox.currentIndexChanged.connect(self._on_proxy_mode_changed)
@@ -1388,7 +1462,7 @@ class SettingsPage(QWidget):
             FluentIcon.GLOBE,
             self.tr("YouTube 登录"),
             self.tr("管理 YouTube 平台的 WebView2 账号"),
-            self.accountGroup
+            self.accountGroup,
         )
         self.youtubeAuthCard.loginClicked.connect(self._on_webview2_login_clicked)
         self.youtubeAuthCard.accountChanged.connect(self._on_webview2_account_changed)
@@ -1399,10 +1473,10 @@ class SettingsPage(QWidget):
 
         self.twitterAuthCard = PlatformAuthExpandCard(
             "twitter",
-            FluentIcon.GITHUB, # fallback icon for X
+            FluentIcon.GITHUB,  # fallback icon for X
             self.tr("X (Twitter) 登录"),
             self.tr("管理 X (Twitter) 平台的 WebView2 账号"),
-            self.accountGroup
+            self.accountGroup,
         )
         self.twitterAuthCard.loginClicked.connect(self._on_webview2_login_clicked)
         self.twitterAuthCard.accountChanged.connect(self._on_webview2_account_changed)
@@ -1425,7 +1499,9 @@ class SettingsPage(QWidget):
         self.cookieCleaningCard = InlineSwitchCard(
             FluentIcon.BROOM,
             self.tr("Cookie 合规清洗"),
-            self.tr("开启后仅保留 YouTube 核心 Cookie（关闭可支持其他平台，但可能暴露更多隐私数据）"),
+            self.tr(
+                "开启后仅保留 YouTube 核心 Cookie（关闭可支持其他平台，但可能暴露更多隐私数据）"
+            ),
             parent=self.accountGroup,
         )
         self.cookieCleaningCard.checkedChanged.connect(self._on_cookie_cleaning_changed)
@@ -1503,7 +1579,11 @@ class SettingsPage(QWidget):
         )
 
         self.ffmpegCard = ComponentSettingCard(
-            "ffmpeg", FluentIcon.VIDEO, self.tr("FFmpeg 引擎"), self.tr("点击检查更新以获取最新版本"), self.coreGroup
+            "ffmpeg",
+            FluentIcon.VIDEO,
+            self.tr("FFmpeg 引擎"),
+            self.tr("点击检查更新以获取最新版本"),
+            self.coreGroup,
         )
 
         self.denoCard = ComponentSettingCard(
@@ -1584,7 +1664,11 @@ class SettingsPage(QWidget):
         old_val = config_manager.get("app_language", "auto")
         if old_val != val:
             config_manager.set("app_language", val)
-            msg_box = MessageBox(self.tr("需要重启"), self.tr("语言设置已更改，请重启应用以使更改生效。\n是否立即重启？"), self.window())
+            msg_box = MessageBox(
+                self.tr("需要重启"),
+                self.tr("语言设置已更改，请重启应用以使更改生效。\n是否立即重启？"),
+                self.window(),
+            )
             msg_box.yesButton.setText(self.tr("立即重启"))
             msg_box.cancelButton.setText(self.tr("稍后"))
             if msg_box.exec():
@@ -1592,12 +1676,12 @@ class SettingsPage(QWidget):
                 import sys
 
                 from PySide6.QtWidgets import QApplication
-                
+
                 if getattr(sys, "frozen", False):
                     cmd = [sys.executable] + sys.argv[1:]
                 else:
                     cmd = [sys.executable] + sys.argv
-                    
+
                 subprocess.Popen(cmd)
                 QApplication.quit()
 
@@ -1607,7 +1691,9 @@ class SettingsPage(QWidget):
         self.potProviderEnabledCard = InlineSwitchCard(
             FluentIcon.CERTIFICATE,
             self.tr("POT 验证引擎 (实验性)"),
-            self.tr("内置的 bgutil-pot-provider 服务，可绕过 YouTube 机器人检测。开启会增加启动耗时，默认关闭。"),
+            self.tr(
+                "内置的 bgutil-pot-provider 服务，可绕过 YouTube 机器人检测。开启会增加启动耗时，默认关闭。"
+            ),
             parent=self.advancedGroup,
         )
         self.potProviderEnabledCard.switchButton.setChecked(
@@ -1720,7 +1806,9 @@ class SettingsPage(QWidget):
         self.vrEacAutoConvertCard = InlineSwitchCard(
             FluentIcon.VIDEO,
             self.tr("EAC 自动转码"),
-            self.tr("检测到 YouTube 专用 EAC 投影格式时，自动转换为通用的 Equirectangular 格式（耗时较长）"),
+            self.tr(
+                "检测到 YouTube 专用 EAC 投影格式时，自动转换为通用的 Equirectangular 格式（耗时较长）"
+            ),
             parent=self.vrGroup,
         )
         self.vrEacAutoConvertCard.checkedChanged.connect(self._on_vr_eac_auto_convert_changed)
@@ -1835,7 +1923,11 @@ class SettingsPage(QWidget):
             FluentIcon.DELETE,
             self.tr("移除任务时的默认行为"),
             self.tr("选择从列表中删除任务时的文件处理策略"),
-            [self.tr("每次询问 (默认)"), self.tr("仅移除记录 (保留文件)"), self.tr("彻底删除 (同时删除文件)")],
+            [
+                self.tr("每次询问 (默认)"),
+                self.tr("仅移除记录 (保留文件)"),
+                self.tr("彻底删除 (同时删除文件)"),
+            ],
             self.behaviorGroup,
         )
         self.deletionPolicyCard.comboBox.currentIndexChanged.connect(
@@ -1845,7 +1937,9 @@ class SettingsPage(QWidget):
         self.playlistSkipAuthcheckCard = InlineSwitchCard(
             FluentIcon.VIDEO,
             self.tr("加速播放列表解析（实验性）"),
-            self.tr("跳过 YouTube 登录验证检查（authcheck）。可加快大列表解析，但可能导致部分受限视频无法解析（默认关闭）"),
+            self.tr(
+                "跳过 YouTube 登录验证检查（authcheck）。可加快大列表解析，但可能导致部分受限视频无法解析（默认关闭）"
+            ),
             parent=self.behaviorGroup,
         )
         self.playlistSkipAuthcheckCard.checkedChanged.connect(
@@ -1874,7 +1968,9 @@ class SettingsPage(QWidget):
         self.embedThumbnailCard = InlineSwitchCard(
             FluentIcon.PHOTO,
             self.tr("嵌入封面图片"),
-            self.tr("将视频缩略图嵌入到下载文件中作为封面（支持 MP4/MKV/MP3/M4A/FLAC/OGG/OPUS 等格式）"),
+            self.tr(
+                "将视频缩略图嵌入到下载文件中作为封面（支持 MP4/MKV/MP3/M4A/FLAC/OGG/OPUS 等格式）"
+            ),
             parent=self.postprocessGroup,
         )
         self.embedThumbnailCard.checkedChanged.connect(self._on_embed_thumbnail_changed)
@@ -1959,7 +2055,11 @@ class SettingsPage(QWidget):
             FluentIcon.FILTER,
             self.tr("字幕类型偏好"),
             self.tr("自动选择字幕时的策略"),
-            [self.tr("仅手动上传的字幕"), self.tr("手动字幕优先，自动生成字幕垫底"), self.tr("所有类型（含自动翻译）")],
+            [
+                self.tr("仅手动上传的字幕"),
+                self.tr("手动字幕优先，自动生成字幕垫底"),
+                self.tr("所有类型（含自动翻译）"),
+            ],
             parent=self.subtitleGroup,
         )
         self.subtitleTypePrefCard.comboBox.currentIndexChanged.connect(
@@ -1975,7 +2075,6 @@ class SettingsPage(QWidget):
             parent=self.subtitleGroup,
         )
         self.subtitleEmbedTypeCard.valueChanged.connect(self._on_subtitle_embed_type_changed)
-
 
         # 字幕输出格式
         self.subtitleFormatCard = InlineComboBoxCard(
@@ -2071,7 +2170,11 @@ class SettingsPage(QWidget):
             if os.path.exists(LOG_DIR):
                 os.startfile(LOG_DIR)
             else:
-                InfoBar.warning(self.tr("目录不存在"), self.tr("{} 尚未创建").format(LOG_DIR), parent=self.window())
+                InfoBar.warning(
+                    self.tr("目录不存在"),
+                    self.tr("{} 尚未创建").format(LOG_DIR),
+                    parent=self.window(),
+                )
         except Exception as e:
             InfoBar.error(self.tr("错误"), str(e), parent=self.window())
 
@@ -2080,7 +2183,9 @@ class SettingsPage(QWidget):
         from qfluentwidgets import MessageBox
 
         box = MessageBox(
-            self.tr("确认清理"), self.tr("确定要删除所有日志文件吗？\n\n日志目录: {}").format(LOG_DIR), self.window()
+            self.tr("确认清理"),
+            self.tr("确定要删除所有日志文件吗？\n\n日志目录: {}").format(LOG_DIR),
+            self.window(),
         )
         if box.exec():
             try:
@@ -2098,9 +2203,13 @@ class SettingsPage(QWidget):
                             from ...utils.logger import logger
 
                             logger.exception("Swallowed exception in settings")
-                    InfoBar.info(self.tr("清理完成"), self.tr("已删除所有日志文件"), parent=self.window())
+                    InfoBar.info(
+                        self.tr("清理完成"), self.tr("已删除所有日志文件"), parent=self.window()
+                    )
                 else:
-                    InfoBar.info(self.tr("无需清理"), self.tr("日志目录不存在"), parent=self.window())
+                    InfoBar.info(
+                        self.tr("无需清理"), self.tr("日志目录不存在"), parent=self.window()
+                    )
             except Exception as e:
                 InfoBar.error(self.tr("清理失败"), str(e), parent=self.window())
 
@@ -2327,7 +2436,6 @@ class SettingsPage(QWidget):
         self.subtitleEmbedTypeCard.set_value(subtitle_config.embed_type)
         self.subtitleEmbedTypeCard.comboBox.blockSignals(False)
 
-
         # Subtitle: output format
         output_format = str(config_manager.get("subtitle_output_format", "vtt"))
         format_idx_map = {"srt": 0, "ass": 1, "vtt": 2}
@@ -2409,10 +2517,13 @@ class SettingsPage(QWidget):
             new_val = vals[index]
             config_manager.set("playlist_extract_concurrency", new_val)
             from ...download.extract_manager import extract_manager
+
             extract_manager.set_concurrency(new_val)
             # update tooltip / warning text
             if new_val > 5:
-                self.playlistExtractConcurrencyCard.setContent(self.tr("⚠️ 当前: {} (高风险! 极易导致 429 请求过多)").format(new_val))
+                self.playlistExtractConcurrencyCard.setContent(
+                    self.tr("⚠️ 当前: {} (高风险! 极易导致 429 请求过多)").format(new_val)
+                )
                 self.playlistExtractConcurrencyCard.setTitle("播放列表解析并发 (慎用)")
             else:
                 self.playlistExtractConcurrencyCard.setContent(self.tr("当前: {}").format(new_val))
@@ -2421,7 +2532,12 @@ class SettingsPage(QWidget):
     def _on_update_source_changed(self, index: int) -> None:
         source = "ghproxy" if index == 1 else "github"
         config_manager.set("update_source", source)
-        InfoBar.info(self.tr("设置已更新"), self.tr("下载源已切换为: {}").format(source), duration=5000, parent=self)
+        InfoBar.info(
+            self.tr("设置已更新"),
+            self.tr("下载源已切换为: {}").format(source),
+            duration=5000,
+            parent=self,
+        )
 
     def _on_theme_mode_changed(self, index: int) -> None:
         modes = ["Auto", "Light", "Dark"]
@@ -2437,7 +2553,12 @@ class SettingsPage(QWidget):
             else:
                 qfluentwidgets.setTheme(qfluentwidgets.Theme.AUTO)
             # Immediate UI refresh triggered automatically by setTheme in qfluentwidgets.
-            InfoBar.info(self.tr("设置已更新"), self.tr("主题已切换为: {}").format(mode), duration=3000, parent=self)
+            InfoBar.info(
+                self.tr("设置已更新"),
+                self.tr("主题已切换为: {}").format(mode),
+                duration=3000,
+                parent=self,
+            )
 
     def _on_check_updates_startup_changed(self, checked: bool) -> None:
         config_manager.set("check_updates_on_startup", bool(checked))
@@ -2473,7 +2594,10 @@ class SettingsPage(QWidget):
             mode = modes[index]
             config_manager.set("clipboard_action_mode", mode)
             InfoBar.info(
-                self.tr("设置已更新"), self.tr("剪贴板识别行为已更改为: {}").format(mode), duration=5000, parent=self
+                self.tr("设置已更新"),
+                self.tr("剪贴板识别行为已更改为: {}").format(mode),
+                duration=5000,
+                parent=self,
             )
 
     def _on_deletion_policy_changed(self, index: int) -> None:
@@ -2482,7 +2606,12 @@ class SettingsPage(QWidget):
         if 0 <= index < len(policies):
             policy = policies[index]
             config_manager.set("deletion_policy", policy)
-            InfoBar.info(self.tr("设置已更新"), self.tr("删除策略已更改为: {}").format(policy), duration=5000, parent=self)
+            InfoBar.info(
+                self.tr("设置已更新"),
+                self.tr("删除策略已更改为: {}").format(policy),
+                duration=5000,
+                parent=self,
+            )
 
     def _on_playlist_skip_authcheck_changed(self, checked: bool) -> None:
         config_manager.set("playlist_skip_authcheck", bool(checked))
@@ -2528,7 +2657,9 @@ class SettingsPage(QWidget):
             config = config_manager.get_subtitle_config()
             config.type_preference = modes[index]
             config_manager.set_subtitle_config(config)
-            InfoBar.info(self.tr("设置已更新"), self.tr("字幕类型偏好已保存"), duration=3000, parent=self)
+            InfoBar.info(
+                self.tr("设置已更新"), self.tr("字幕类型偏好已保存"), duration=3000, parent=self
+            )
 
     def _on_embed_metadata_changed(self, checked: bool) -> None:
         """处理元数据嵌入开关变更"""
@@ -2666,7 +2797,12 @@ class SettingsPage(QWidget):
         new_proxy = (self.proxyEditCard.lineEdit.text() or "").strip()
         config_manager.set("proxy_url", new_proxy)
         if new_proxy:
-            InfoBar.info(self.tr("保存成功"), self.tr("代理已更新为 {}").format(new_proxy), duration=5000, parent=self)
+            InfoBar.info(
+                self.tr("保存成功"),
+                self.tr("代理已更新为 {}").format(new_proxy),
+                duration=5000,
+                parent=self,
+            )
         else:
             InfoBar.info(self.tr("已清空"), self.tr("代理地址已清空。"), duration=5000, parent=self)
 
@@ -2739,7 +2875,12 @@ class SettingsPage(QWidget):
             self.twitterAuthCard.setVisible(False)
             self.cookieFileCard.setVisible(True)
 
-            InfoBar.info(self.tr("已切换到手动导入"), self.tr("请选择 cookies.txt 文件"), duration=3000, parent=self)
+            InfoBar.info(
+                self.tr("已切换到手动导入"),
+                self.tr("请选择 cookies.txt 文件"),
+                duration=3000,
+                parent=self,
+            )
 
         self._update_cookie_status()
 
@@ -2777,11 +2918,11 @@ class SettingsPage(QWidget):
                 box = MessageBox(
                     f"{name} 需要管理员权限",
                     f"{name} 使用了 App-Bound 加密保护，\n"
-                    f"需要以管理员身份运行程序才能提取 Cookie。\n\n" +
-                    self.tr("点击「以管理员身份重启」后将自动完成提取。\n\n") +
-                    self.tr("或者您可以：\n") +
-                    self.tr("• 选择 Firefox/LibreWolf 浏览器（无需管理员权限）\n") +
-                    self.tr("• 手动导出 Cookie 文件"),
+                    f"需要以管理员身份运行程序才能提取 Cookie。\n\n"
+                    + self.tr("点击「以管理员身份重启」后将自动完成提取。\n\n")
+                    + self.tr("或者您可以：\n")
+                    + self.tr("• 选择 Firefox/LibreWolf 浏览器（无需管理员权限）\n")
+                    + self.tr("• 手动导出 Cookie 文件"),
                     self,
                 )
                 box.yesButton.setText("以管理员身份重启")
@@ -2814,7 +2955,10 @@ class SettingsPage(QWidget):
             def on_finished(success: bool, message: str, need_admin: bool = False):
                 if success:
                     InfoBar.info(
-                        self.tr("切换成功"), self.tr("已从 {} 提取 Cookies").format(name), duration=8000, parent=self
+                        self.tr("切换成功"),
+                        self.tr("已从 {} 提取 Cookies").format(name),
+                        duration=8000,
+                        parent=self,
                     )
                 else:
                     # 显示多行错误消息
@@ -2860,37 +3004,32 @@ class SettingsPage(QWidget):
         """刷新 Cookie — 一次提取两平台 (自动从本地浏览器提取)"""
         self.browserRefreshCard.button.setEnabled(False)
         from ..auth.auth_service import auth_service
-        
+
         def progress_callback(platform_label: str, status_msg: str):
             """更新状态提示"""
             InfoBar.info(
-                self.tr("提取进度"), 
-                self.tr(f"正在提取 {platform_label} Cookie... {status_msg}"), 
-                duration=3000, 
-                parent=self
+                self.tr("提取进度"),
+                self.tr(f"正在提取 {platform_label} Cookie... {status_msg}"),
+                duration=3000,
+                parent=self,
             )
-        
+
         def _do_refresh_all_platforms():
             try:
                 results = auth_service.extract_browser_cookies_all_platforms(progress_callback)
-                
+
                 yt_ok = results.get("youtube") is not None
                 x_ok = results.get("twitter") is not None
                 msg = f"YouTube: {'✅' if yt_ok else '❌'} | X: {'✅' if x_ok else '❌'}"
-                
+
                 if yt_ok or x_ok:
-                    InfoBar.success(
-                        self.tr("提取完成"),
-                        msg,
-                        duration=5000,
-                        parent=self
-                    )
+                    InfoBar.success(self.tr("提取完成"), msg, duration=5000, parent=self)
                 else:
                     InfoBar.error(
                         self.tr("提取失败"),
                         self.tr("未提取到任何有效 Cookie。"),
                         duration=8000,
-                        parent=self
+                        parent=self,
                     )
                 self._update_cookie_status()
             except Exception as e:
@@ -2911,7 +3050,9 @@ class SettingsPage(QWidget):
         if platform == "twitter":
             InfoBar.warning(
                 self.tr("登录方式提示"),
-                self.tr("受沙箱安全限制，X 平台目前无法使用「通过 Google / Apple 登录」。\n请在弹出的界面中使用「手机号/用户名/邮箱 + 密码」直接登录，否则会出现白屏！"),
+                self.tr(
+                    "受沙箱安全限制，X 平台目前无法使用「通过 Google / Apple 登录」。\n请在弹出的界面中使用「手机号/用户名/邮箱 + 密码」直接登录，否则会出现白屏！"
+                ),
                 duration=12000,
                 parent=self,
             )
@@ -2944,7 +3085,9 @@ class SettingsPage(QWidget):
                     InfoBar.info(
                         self.tr("登录成功"),
                         self.tr("Cookie 已成功提取并保存（{}）\n账号文件: {}\n统一文件: {}").format(
-                            account_name, acc_cookie, cookie_sentinel.get_cookie_path_for_platform(platform)
+                            account_name,
+                            acc_cookie,
+                            cookie_sentinel.get_cookie_path_for_platform(platform),
                         ),
                         duration=5000,
                         parent=self,
@@ -2981,7 +3124,11 @@ class SettingsPage(QWidget):
         if auth_service.set_current_webview2_account(account_id):
             account = auth_service._webview2_accounts.get(account_id)
             name = account.localized_name if account else self.tr("未知账号")
-            plat_name = "YouTube" if platform == "youtube" else ("X" if platform == "twitter" else platform.capitalize())
+            plat_name = (
+                "YouTube"
+                if platform == "youtube"
+                else ("X" if platform == "twitter" else platform.capitalize())
+            )
             InfoBar.info(
                 self.tr("已切换 WebView2 账号"),
                 f"当前 {plat_name} 账号: {name}",
@@ -3002,7 +3149,9 @@ class SettingsPage(QWidget):
 
         display_name = dialog.get_account_name()
         if not display_name:
-            InfoBar.warning(self.tr("名称为空"), self.tr("请输入有效账号名称"), duration=2500, parent=self)
+            InfoBar.warning(
+                self.tr("名称为空"), self.tr("请输入有效账号名称"), duration=2500, parent=self
+            )
             return
 
         try:
@@ -3033,16 +3182,21 @@ class SettingsPage(QWidget):
 
         account_id = auth_service.get_current_webview2_account_id(platform=platform)
         account = auth_service._webview2_accounts.get(account_id) if account_id else None
-        
+
         if not account:
             InfoBar.warning(
-                self.tr("无可删账号"), self.tr("当前没有可删除的 WebView2 账号"), duration=2500, parent=self
+                self.tr("无可删账号"),
+                self.tr("当前没有可删除的 WebView2 账号"),
+                duration=2500,
+                parent=self,
             )
             return
 
         box = MessageBox(
             self.tr("删除当前 WebView2 账号"),
-            self.tr("确定删除账号「{}」吗？\n\n至少需要保留 1 个账号。").format(account.localized_name),
+            self.tr("确定删除账号「{}」吗？\n\n至少需要保留 1 个账号。").format(
+                account.localized_name
+            ),
             self,
         )
         box.yesButton.setText("删除")
@@ -3051,12 +3205,19 @@ class SettingsPage(QWidget):
             return
 
         if not auth_service.delete_webview2_account(account.account_id, remove_storage=False):
-            InfoBar.error(self.tr("删除失败"), self.tr("至少需要保留一个账号"), duration=3000, parent=self)
+            InfoBar.error(
+                self.tr("删除失败"), self.tr("至少需要保留一个账号"), duration=3000, parent=self
+            )
             return
 
         card = self.youtubeAuthCard if platform == "youtube" else self.twitterAuthCard
         card.reload_accounts(select_current=True)
-        InfoBar.info(self.tr("删除成功"), self.tr("已删除: {}").format(account.localized_name), duration=3000, parent=self)
+        InfoBar.info(
+            self.tr("删除成功"),
+            self.tr("已删除: {}").format(account.localized_name),
+            duration=3000,
+            parent=self,
+        )
         self._update_cookie_status()
 
     def _on_refresh_cookie_clicked(self, platform: str):
@@ -3077,11 +3238,11 @@ class SettingsPage(QWidget):
             box = MessageBox(
                 f"{browser_name} 需要管理员权限",
                 f"{browser_name} 使用了 App-Bound 加密保护，\n"
-                f"需要以管理员身份运行程序才能提取 Cookie。\n\n" +
-                self.tr("点击「以管理员身份重启」后将自动完成提取。\n\n") +
-                self.tr("或者您可以：\n") +
-                self.tr("• 切换到 Firefox/LibreWolf 浏览器（无需管理员权限）\n") +
-                self.tr("• 手动导出 Cookie 文件"),
+                f"需要以管理员身份运行程序才能提取 Cookie。\n\n"
+                + self.tr("点击「以管理员身份重启」后将自动完成提取。\n\n")
+                + self.tr("或者您可以：\n")
+                + self.tr("• 切换到 Firefox/LibreWolf 浏览器（无需管理员权限）\n")
+                + self.tr("• 手动导出 Cookie 文件"),
                 self,
             )
             box.yesButton.setText(self.tr("以管理员身份重启"))
@@ -3089,6 +3250,7 @@ class SettingsPage(QWidget):
 
             if box.exec():
                 from ..utils.admin_utils import restart_as_admin
+
                 restart_as_admin(f"提取 {browser_name} Cookie")
             return
 
@@ -3154,11 +3316,11 @@ class SettingsPage(QWidget):
 
         from ..auth.auth_service import AuthSourceType, auth_service
         from .dialogs.platform_selector_dialog import PlatformSelectorDialog
-        
+
         dialog = PlatformSelectorDialog(self.window())
         if not dialog.exec():
             return
-            
+
         platform = dialog.get_selected_platform()
 
         file_path, _ = QFileDialog.getOpenFileName(
@@ -3187,7 +3349,12 @@ class SettingsPage(QWidget):
                     parent=self,
                 )
             except Exception as e:
-                InfoBar.error(self.tr("导入失败"), self.tr("复制文件时出错: {}").format(e), duration=5000, parent=self)
+                InfoBar.error(
+                    self.tr("导入失败"),
+                    self.tr("复制文件时出错: {}").format(e),
+                    duration=5000,
+                    parent=self,
+                )
                 return
 
             self._update_cookie_status()
@@ -3202,13 +3369,14 @@ class SettingsPage(QWidget):
 
         if platform:
             from ..auth.auth_service import auth_service
+
             acc = auth_service.get_current_webview2_account(platform=platform)
             cookie_path_str = acc.cached_cookie_path if acc else cookie_sentinel.cookie_path
         else:
             cookie_path_str = cookie_sentinel.cookie_path
-            
+
         cookie_path = Path(cookie_path_str) if cookie_path_str else None
-        
+
         if not cookie_path:
             return
 
@@ -3222,7 +3390,10 @@ class SettingsPage(QWidget):
                 os.startfile(str(folder))
             else:
                 InfoBar.warning(
-                    self.tr("目录不存在"), self.tr("Cookie 目录尚未创建: {}").format(folder), duration=3000, parent=self
+                    self.tr("目录不存在"),
+                    self.tr("Cookie 目录尚未创建: {}").format(folder),
+                    duration=3000,
+                    parent=self,
                 )
 
     def _get_status_text_for_platform(self, platform: str) -> str:
@@ -3241,7 +3412,9 @@ class SettingsPage(QWidget):
             elif current_source == AuthSourceType.FILE:
                 return self.tr("❌ Cookie 文件不存在，请重新选择文件")
             else:
-                return self.tr("❌ 尚无 Cookie — 请点击「立即刷新」从 {} 提取").format(auth_service.current_source_display)
+                return self.tr("❌ 尚无 Cookie — 请点击「立即刷新」从 {} 提取").format(
+                    auth_service.current_source_display
+                )
 
         # === 有 Cookie 文件时的详细状态 ===
         age = info["age_minutes"]
@@ -3258,7 +3431,7 @@ class SettingsPage(QWidget):
         elif info.get("using_fallback") or info.get("source_mismatch"):
             emoji = "⚠️"
             if info.get("source_mismatch") and info.get("actual_source_display"):
-                source_text = self.tr("{}（当前配置: {}）").format(actual_display, info['source'])
+                source_text = self.tr("{}（当前配置: {}）").format(actual_display, info["source"])
             else:
                 source_text = actual_display
         elif info.get("expiring_soon"):
@@ -3271,7 +3444,9 @@ class SettingsPage(QWidget):
             emoji = "✔"
             source_text = actual_display
 
-        status_text = self.tr("{} {} | 更新于 {} | {} 个 Cookie").format(emoji, source_text, age_str, cookie_count)
+        status_text = self.tr("{} {} | 更新于 {} | {} 个 Cookie").format(
+            emoji, source_text, age_str, cookie_count
+        )
 
         # 即将过期预警
         earliest = info.get("earliest_expiry")
@@ -3331,7 +3506,9 @@ class SettingsPage(QWidget):
         config_manager.set("ytdlp_channel", mode)
         InfoBar.info(
             self.tr("设置已更新"),
-            self.tr("yt-dlp 更新频道已切换为: {} (下次更新时生效)").format(self.ytDlpChannelCard.comboBox.currentText()),
+            self.tr("yt-dlp 更新频道已切换为: {} (下次更新时生效)").format(
+                self.ytDlpChannelCard.comboBox.currentText()
+            ),
             duration=5000,
             parent=self,
         )
@@ -3532,7 +3709,9 @@ class SettingsPage(QWidget):
         if which:
             return self.tr("已就绪（环境（PATH））")
 
-        return self.tr("未找到（解决：使用 full 包内置 FFmpeg，或安装 FFmpeg 并加入 PATH，或在此处选择）")
+        return self.tr(
+            "未找到（解决：使用 full 包内置 FFmpeg，或安装 FFmpeg 并加入 PATH，或在此处选择）"
+        )
 
     def _resolve_js_runtime_bundled(self, runtime_id: str) -> Path | None:
         if not is_frozen():
@@ -3645,8 +3824,8 @@ class SettingsPage(QWidget):
 
         if preferred == "auto":
             if exe is None:
-                return (
-                    self.tr("未就绪（解决：使用 full 包内置 Deno，或安装 deno 并加入 PATH，或在此处选择）")
+                return self.tr(
+                    "未就绪（解决：使用 full 包内置 Deno，或安装 deno 并加入 PATH，或在此处选择）"
                 )
             return self.tr("已就绪（自动：{} / {}）").format(label, source_text or self.tr("未知"))
 
@@ -3657,7 +3836,9 @@ class SettingsPage(QWidget):
                 "bun": "Bun",
                 "quickjs": "QuickJS",
             }.get(preferred, preferred)
-            return self.tr("未就绪: {}（解决：优先使用内置，其次 PATH；也可在此处选择）").format(preferred_label)
+            return self.tr("未就绪: {}（解决：优先使用内置，其次 PATH；也可在此处选择）").format(
+                preferred_label
+            )
         return self.tr("已就绪（{}）").format(source_text or self.tr("未知"))
 
     def _select_js_runtime_path(self) -> None:
@@ -3750,7 +3931,9 @@ class SettingsPage(QWidget):
         ver_line = out.splitlines()[0].strip() if out else "(unknown)"
         InfoBar.info(
             "JS Runtime",
-            self.tr("类型: {}\n版本: {}\n路径: {}\n来源: {}").format(label, ver_line, exe, source or self.tr("未知")),
+            self.tr("类型: {}\n版本: {}\n路径: {}\n来源: {}").format(
+                label, ver_line, exe, source or self.tr("未知")
+            ),
             duration=5000,
             parent=self,
         )
@@ -3761,7 +3944,9 @@ class SettingsPage(QWidget):
         if exe is None:
             InfoBar.error(
                 self.tr("未找到 yt-dlp.exe"),
-                self.tr("请在此处选择 yt-dlp.exe，或将 yt-dlp.exe 放入 _internal/yt-dlp/，或加入 PATH。"),
+                self.tr(
+                    "请在此处选择 yt-dlp.exe，或将 yt-dlp.exe 放入 _internal/yt-dlp/，或加入 PATH。"
+                ),
                 duration=15000,
                 parent=self,
             )
@@ -3786,7 +3971,9 @@ class SettingsPage(QWidget):
         config_manager.set("subtitle_enabled", checked)
         self._update_subtitle_settings_visibility(checked)
         status = self.tr("已启用") if checked else self.tr("已禁用")
-        InfoBar.info(self.tr("字幕设置"), self.tr("字幕下载{}").format(status), duration=3000, parent=self)
+        InfoBar.info(
+            self.tr("字幕设置"), self.tr("字幕下载{}").format(status), duration=3000, parent=self
+        )
 
     def _on_subtitle_languages_changed(self, languages: list[str]) -> None:
         """语言选择改变回调"""
@@ -3794,9 +3981,17 @@ class SettingsPage(QWidget):
             languages = ["zh-Hans", "en"]
         config_manager.set("subtitle_default_languages", languages)
         from PySide6.QtCore import QCoreApplication
-        names = [QCoreApplication.translate("Subtitle", n) for c, n in COMMON_SUBTITLE_LANGUAGES if c in languages]
+
+        names = [
+            QCoreApplication.translate("Subtitle", n)
+            for c, n in COMMON_SUBTITLE_LANGUAGES
+            if c in languages
+        ]
         InfoBar.info(
-            self.tr("语言设置"), self.tr("已选择字幕语言: {}").format(", ".join(names)), duration=3000, parent=self
+            self.tr("语言设置"),
+            self.tr("已选择字幕语言: {}").format(", ".join(names)),
+            duration=3000,
+            parent=self,
         )
 
     def _on_subtitle_embed_type_changed(self, embed_type: str) -> None:
@@ -3814,15 +4009,16 @@ class SettingsPage(QWidget):
             parent=self,
         )
 
-
-
-
     def _on_subtitle_format_changed(self, index: int) -> None:
         format_map = {0: "srt", 1: "ass", 2: "vtt"}
         fmt = format_map.get(index, "srt")
         config_manager.set("subtitle_output_format", fmt)
-        InfoBar.info(self.tr("格式设置"), self.tr("字幕输出格式: {}").format(fmt.upper()), duration=3000, parent=self)
-
+        InfoBar.info(
+            self.tr("格式设置"),
+            self.tr("字幕输出格式: {}").format(fmt.upper()),
+            duration=3000,
+            parent=self,
+        )
 
     def _update_vr_hardware_status(self) -> None:
         """更新 VR 硬件状态 Banner"""
@@ -3838,7 +4034,7 @@ class SettingsPage(QWidget):
 
         status_text = self.tr("内存: {} GB").format(mem_gb)
         if has_gpu:
-            status_text += self.tr(" | GPU 加速: 可用 ({})").format(', '.join(encoders))
+            status_text += self.tr(" | GPU 加速: 可用 ({})").format(", ".join(encoders))
             desc = self.tr("您的硬件支持 VR 硬件转码。")
             if mem_gb >= 16:
                 desc += self.tr(" (支持 8K 转码)")
@@ -3885,9 +4081,9 @@ class SettingsPage(QWidget):
             if not encoders:
                 InfoBar.warning(
                     self.tr("未检测到 GPU 编码器"),
-                    self.tr("当前系统没有可用的硬件编码器（NVENC/QSV/AMF），\n") +
-                    self.tr("「强制 GPU」将自动回落为 CPU 转码，速度会很慢。\n") +
-                    self.tr("建议改为「自动 (推荐)」。"),
+                    self.tr("当前系统没有可用的硬件编码器（NVENC/QSV/AMF），\n")
+                    + self.tr("「强制 GPU」将自动回落为 CPU 转码，速度会很慢。\n")
+                    + self.tr("建议改为「自动 (推荐)」。"),
                     duration=8000,
                     parent=self,
                 )
@@ -3899,7 +4095,9 @@ class SettingsPage(QWidget):
         if val >= 4320:
             InfoBar.error(
                 self.tr("高风险设置"),
-                self.tr("开启 8K 转码极易导致内存溢出或系统卡死。请确保您有 32GB+ 内存和高端显卡。"),
+                self.tr(
+                    "开启 8K 转码极易导致内存溢出或系统卡死。请确保您有 32GB+ 内存和高端显卡。"
+                ),
                 duration=5000,
                 parent=self,
             )

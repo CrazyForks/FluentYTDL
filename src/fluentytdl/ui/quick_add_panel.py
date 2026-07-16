@@ -206,7 +206,9 @@ class QuickAddPanel(QWidget):
         self._connect_signals_for_save()
 
     def _browse_dir(self):
-        folder = QFileDialog.getExistingDirectory(self, self.tr("选择下载目录"), self.dirInput.text() or "")
+        folder = QFileDialog.getExistingDirectory(
+            self, self.tr("选择下载目录"), self.dirInput.text() or ""
+        )
         if folder:
             self.dirInput.setText(folder)
 
@@ -300,16 +302,16 @@ class QuickAddPanel(QWidget):
 
         urls = []
         unsupported = []
-        
+
         for line in text.split("\n"):
             line = line.strip()
             if not line:
                 continue
-                
+
             if line.startswith("ytsearch"):
                 urls.append(line)
                 continue
-                
+
             if line.startswith("http://") or line.startswith("https://"):
                 result = UrlRouter.route(line)
                 if result.is_supported:

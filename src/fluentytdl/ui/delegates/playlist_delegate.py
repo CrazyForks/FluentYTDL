@@ -396,7 +396,9 @@ class PlaylistItemDelegate(QStyledItemDelegate):
             fg = colors["text_primary"]
 
             # 格式
-            fmt_note = task.custom_options.format if task.custom_options.format else self.tr("自动最佳")
+            fmt_note = (
+                task.custom_options.format if task.custom_options.format else self.tr("自动最佳")
+            )
             if len(fmt_note) > 20:
                 fmt_note = fmt_note[:18] + ".."
             text = fmt_note
