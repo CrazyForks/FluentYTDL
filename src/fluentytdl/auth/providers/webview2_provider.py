@@ -143,6 +143,10 @@ def _webview_subprocess(
     # ── 导入 pywebview ──
     try:
         import webview
+        
+        # 强制所有 target="_blank" 或新窗口请求都在当前 pywebview 窗口内打开
+        # 防止 X (Twitter) 的 Google 登录跳转到系统默认浏览器
+        webview.settings['OPEN_EXTERNAL_LINKS_IN_BROWSER'] = False
 
         _log(
             f"import webview 成功: {webview.__version__ if hasattr(webview, '__version__') else '?'}"
@@ -188,6 +192,15 @@ def _webview_subprocess(
             while time.time() - start_time < timeout:
                 elapsed = int(time.time() - start_time)
                 time.sleep(POLL_INTERVAL)
+                current_url = win.get_current_url() or ""
+
+                if not revealed and elapsed >= reveal_after_seconds:
+                    _log(f"[{elapsed}s] 超过 {reveal_after_seconds}s 未检测到有效登录态，主动显示窗口让用户登录...")
+                    try:
+                        win.show()
+                    except Exception as e:
+                        _log(f"显示窗口失败: {e}")
+                    revealed = True
 
                 if platform == "twitter":
                     if "x.com" not in current_url and "twitter.com" not in current_url:

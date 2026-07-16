@@ -20,7 +20,6 @@ import json
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
 
 from PySide6.QtCore import QCoreApplication
 
@@ -84,13 +83,34 @@ class CookieSentinel:
         else:
             self._base_dir = cookie_path.parent
             
-        self.cookie_path = self._base_dir / "cookies.txt"
-
-        # 元数据文件路径（记录 Cookie 来源）
-        self.meta_path = self.cookie_path.with_suffix(".txt.meta")
-
         # 确保目录存在
-        self.cookie_path.parent.mkdir(parents=True, exist_ok=True)
+        self._base_dir.mkdir(parents=True, exist_ok=True)
+
+        # 兼容旧版本：将旧的 cookies.txt 迁移到 cookies_youtube.txt
+        old_cookie_path = self._base_dir / "cookies.txt"
+        old_meta_path = self._base_dir / "cookies.txt.meta"
+        new_cookie_path = self._base_dir / "cookies_youtube.txt"
+        new_meta_path = self._base_dir / "cookies_youtube.txt.meta"
+
+        if old_cookie_path.exists() and not new_cookie_path.exists():
+            import shutil
+            try:
+                shutil.move(str(old_cookie_path), str(new_cookie_path))
+                logger.info(f"[CookieSentinel] 已迁移旧版 Cookie 文件: {old_cookie_path.name} -> {new_cookie_path.name}")
+            except Exception as e:
+                logger.warning(f"[CookieSentinel] 迁移旧版 Cookie 文件失败: {e}")
+                
+        if old_meta_path.exists() and not new_meta_path.exists():
+            import shutil
+            try:
+                shutil.move(str(old_meta_path), str(new_meta_path))
+                logger.info(f"[CookieSentinel] 已迁移旧版 Cookie 元数据: {old_meta_path.name} -> {new_meta_path.name}")
+            except Exception as e:
+                logger.warning(f"[CookieSentinel] 迁移旧版 Cookie 元数据失败: {e}")
+
+        # 设置兼容属性（默认指向 youtube）
+        self.cookie_path = new_cookie_path
+        self.meta_path = new_meta_path
 
         # 状态追踪
         self._last_update: datetime | None = None
@@ -105,24 +125,25 @@ class CookieSentinel:
 
     # ==================== 元数据管理 ====================
 
-    def _load_meta(self) -> dict | None:
+    def _load_meta(self, platform: str = "youtube") -> dict | None:
         """
         加载 Cookie 元数据
 
         Returns:
             元数据字典，或 None 如果不存在/无效
         """
-        if not self.meta_path.exists():
+        meta_path = self.get_meta_path_for_platform(platform)
+        if not meta_path.exists():
             return None
         try:
             import json
 
-            return json.loads(self.meta_path.read_text(encoding="utf-8"))
+            return json.loads(meta_path.read_text(encoding="utf-8"))
         except Exception as e:
-            logger.warning(f"[CookieSentinel] 读取元数据失败: {e}")
+            logger.warning(f"[CookieSentinel] 读取元数据失败 ({platform}): {e}")
             return None
 
-    def _save_meta(self, source: str, cookie_count: int = 0) -> None:
+    def _save_meta(self, source: str, cookie_count: int = 0, platform: str = "youtube") -> None:
         """
         保存 Cookie 元数据
 
@@ -136,36 +157,39 @@ class CookieSentinel:
             "cookie_count": cookie_count,
         }
         try:
-            self.meta_path.write_text(
+            meta_path = self.get_meta_path_for_platform(platform)
+            meta_path.write_text(
                 json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
             )
-            logger.debug(f"[CookieSentinel] 元数据已保存: {source}, {cookie_count} cookies")
+            logger.debug(f"[CookieSentinel] 元数据已保存 ({platform}): {source}, {cookie_count} cookies")
         except Exception as e:
-            logger.warning(f"[CookieSentinel] 保存元数据失败: {e}")
+            logger.warning(f"[CookieSentinel] 保存元数据失败 ({platform}): {e}")
 
-    def _clear_cookie_and_meta(self) -> None:
+    def _clear_cookie_and_meta(self, platform: str = "youtube") -> None:
         """清除 Cookie 文件和元数据"""
         try:
-            if self.cookie_path.exists():
-                self.cookie_path.unlink()
-                logger.info(f"[CookieSentinel] 已删除旧 Cookie 文件: {self.cookie_path}")
-            if self.meta_path.exists():
-                self.meta_path.unlink()
-                logger.info(f"[CookieSentinel] 已删除旧元数据文件: {self.meta_path}")
+            cookie_path = self.get_cookie_path_for_platform(platform)
+            meta_path = self.get_meta_path_for_platform(platform)
+            if cookie_path.exists():
+                cookie_path.unlink()
+                logger.info(f"[CookieSentinel] 已删除旧 Cookie 文件: {cookie_path}")
+            if meta_path.exists():
+                meta_path.unlink()
+                logger.info(f"[CookieSentinel] 已删除旧元数据文件: {meta_path}")
         except Exception as e:
-            logger.warning(f"[CookieSentinel] 清除文件失败: {e}")
+            logger.warning(f"[CookieSentinel] 清除文件失败 ({platform}): {e}")
 
-    def get_cookie_source(self) -> str | None:
+    def get_cookie_source(self, platform: str = "youtube") -> str | None:
         """
         获取当前 Cookie 文件的实际来源
 
         Returns:
             来源标识（如 "edge", "firefox"），或 None 如果无记录
         """
-        meta = self._load_meta()
+        meta = self._load_meta(platform)
         return meta.get("source") if meta else None
 
-    def validate_source_consistency(self, expected_source: str) -> tuple[bool, str | None]:
+    def validate_source_consistency(self, expected_source: str, platform: str = "youtube") -> tuple[bool, str | None]:
         """
         验证 Cookie 来源是否与期望一致
 
@@ -175,10 +199,10 @@ class CookieSentinel:
         Returns:
             (是否一致, 实际来源) - 不再强制清理，只返回状态
         """
-        if not self.exists:
+        if not self.get_cookie_path_for_platform(platform).exists():
             return True, None  # 没有 Cookie 文件，视为一致
 
-        actual_source = self.get_cookie_source()
+        actual_source = self.get_cookie_source(platform)
         if actual_source is None:
             # 旧版本的 Cookie 文件没有元数据
             logger.debug("[CookieSentinel] Cookie 文件缺少来源元数据")
@@ -206,23 +230,32 @@ class CookieSentinel:
 
     @property
     def age_minutes(self) -> float | None:
-        """Cookie 文件年龄（分钟），不存在返回 None"""
-        if not self.exists:
+        """Cookie 文件年龄（分钟），不存在返回 None (兼容旧接口，默认 youtube)"""
+        return self.get_age_minutes("youtube")
+
+    def get_age_minutes(self, platform: str = "youtube") -> float | None:
+        """特定平台的 Cookie 文件年龄（分钟）"""
+        cookie_path = self.get_cookie_path_for_platform(platform)
+        if not cookie_path.exists():
             return None
         try:
-            mtime = datetime.fromtimestamp(self.cookie_path.stat().st_mtime)
+            mtime = datetime.fromtimestamp(cookie_path.stat().st_mtime)
             return (datetime.now() - mtime).total_seconds() / 60
         except Exception:
             return None
 
     @property
     def is_stale(self) -> bool:
-        """Cookie 是否过期（仅基于关键 Cookie 的实际 expires 字段）"""
-        if not self.exists:
+        """Cookie 是否过期（兼容旧接口，默认 youtube）"""
+        return self.get_is_stale("youtube")
+
+    def get_is_stale(self, platform: str = "youtube") -> bool:
+        """特定平台的 Cookie 是否过期"""
+        if not self.get_cookie_path_for_platform(platform).exists():
             return True
 
         # 仅检查 Cookie 实际 expires（SID/HSID 等关键字段）
-        expiry = self.get_earliest_expiry()
+        expiry = self.get_earliest_expiry(platform)
         if expiry is not None:
             return expiry <= 0
 
@@ -230,20 +263,21 @@ class CookieSentinel:
         # 真正的有效性由 auth_service._validate_cookies 判定
         return False
 
-    def get_earliest_expiry(self) -> float | None:
+    def get_earliest_expiry(self, platform: str = "youtube") -> float | None:
         """
         获取关键 Cookie 中最早过期的剩余秒数。
 
         Returns:
             剩余秒数（负数=已过期），None=无法解析或无文件
         """
-        if not self.exists:
+        cookie_path = self.get_cookie_path_for_platform(platform)
+        if not cookie_path.exists():
             return None
         try:
             import time
 
             now = int(time.time())
-            content = self.cookie_path.read_text(encoding="utf-8", errors="replace")
+            content = cookie_path.read_text(encoding="utf-8", errors="replace")
             key_names = {"SID", "HSID", "SSID", "SAPISID", "APISID"}
             earliest = None
             for line in content.splitlines():
@@ -267,12 +301,12 @@ class CookieSentinel:
         except Exception:
             return None
 
-    def is_expiring_soon(self, hours: float = 1.0) -> bool:
-        """关键 Cookie 是否即将过期（默认 1 小时内）"""
-        remaining = self.get_earliest_expiry()
-        if remaining is None:
+    def is_expiring_soon(self, platform: str = "youtube", threshold_minutes: int = 60) -> bool:
+        """Cookie 是否即将过期（默认 1 小时内）"""
+        expiry = self.get_earliest_expiry(platform)
+        if expiry is None:
             return False
-        return remaining < hours * 3600
+        return 0 < expiry < threshold_minutes * 60
 
     def get_cookie_file_path(self) -> str:
         """
@@ -285,7 +319,7 @@ class CookieSentinel:
 
     def get_cookie_path_for_platform(self, platform: str = "youtube") -> Path:
         """获取特定平台的 Cookie 文件路径"""
-        filename = f"cookies_{platform}.txt" if platform != "youtube" else "cookies.txt"
+        filename = f"cookies_{platform}.txt"
         return self._base_dir / filename
 
     def get_meta_path_for_platform(self, platform: str = "youtube") -> Path:
@@ -339,8 +373,8 @@ class CookieSentinel:
 
                         # 复用 auth_service._update_status_from_file 验证 Cookie 有效性
                         # 这会更新 auth_service.last_status，供 UI 层的 check_cookie_status 直接使用
-                        auth_service._update_status_from_file(str(cache_file))
-                        self._save_meta(source_tag, auth_service.last_status.cookie_count)
+                        auth_service._update_status_from_file(str(cache_file), "youtube")
+                        self._save_meta(source_tag, auth_service.last_status.cookie_count, "youtube")
 
                         if auth_service.last_status.valid:
                             logger.info("[CookieSentinel] WebView2 Cookie 有效")
@@ -363,8 +397,8 @@ class CookieSentinel:
                     success = self._copy_from_auth_service()
                     if success:
                         # 复用 auth_service 验证 Cookie 有效性，供 UI 层 check_cookie_status 使用
-                        auth_service._update_status_from_file(str(self.cookie_path))
-                        self._save_meta("file", auth_service.last_status.cookie_count)
+                        auth_service._update_status_from_file(str(self.cookie_path), "youtube")
+                        self._save_meta("file", auth_service.last_status.cookie_count, "youtube")
                         logger.info("[CookieSentinel] 已复制手动导入的Cookie文件")
                     else:
                         logger.warning("[CookieSentinel] 手动导入的Cookie文件不存在或无效")
@@ -374,8 +408,7 @@ class CookieSentinel:
                 success = self._update_from_browser(silent=True)
 
                 if success:
-                    # 提取成功，保存元数据
-                    self._save_meta(current_source.value, auth_service.last_status.cookie_count)
+                    # 提取成功，元数据已在 _update_from_browser 中保存
                     self._using_fallback = False
                     self._fallback_warning = None
                     logger.info(
@@ -395,7 +428,7 @@ class CookieSentinel:
                         )
                         logger.warning(f"[CookieSentinel] {self._fallback_warning}")
                         # 验证回退 Cookie 的有效性，供 UI 层 check_cookie_status 使用
-                        auth_service._update_status_from_file(str(self.cookie_path))
+                        auth_service._update_status_from_file(str(self.cookie_path), "youtube")
                     else:
                         logger.warning(
                             f"[CookieSentinel] 启动时静默刷新失败: "
@@ -447,7 +480,7 @@ class CookieSentinel:
             if current_source == AuthSourceType.FILE:
                 success = self._copy_from_auth_service()
                 if success:
-                    self._save_meta("file", auth_service.last_status.cookie_count)
+                    # 元数据已在 _copy_from_auth_service 中保存
                     self._using_fallback = False
                     self._fallback_warning = None
                     return True, "已更新为手动导入的 Cookie 文件"
@@ -463,17 +496,7 @@ class CookieSentinel:
             success = self._update_from_browser(silent=False, force=True, platform=platform)
 
             if success:
-                # 提取成功，保存元数据，清除回退状态
-                source_id = current_source.value
-                if current_source == AuthSourceType.WEBVIEW2:
-                    account = auth_service.current_webview2_account
-                    source_id = (
-                        f"webview2:{account.account_id}"
-                        if account and account.account_id
-                        else "webview2"
-                    )
-
-                self._save_meta(source_id, auth_service.last_status.cookie_count)
+                # 提取成功，元数据已在 _update_from_browser 中保存
                 self._using_fallback = False
                 self._fallback_warning = None
                 msg = QCoreApplication.translate("CookieSentinel", "✅ Cookie 已更新（{}）").format(auth_service.current_source_display)
@@ -528,23 +551,26 @@ class CookieSentinel:
             return "ambiguous"
         return ""
 
-    def get_status_info(self) -> dict:
+    def get_status_info(self, platform: str = "youtube") -> dict:
         """
-        获取当前状态信息（供 UI 显示）
+        获取特定平台状态信息（供 UI 显示）
 
         Returns:
             状态字典，包含实时来源信息、Cookie 数量和有效性
         """
-        actual_source = self.get_cookie_source()
+        actual_source = self.get_cookie_source(platform)
         configured_source = (
             auth_service.current_source.value
             if auth_service.current_source != AuthSourceType.NONE
             else None
         )
 
+        cookie_path = self.get_cookie_path_for_platform(platform)
+        exists = cookie_path.exists()
+
         # 检测来源不匹配
         source_mismatch = False
-        if self.exists and actual_source and configured_source:
+        if exists and actual_source and configured_source:
             # WebView2 多账号时 actual_source 格式为 "webview2:<account_id>"
             # 归一化后与 configured_source "webview2" 比较
             normalized_actual = (
@@ -557,22 +583,22 @@ class CookieSentinel:
         cookie_valid = False
         cookie_valid_msg = "未读取"
 
-        if self.exists:
+        if exists:
             try:
-                self.cookie_path.read_text(encoding="utf-8", errors="replace")
+                cookie_path.read_text(encoding="utf-8", errors="replace")
                 # 更新 auth_service 的 last_status（使状态保持同步）
-                auth_service._update_status_from_file(str(self.cookie_path))
+                auth_service._update_status_from_file(str(cookie_path), platform)
                 cookie_count = auth_service.last_status.cookie_count
                 cookie_valid = auth_service.last_status.valid
                 cookie_valid_msg = auth_service.last_status.message
             except Exception as e:
-                logger.debug(f"[CookieSentinel] 读取Cookie文件失败: {e}")
+                logger.debug(f"[CookieSentinel] 读取Cookie文件失败 ({platform}): {e}")
 
         return {
-            "exists": self.exists,
-            "age_minutes": self.age_minutes,
-            "is_stale": self.is_stale,
-            "path": str(self.cookie_path),
+            "exists": exists,
+            "age_minutes": self.get_age_minutes(platform),
+            "is_stale": self.get_is_stale(platform),
+            "path": str(cookie_path),
             "source": auth_service.current_source_display,  # 配置的来源（显示名）
             "source_id": configured_source,  # 配置的来源 ID
             "actual_source": actual_source,  # Cookie 文件实际来源
@@ -586,8 +612,8 @@ class CookieSentinel:
             "cookie_valid": cookie_valid,  # 是否包含必要 Cookie
             "cookie_valid_msg": cookie_valid_msg,  # 有效性说明
             "last_updated": self._last_update.isoformat() if self._last_update else None,
-            "expiring_soon": self.is_expiring_soon(),  # 即将过期 (<1h)
-            "earliest_expiry": self.get_earliest_expiry(),  # 最早过期剩余秒数
+            "expiring_soon": self.is_expiring_soon(platform),  # 即将过期 (<1h)
+            "earliest_expiry": self.get_earliest_expiry(platform),  # 最早过期剩余秒数
         }
 
     def _get_source_display(self, source_id: str | None) -> str:
@@ -647,6 +673,14 @@ class CookieSentinel:
                     dest_path = self.get_cookie_path_for_platform(platform)
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(auth_cookie_file, dest_path)
+                    
+                    from fluentytdl.auth.auth_service import AuthSourceType
+                    source_id = auth_service.current_source.value
+                    if auth_service.current_source == AuthSourceType.WEBVIEW2:
+                        account = auth_service.get_current_webview2_account(platform=platform)
+                        source_id = f"webview2:{account.account_id}" if account else "webview2"
+                        
+                    self._save_meta(source_id, auth_service.last_status.cookie_count, platform)
                     success_any = True
                     logger.info(f"[CookieSentinel] {platform} Cookie 已更新: {dest_path}")
             except Exception as e:
@@ -679,6 +713,8 @@ class CookieSentinel:
                     dest_path = self.get_cookie_path_for_platform(platform)
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(Path(auth_cookie_file), dest_path)
+                    
+                    self._save_meta("file", auth_service.last_status.cookie_count, platform)
                     success_any = True
                     logger.info(f"[CookieSentinel] 已从 AuthService 复制 {platform} Cookie: {dest_path}")
             except Exception as e:

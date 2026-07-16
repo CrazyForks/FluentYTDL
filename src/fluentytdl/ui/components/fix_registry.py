@@ -1,5 +1,10 @@
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QWidget
 from qfluentwidgets import InfoBar, InfoBarPosition
+
+
+def tr(text: str) -> str:
+    return QCoreApplication.translate("FixRegistry", text)
 
 
 def do_relogin(parent_widget: QWidget) -> None:
@@ -11,16 +16,16 @@ def do_relogin(parent_widget: QWidget) -> None:
         if hasattr(main_win, "switchTo"):
             main_win.switchTo(settings_iface)  # type: ignore
         InfoBar.info(
-            self.tr("提示"),
-            self.tr("请在设置页中重新提取或验证您的账号 Cookie。"),
+            tr("提示"),
+            tr("请在设置页中重新提取或验证您的账号 Cookie。"),
             parent=main_win,
             position=InfoBarPosition.TOP,
             duration=5000,
         )
     else:
         InfoBar.warning(
-            self.tr("不支持的操作"),
-            self.tr("无法定位到设置界面。"),
+            tr("不支持的操作"),
+            tr("无法定位到设置界面。"),
             parent=main_win,
             position=InfoBarPosition.TOP,
             duration=3000,
@@ -39,8 +44,8 @@ def switch_proxy(parent_widget: QWidget) -> None:
     if settings_iface is not None and hasattr(main_win, "switchTo"):
         main_win.switchTo(settings_iface)  # type: ignore
         InfoBar.info(
-            self.tr("网络设置"),
-            self.tr("请在此配置可用的代理节点。"),
+            tr("网络设置"),
+            tr("请在此配置可用的代理节点。"),
             parent=main_win,
             position=InfoBarPosition.TOP,
             duration=5000,
@@ -54,8 +59,8 @@ def change_download_dir(parent_widget: QWidget) -> None:
     if settings_iface is not None and hasattr(main_win, "switchTo"):
         main_win.switchTo(settings_iface)  # type: ignore
         InfoBar.info(
-            self.tr("存储设置"),
-            self.tr("请更改默认的下载保存路径。"),
+            tr("存储设置"),
+            tr("请更改默认的下载保存路径。"),
             parent=main_win,
             position=InfoBarPosition.TOP,
             duration=5000,
@@ -79,7 +84,7 @@ def execute_fix_action(action_id: str, parent_widget: QWidget) -> bool:
             return True
         except Exception as e:
             InfoBar.error(
-                self.tr("执行失败"),
+                tr("执行失败"),
                 f"尝试执行自动修复时发生错误: {e}",
                 parent=parent_widget.window(),
                 position=InfoBarPosition.TOP,

@@ -1,7 +1,7 @@
+import json
 import sys
 import xml.etree.ElementTree as ET
-import json
-from pathlib import Path
+
 
 def export_untranslated(ts_file_path: str, output_json: str):
     tree = ET.parse(ts_file_path)

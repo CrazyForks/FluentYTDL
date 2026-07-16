@@ -57,6 +57,7 @@ class DownloadListModel(QAbstractListModel):
 
     def add_task(self, worker: DownloadWorker, title: str, thumbnail: str) -> None:
         """从主程序追加一个全新的任务进入列队末尾或头部"""
+        
         # 我们插入到头部 (类似于队列，先添加的在最上面)
         row = 0
         self.beginInsertRows(QModelIndex(), row, row)

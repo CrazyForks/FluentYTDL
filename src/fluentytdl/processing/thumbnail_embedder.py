@@ -62,7 +62,10 @@ class ThumbnailEmbedder:
     MUTAGEN_FORMATS = {"mp3", "flac", "ogg", "opus"}
 
     # 不支持封面嵌入的格式（黑名单）
-    UNSUPPORTED_FORMATS = {"wav", "aiff", "ts", "m2ts", "vob", "rm", "rmvb", "flv"}
+    UNSUPPORTED_FORMATS = {
+        "wav", "aiff", "ts", "m2ts", "vob", "rm", "rmvb", "flv",
+        "jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff"
+    }
 
     def __init__(self):
         self._atomicparsley_path: Path | None = None

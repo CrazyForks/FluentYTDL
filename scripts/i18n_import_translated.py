@@ -1,10 +1,10 @@
+import json
 import sys
 import xml.etree.ElementTree as ET
-import json
-from pathlib import Path
+
 
 def import_translated(ts_file_path: str, translated_json: str):
-    with open(translated_json, 'r', encoding='utf-8') as f:
+    with open(translated_json, encoding='utf-8') as f:
         translations_dict = json.load(f)
         
     tree = ET.parse(ts_file_path)

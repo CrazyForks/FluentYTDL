@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
 from PySide6.QtCore import QT_TRANSLATE_NOOP
 
 # 常见字幕语言代码映射

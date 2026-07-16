@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import re
 import urllib.parse
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import requests
 from PySide6.QtCore import QObject, QThread, Signal

@@ -23,7 +23,6 @@ from qfluentwidgets import (
     RadioButton,
     SegmentedWidget,
     SmoothScrollArea,
-    StrongBodyLabel,
     TableWidget,
 )
 

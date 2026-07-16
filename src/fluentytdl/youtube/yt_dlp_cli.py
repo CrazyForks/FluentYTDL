@@ -658,6 +658,10 @@ def ydl_opts_to_cli_args(ydl_opts: dict[str, Any]) -> list[str]:
     if ydl_opts.get("skip_download"):
         args += ["--skip-download"]
 
+    # 强制不下载整个播放列表
+    if ydl_opts.get("noplaylist"):
+        args += ["--no-playlist"]
+
     # NOTE: POT Token / POT Provider 的 extractor_args 已在 youtube_service.build_ydl_options() 中统一处理
     # 无需在此处再次添加
 

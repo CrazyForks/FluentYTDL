@@ -1,6 +1,6 @@
-import os
 import subprocess
 from pathlib import Path
+
 
 def main():
     root_dir = Path(__file__).resolve().parent.parent
@@ -15,9 +15,9 @@ def main():
         print(f"Releasing {qm_file}...")
         
         # 调用 pyside6-lrelease 将 ts 编译为 qm 二进制文件
-        lrelease_exe = root_dir / ".venv" / "Scripts" / "pyside6-lrelease.exe"
+        lrelease_exe = root_dir / ".venv" / "Lib" / "site-packages" / "PySide6" / "lrelease.exe"
         if not lrelease_exe.exists():
-            lrelease_exe = "pyside6-lrelease"
+            lrelease_exe = "lrelease"
         cmd = [
             str(lrelease_exe),
             str(ts_file),

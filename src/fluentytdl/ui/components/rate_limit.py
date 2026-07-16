@@ -1,5 +1,3 @@
-from __future__ import annotations
-from PySide6.QtCore import QT_TRANSLATE_NOOP
 """
 FluentYTDL 动态限速控制组件
 
@@ -8,11 +6,11 @@ FluentYTDL 动态限速控制组件
 - 支持单任务和全局限速
 - 预设快捷按钮
 """
-
+from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QCoreApplication, Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,

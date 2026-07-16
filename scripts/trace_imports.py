@@ -1,6 +1,5 @@
-import os
-import sys
 import importlib
+import sys
 import traceback
 from pathlib import Path
 
@@ -21,6 +20,6 @@ for mod in modules:
     try:
         importlib.import_module(mod)
         print(f"Successfully imported {mod}")
-    except Exception as e:
+    except Exception:
         print(f"\n--- {mod} ---")
         traceback.print_exc()

@@ -1,11 +1,10 @@
 from __future__ import annotations
-from PySide6.QtCore import QT_TRANSLATE_NOOP
 
 import os
 import shutil
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import QCoreApplication, Qt, QThread, Signal
 from PySide6.QtWidgets import QFileDialog, QVBoxLayout, QWidget
 from qfluentwidgets import (
     CheckBox,
@@ -230,7 +229,15 @@ class ComponentSettingCard(SettingCard):
                 parent=self.window(),
             )
         else:
-            if curr == "unknown":
+            if latest == "unknown":
+                self.actionButton.setText(self.tr("检查更新"))
+                InfoBar.error(
+                    self.tr("检查失败"),
+                    self.tr(f"无法获取 {title_text} 的最新版本信息，请检查网络连接或更换镜像源。"),
+                    duration=5000,
+                    parent=self.window(),
+                )
+            elif curr == "unknown":
                 self.actionButton.setText(self.tr("立即安装"))
             else:
                 self.actionButton.setText(self.tr("检查更新"))
@@ -485,7 +492,7 @@ class LanguageMultiSelectCard(SettingCard):
         self._update_button_text()
 
 
-from PySide6.QtWidgets import QAbstractItemView, QListWidget, QListWidgetItem  # noqa: E402
+from PySide6.QtWidgets import QAbstractItemView, QListWidgetItem  # noqa: E402
 
 
 class AudioLanguageSelectionDialog(MessageBox):

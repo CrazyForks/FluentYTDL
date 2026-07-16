@@ -523,15 +523,28 @@ class MainWindow(FluentWindow):
             self.clipboard_monitor.youtube_url_detected.connect(self.on_youtube_url_detected)
 
     def on_youtube_url_detected(self, url: str):
+        is_playlist = "list=" in url
+        title_msg = self.tr("检测到 YouTube 播放列表") if is_playlist else self.tr("检测到视频链接")
+        
         if not self.isVisible():
             self.tray_icon.showMessage(
-                self.tr("检测到视频链接"),
+                title_msg,
                 self.tr("点击处理"),
                 QSystemTrayIcon.MessageIcon.Information,
                 2000,
             )
             self.showNormal()
             self.activateWindow()
+        else:
+            InfoBar.info(
+                title=title_msg,
+                content=self.tr("正在准备解析..."),
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=2000,
+                parent=self
+            )
 
         action = config_manager.get("clipboard_action_mode", "smart")
 
@@ -1427,14 +1440,15 @@ class MainWindow(FluentWindow):
         dialog = CookieRepairDialog(reason, parent=self, auth_source=auth_source_str)
 
         # 根据模式定制按钮文案
-        if source_type == AuthSourceType.WEBVIEW2:
-            dialog.repair_btn.setText(self.tr("重新登录"))
-            dialog.setWindowTitle(self.tr("需要重新登录 YouTube"))
-        elif source_type == AuthSourceType.FILE:
-            dialog.repair_btn.setText(self.tr("重新导入"))
+        if dialog._auth_source == "webview2":
+            dialog.yesButton.setText(self.tr("重新登录"))
+        elif dialog._auth_source == "local":
+            dialog.yesButton.setText(self.tr("重新导入"))
+        elif dialog._auth_source == "browser":
+            dialog.yesButton.setText(self.tr("重新提取"))
             dialog.setWindowTitle(self.tr("Cookie 文件需要更新"))
         else:
-            dialog.repair_btn.setText(self.tr("重新提取"))
+            dialog.yesButton.setText(self.tr("重新提取"))
 
         # 自动修复信号
         def on_auto_repair():

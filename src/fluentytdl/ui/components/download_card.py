@@ -5,7 +5,7 @@ import re
 import subprocess
 from typing import Any
 
-from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtCore import QCoreApplication, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import (
@@ -70,9 +70,12 @@ def _format_time(seconds: int | float | None) -> str:
 def _infer_stream_label(d: dict[str, Any]) -> str:
     """尽力识别当前下载的是视频流、音频流还是字幕/封面。"""
 
+    def tr(text: str) -> str:
+        return QCoreApplication.translate("DownloadCard", text)
+
     # 1. 优先使用执行器传入的明确标签 (Aria2c / Executor Injected)
     label = d.get("label")
-    if label and label in (self.tr("视频"), self.tr("音频"), self.tr("字幕"), self.tr("封面")):
+    if label and label in (tr("视频"), tr("音频"), tr("字幕"), tr("封面")):
         return f"[{label}]"
 
     # 2. 检查 info_dict (Native yt-dlp)
@@ -82,30 +85,30 @@ def _infer_stream_label(d: dict[str, Any]) -> str:
         acodec = info.get("acodec")
         if isinstance(vcodec, str) and isinstance(acodec, str):
             if vcodec != "none" and acodec == "none":
-                return self.tr("[视频]")
+                return tr("[视频]")
             if vcodec == "none" and acodec != "none":
-                return self.tr("[音频]")
+                return tr("[音频]")
 
     # 3. 检查文件名后缀
     filename = d.get("filename")
     if isinstance(filename, str):
         lower = filename.lower()
         if lower.endswith((".vtt", ".srt", ".ass", ".lrc")):
-            return self.tr("[字幕]")
+            return tr("[字幕]")
         if lower.endswith((".jpg", ".jpeg", ".webp", ".png")):
-            return self.tr("[封面]")
+            return tr("[封面]")
         if lower.endswith((".json", ".xml")):
-            return self.tr("[元数据]")
+            return tr("[元数据]")
         if lower.endswith((".m4a", ".mp3", ".aac", ".opus", ".ogg", ".flac", ".wav")):
-            return self.tr("[音频]")
+            return tr("[音频]")
         if lower.endswith((".mp4", ".webm", ".mkv", ".mov", ".avi")):
-            return self.tr("[视频]")
+            return tr("[视频]")
 
     # 4. 有标签但未命中特定类型
     if label:
         return f"[{label}]"
 
-    return self.tr("[下载]")
+    return tr("[下载]")
 
 
 class DownloadItemCard(CardWidget):

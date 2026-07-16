@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import QCoreApplication, QLocale, QTranslator
 from qfluentwidgets import FluentTranslator
 
@@ -43,8 +41,9 @@ class I18nManager:
             
         cls._app_translator = QTranslator()
         
-        # 本地翻译文件存放路径: FluentYTDL/assets/locales/
-        locales_dir = Path(__file__).parent.parent.parent.parent / "assets" / "locales"
+        # 本地翻译文件存放路径
+        from ..utils.paths import resource_path
+        locales_dir = resource_path("assets", "locales")
         
         # load 规则：前缀为 "fluentytdl"，加上 "_"，加上 locale.name() (如 zh_CN)
         if cls._app_translator.load(locale, "fluentytdl", "_", str(locales_dir)):

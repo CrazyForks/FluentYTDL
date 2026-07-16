@@ -149,6 +149,30 @@ class ConfigManager(QObject):
         "quick_video_quality": "best_mp4",
         "quick_container": "自动推断",
         "quick_audio_format": "自动推断",
+        # === 补充缺失的活跃配置（防打包失效） ===
+        "audio_default_preset": "mp3_320",
+        "audio_normalize": False,
+        "audio_target_lra": 11,
+        "audio_target_lufs": -14,
+        "audio_target_tp": -1,
+        "clipboard_action_mode": "smart",
+        "cookie_cleaning_enabled": True,
+        "enable_resume": True,
+        "quality_guard_ffprobe": False,
+        "quality_guard_mode": "warn",
+        "quick_download_dir": "",
+        "rate_limit": "",
+        "recent_target_url": "",
+        "vr_eac_auto_convert": False,
+        "ytdlp_channel": "stable",
+        # === 补充第二批正则挖掘出的活跃配置 ===
+        "clipboard_window_to_front": True,
+        "failed_task_retention_days": 3,
+        "quality_guard_suspend_threshold": 3,
+        "vr_cpu_priority": "low",
+        "vr_hw_accel_mode": "auto",
+        "vr_keep_source": True,
+        "vr_max_resolution": 2160,
     }
 
     def __new__(cls) -> ConfigManager:
@@ -167,6 +191,13 @@ class ConfigManager(QObject):
         # Dev: repo root config.json; Frozen: user-writable Documents/FluentYTDL/config.json
         self.config_file = config_path()
         self.config: dict[str, Any] = self._load_config()
+        
+        # 启动时进行一次配置瘦身：剔除不再使用的僵尸字段
+        obsolete_keys = [k for k in self.config if k not in self.DEFAULT_CONFIG]
+        if obsolete_keys:
+            for k in obsolete_keys:
+                del self.config[k]
+            self.save()
 
     def _load_config(self) -> dict[str, Any]:
         # One-time migration: old Documents location -> new location

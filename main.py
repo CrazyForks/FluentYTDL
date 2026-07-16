@@ -162,6 +162,26 @@ def main() -> None:
     # 1. 创建应用
     app = QApplication(sys.argv)
 
+    # === 单实例检测 ===
+    from fluentytdl.utils.single_instance import SingleInstanceChecker
+
+    single_instance = SingleInstanceChecker("FluentYTDL_SingleInstance_v1")
+    if not single_instance.check_and_start():
+        sys.exit(0)
+    # 防回收
+    app._single_instance = single_instance  # type: ignore[attr-defined]
+
+    def activate_main_window():
+        main_win = getattr(app, "_main_window", None)
+        if main_win:
+            main_win.setWindowState(
+                main_win.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive
+            )
+            main_win.show()
+            main_win.raise_()
+            main_win.activateWindow()
+
+    single_instance.new_instance_detected.connect(activate_main_window)
     # === 初始化国际化 (i18n) ===
     from fluentytdl.core.i18n import I18nManager
     I18nManager.setup_language()

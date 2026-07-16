@@ -7,18 +7,18 @@ Cookie 修复对话框
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout
 from qfluentwidgets import (
     BodyLabel,
     InfoBar,
     InfoBarPosition,
-    PrimaryPushButton,
+    MessageBoxBase,
     PushButton,
     StrongBodyLabel,
+    isDarkTheme,
 )
 
 
-class CookieRepairDialog(QDialog):
+class CookieRepairDialog(MessageBoxBase):
     """
     Cookie 修复对话框
 
@@ -39,18 +39,12 @@ class CookieRepairDialog(QDialog):
 
     def _setup_ui(self):
         """初始化 UI"""
-        self.setWindowTitle(self.tr("Cookie 已失效"))
-        self.setMinimumWidth(500)
-        self.setWindowModality(Qt.WindowModality.ApplicationModal)
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(16)
-        layout.setContentsMargins(24, 24, 24, 24)
+        self.widget.setMinimumWidth(500)
 
         # 标题
-        title_label = StrongBodyLabel(self.tr("🔒 检测到 Cookie 验证失败"), self)
-        title_label.setStyleSheet("font-size: 16px;")
-        layout.addWidget(title_label)
+        self.title_label = StrongBodyLabel(self.tr("🔒 检测到 Cookie 验证失败"), self)
+        self.title_label.setStyleSheet("font-size: 16px;")
+        self.viewLayout.addWidget(self.title_label)
 
         # 根据验证模式动态调整说明文本
         if self._auth_source == "webview2":
@@ -73,46 +67,55 @@ class CookieRepairDialog(QDialog):
                 self.tr("• 强烈建议：将设置页面的提取来源换为 Firefox 或 LibreWolf\n") +
                 self.tr("• 手动导入：使用浏览器扩展 Get cookies.txt LOCALLY 导出并手动导入")
             )
-        desc_label = BodyLabel(desc_text, self)
-        desc_label.setWordWrap(True)
-        layout.addWidget(desc_label)
+        self.desc_label = BodyLabel(desc_text, self)
+        self.desc_label.setWordWrap(True)
+        self.viewLayout.addWidget(self.desc_label)
 
         # 错误详情（可折叠）
         if self.error_message:
-            error_label = BodyLabel(f"错误详情：\n{self._truncate_error(self.error_message)}", self)
-            error_label.setWordWrap(True)
-            error_label.setStyleSheet(
-                "background-color: rgba(255, 0, 0, 0.05); "
+            self.error_label = BodyLabel(f"错误详情：\n{self._truncate_error(self.error_message)}", self)
+            self.error_label.setWordWrap(True)
+            
+            # 适配暗黑模式的错误颜色
+            bg_color = "rgba(255, 255, 255, 0.08)" if isDarkTheme() else "rgba(255, 0, 0, 0.05)"
+            text_color = "#ff99a4" if isDarkTheme() else "#d13438"
+            
+            self.error_label.setStyleSheet(
+                f"background-color: {bg_color}; "
                 "padding: 8px; "
                 "border-radius: 4px; "
-                "color: #d13438;"
+                f"color: {text_color};"
             )
-            layout.addWidget(error_label)
+            self.viewLayout.addWidget(self.error_label)
 
-        layout.addStretch(1)
+        self.viewLayout.setSpacing(16)
+        self.viewLayout.setContentsMargins(24, 24, 24, 24)
 
-        # 按钮区域
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
+        # 按钮区域 (MessageBoxBase 已经提供了 self.yesButton 和 self.cancelButton)
+        self.cancelButton.setText(self.tr("稍后处理"))
+        if self._auth_source == "webview2":
+            self.yesButton.setText(self.tr("重新登录"))
+        else:
+            self.yesButton.setText(self.tr("自动修复"))
+            
+        try:
+            self.yesButton.clicked.disconnect()
+        except RuntimeError:
+            pass
+        self.yesButton.clicked.connect(self._on_auto_repair)
+        
+        try:
+            self.cancelButton.clicked.disconnect()
+        except RuntimeError:
+            pass
+        self.cancelButton.clicked.connect(self.reject)
 
-        # 取消按钮
-        self.cancel_btn = PushButton(self.tr("稍后处理"), self)
-        self.cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(self.cancel_btn)
-
-        button_layout.addStretch(1)
-
-        # 手动导入按钮
+        # 自定义 手动导入 按钮
         self.manual_btn = PushButton(self.tr("手动导入 Cookie"), self)
         self.manual_btn.clicked.connect(self._on_manual_import)
-        button_layout.addWidget(self.manual_btn)
-
-        # 自动修复按钮（主要操作）
-        self.repair_btn = PrimaryPushButton(self.tr("自动修复"), self)
-        self.repair_btn.clicked.connect(self._on_auto_repair)
-        button_layout.addWidget(self.repair_btn)
-
-        layout.addLayout(button_layout)
+        
+        # 将其插入到 cancelButton 和 yesButton 之间
+        self.buttonLayout.insertWidget(1, self.manual_btn, 1, Qt.AlignmentFlag.AlignVCenter)
 
     def _truncate_error(self, error: str, max_lines: int = 5) -> str:
         """截断错误信息避免过长"""
@@ -123,8 +126,8 @@ class CookieRepairDialog(QDialog):
 
     def _on_auto_repair(self):
         """自动修复按钮点击"""
-        self.repair_btn.setEnabled(False)
-        self.repair_btn.setText(self.tr("修复中..."))
+        self.yesButton.setEnabled(False)
+        self.yesButton.setText(self.tr("修复中..."))
         self.repair_requested.emit()
 
     def _on_manual_import(self):
@@ -165,8 +168,8 @@ class CookieRepairDialog(QDialog):
                 parent=self,
             )
             # 恢复按钮状态
-            self.repair_btn.setEnabled(True)
-            self.repair_btn.setText(self.tr("自动修复"))
+            self.yesButton.setEnabled(True)
+            self.yesButton.setText(self.tr("自动修复"))
 
 
 def show_cookie_repair_dialog(error_message: str = "", parent=None) -> CookieRepairDialog:

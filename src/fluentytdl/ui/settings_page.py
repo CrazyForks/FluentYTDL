@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from PySide6.QtCore import Qt, QThread, Signal, QCoreApplication
+from PySide6.QtCore import QCoreApplication, Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import QFileDialog, QStackedWidget, QVBoxLayout, QWidget
 from qfluentwidgets import (
     CheckBox,
@@ -248,7 +248,15 @@ class ComponentSettingCard(SettingCard):
                 parent=self.window(),
             )
         else:
-            if curr == "unknown":
+            if latest == "unknown":
+                self.actionButton.setText(self.tr("检查更新"))
+                InfoBar.error(
+                    self.tr("检查失败"),
+                    self.tr("无法获取 {} 的最新版本信息，请检查网络连接或更换镜像源。").format(title_text),
+                    duration=5000,
+                    parent=self.window(),
+                )
+            elif curr == "unknown":
                 self.actionButton.setText(self.tr("立即安装"))
             else:
                 self.actionButton.setText(self.tr("检查更新"))
@@ -479,7 +487,7 @@ class LanguageMultiSelectCard(SettingCard):
         self._update_button_text()
 
 
-from PySide6.QtWidgets import QAbstractItemView, QListWidget, QListWidgetItem  # noqa: E402
+from PySide6.QtWidgets import QAbstractItemView, QListWidgetItem  # noqa: E402
 
 
 class AudioLanguageSelectionDialog(MessageBox):
@@ -811,7 +819,7 @@ class SettingsPage(QWidget):
         self.mainLayout.addWidget(self.stackedWidget)
 
         # Cookie刷新worker引用（防止垃圾回收）
-        self._cookie_worker = None
+        self._active_workers = set()
 
         # Init Pages
         self.generalInterface, self.generalScroll, self.generalLayout = self._create_page(
@@ -1335,58 +1343,45 @@ class SettingsPage(QWidget):
         )
         self.browserCard.comboBox.currentIndexChanged.connect(self._on_cookie_browser_changed)
 
-        # WebView2 登录按钮
-        self.webview2LoginCard = PushSettingCard(
-            self.tr("启动安全登录"),
-            FluentIcon.GLOBE,
-            self.tr("🔑 账号登录"),
-            self.tr("通过内置浏览器安全登录各大平台，自动提取并保存 Cookie"),
-            self.accountGroup,
-        )
-        self.webview2LoginCard.clicked.connect(self._on_webview2_login_clicked)
-
-        # WebView2 账号选择
-        self._webview2_account_ids: list[str] = []
-        self.webview2AccountCard = InlineComboBoxCard(
-            FluentIcon.PEOPLE,
-            self.tr("WebView2 账号"),
-            self.tr("选择当前用于登录提取与下载注入的账号"),
-            [],
-            self.accountGroup,
-        )
-        self.webview2AccountCard.comboBox.currentIndexChanged.connect(
-            self._on_webview2_account_changed
-        )
-
-        # 新增 WebView2 账号
-        self.webview2AddAccountCard = PushSettingCard(
-            self.tr("新增账号"),
-            FluentIcon.ADD,
-            self.tr("WebView2 账号管理"),
-            self.tr("创建新的 WebView2 账号隔离存储（独立 profile 与缓存）"),
-            self.accountGroup,
-        )
-        self.webview2AddAccountCard.clicked.connect(self._on_add_webview2_account_clicked)
-
-        # 删除当前 WebView2 账号
-        self.webview2RemoveAccountCard = PushSettingCard(
-            self.tr("删除当前账号"),
-            FluentIcon.DELETE,
-            self.tr("删除 WebView2 账号"),
-            self.tr("删除当前选中的 WebView2 账号（至少保留 1 个）"),
-            self.accountGroup,
-        )
-        self.webview2RemoveAccountCard.clicked.connect(self._on_remove_webview2_account_clicked)
-
-        # 手动刷新按钮
-        self.refreshCookieCard = PushSettingCard(
-            self.tr("立即刷新"),
+        self.browserRefreshCard = PushSettingCard(
+            self.tr("一键提取"),
             FluentIcon.SYNC,
-            self.tr("手动刷新 Cookie"),
-            self.tr("从浏览器重新提取 Cookie（可能需要管理员权限）"),
+            self.tr("提取所有支持的平台"),
+            self.tr("自动从选定的本地浏览器提取 YouTube 和 X 平台 Cookie，并进行规范化处理"),
             self.accountGroup,
         )
-        self.refreshCookieCard.clicked.connect(self._on_refresh_cookie_clicked)
+        self.browserRefreshCard.clicked.connect(self._on_browser_refresh_clicked)
+
+        # 多平台 WebView2 账号手风琴
+        from .components.platform_auth_card import PlatformAuthExpandCard
+
+        self.youtubeAuthCard = PlatformAuthExpandCard(
+            "youtube",
+            FluentIcon.GLOBE,
+            self.tr("YouTube 登录"),
+            self.tr("管理 YouTube 平台的 WebView2 账号"),
+            self.accountGroup
+        )
+        self.youtubeAuthCard.loginClicked.connect(self._on_webview2_login_clicked)
+        self.youtubeAuthCard.accountChanged.connect(self._on_webview2_account_changed)
+        self.youtubeAuthCard.addAccountClicked.connect(self._on_add_webview2_account_clicked)
+        self.youtubeAuthCard.removeAccountClicked.connect(self._on_remove_webview2_account_clicked)
+        self.youtubeAuthCard.refreshCookieClicked.connect(self._on_refresh_cookie_clicked)
+        self.youtubeAuthCard.openCookieLocationClicked.connect(self._open_cookie_location)
+
+        self.twitterAuthCard = PlatformAuthExpandCard(
+            "twitter",
+            FluentIcon.GITHUB, # fallback icon for X
+            self.tr("X (Twitter) 登录"),
+            self.tr("管理 X (Twitter) 平台的 WebView2 账号"),
+            self.accountGroup
+        )
+        self.twitterAuthCard.loginClicked.connect(self._on_webview2_login_clicked)
+        self.twitterAuthCard.accountChanged.connect(self._on_webview2_account_changed)
+        self.twitterAuthCard.addAccountClicked.connect(self._on_add_webview2_account_clicked)
+        self.twitterAuthCard.removeAccountClicked.connect(self._on_remove_webview2_account_clicked)
+        self.twitterAuthCard.refreshCookieClicked.connect(self._on_refresh_cookie_clicked)
+        self.twitterAuthCard.openCookieLocationClicked.connect(self._open_cookie_location)
 
         # Cookie 文件选择
         self.cookieFileCard = PushSettingCard(
@@ -1397,16 +1392,6 @@ class SettingsPage(QWidget):
             self.accountGroup,
         )
         self.cookieFileCard.clicked.connect(self._select_cookie_file)
-
-        # Cookie 状态显示（带打开位置按钮）
-        self.cookieStatusCard = PushSettingCard(
-            self.tr("打开位置"),
-            FluentIcon.INFO,
-            self.tr("Cookie 状态检测"),
-            self.tr("显示当前关联的 Cookie 存活状态"),
-            self.accountGroup,
-        )
-        self.cookieStatusCard.clicked.connect(self._open_cookie_location)
 
         # Cookie 清洗开关
         self.cookieCleaningCard = InlineSwitchCard(
@@ -1419,13 +1404,10 @@ class SettingsPage(QWidget):
 
         self.accountGroup.addSettingCard(self.cookieModeCard)
         self.accountGroup.addSettingCard(self.browserCard)
-        self.accountGroup.addSettingCard(self.webview2LoginCard)
-        self.accountGroup.addSettingCard(self.cookieStatusCard)
+        self.accountGroup.addSettingCard(self.browserRefreshCard)
         self.accountGroup.addSettingCard(self.cookieCleaningCard)
-        self.accountGroup.addSettingCard(self.webview2AccountCard)
-        self.accountGroup.addSettingCard(self.webview2AddAccountCard)
-        self.accountGroup.addSettingCard(self.webview2RemoveAccountCard)
-        self.accountGroup.addSettingCard(self.refreshCookieCard)
+        self.accountGroup.addSettingCard(self.youtubeAuthCard)
+        self.accountGroup.addSettingCard(self.twitterAuthCard)
         self.accountGroup.addSettingCard(self.cookieFileCard)
 
         # 一键诊断
@@ -1434,14 +1416,11 @@ class SettingsPage(QWidget):
 
         # Make Cookie dependent cards look like "children" of cookie mode card
         self._indent_setting_card(self.browserCard)
-        self._indent_setting_card(self.webview2AccountCard)
-        self._indent_setting_card(self.webview2AddAccountCard)
-        self._indent_setting_card(self.webview2RemoveAccountCard)
-        self._indent_setting_card(self.webview2LoginCard)
-        self._indent_setting_card(self.refreshCookieCard)
+        self._indent_setting_card(self.browserRefreshCard)
         self._indent_setting_card(self.cookieFileCard)
-        self._indent_setting_card(self.cookieStatusCard)
         self._indent_setting_card(self.cookieCleaningCard)
+        self._indent_setting_card(self.youtubeAuthCard)
+        self._indent_setting_card(self.twitterAuthCard)
 
     def _init_component_group(self, parent_widget: QWidget | None, layout: QVBoxLayout) -> None:
         """初始化软件更新与核心组件设置组"""
@@ -1581,8 +1560,9 @@ class SettingsPage(QWidget):
             msg_box.yesButton.setText(self.tr("立即重启"))
             msg_box.cancelButton.setText(self.tr("稍后"))
             if msg_box.exec():
-                import sys
                 import subprocess
+                import sys
+
                 from PySide6.QtWidgets import QApplication
                 
                 if getattr(sys, "frozen", False):
@@ -2690,11 +2670,9 @@ class SettingsPage(QWidget):
             auth_service.set_source(source, auto_refresh=True)
 
             self.browserCard.setVisible(True)
-            self.webview2AccountCard.setVisible(False)
-            self.webview2AddAccountCard.setVisible(False)
-            self.webview2RemoveAccountCard.setVisible(False)
-            self.webview2LoginCard.setVisible(False)
-            self.refreshCookieCard.setVisible(True)
+            self.browserRefreshCard.setVisible(True)
+            self.youtubeAuthCard.setVisible(False)
+            self.twitterAuthCard.setVisible(False)
             self.cookieFileCard.setVisible(False)
 
             InfoBar.info(
@@ -2711,11 +2689,9 @@ class SettingsPage(QWidget):
             self._reload_webview2_account_combo(select_current=True)
 
             self.browserCard.setVisible(False)
-            self.webview2AccountCard.setVisible(True)
-            self.webview2AddAccountCard.setVisible(True)
-            self.webview2RemoveAccountCard.setVisible(True)
-            self.webview2LoginCard.setVisible(True)
-            self.refreshCookieCard.setVisible(False)
+            self.browserRefreshCard.setVisible(False)
+            self.youtubeAuthCard.setVisible(True)
+            self.twitterAuthCard.setVisible(True)
             self.cookieFileCard.setVisible(False)
 
             InfoBar.info(
@@ -2730,11 +2706,9 @@ class SettingsPage(QWidget):
             auth_service.set_source(AuthSourceType.FILE, auto_refresh=False)
 
             self.browserCard.setVisible(False)
-            self.webview2AccountCard.setVisible(False)
-            self.webview2AddAccountCard.setVisible(False)
-            self.webview2RemoveAccountCard.setVisible(False)
-            self.webview2LoginCard.setVisible(False)
-            self.refreshCookieCard.setVisible(False)
+            self.browserRefreshCard.setVisible(False)
+            self.youtubeAuthCard.setVisible(False)
+            self.twitterAuthCard.setVisible(False)
             self.cookieFileCard.setVisible(True)
 
             InfoBar.info(self.tr("已切换到手动导入"), self.tr("请选择 cookies.txt 文件"), duration=3000, parent=self)
@@ -2766,8 +2740,7 @@ class SettingsPage(QWidget):
         if 0 <= index < len(browser_map):
             source, name = browser_map[index]
 
-            # WebView2 登录按钮在浏览器提取模式下始终隐藏
-            self.webview2LoginCard.setVisible(False)
+            # WebView2 登录卡片在浏览器提取模式下由 _on_cookie_mode_changed 控制
 
             # Chromium 内核浏览器 v130+ 需要管理员权限
             from ..auth.auth_service import ADMIN_REQUIRED_BROWSERS
@@ -2804,12 +2777,10 @@ class SettingsPage(QWidget):
                 parent=self,
             )
 
-            # 清理旧worker
-            if self._cookie_worker is not None:
-                self._cookie_worker.deleteLater()
-
+            # 不再清理旧worker，允许并发提取
             # 创建Qt工作线程
-            self._cookie_worker = CookieRefreshWorker(self)
+            worker = CookieRefreshWorker(self)
+            self._active_workers.add(worker)
 
             # 连接信号（自动在主线程执行）
             def on_finished(success: bool, message: str, need_admin: bool = False):
@@ -2851,59 +2822,107 @@ class SettingsPage(QWidget):
                     logger.error(f"更新Cookie状态显示失败: {e}")
 
                 # 清理worker
-                self._cookie_worker = None
+                self._active_workers.discard(worker)
+                worker.deleteLater()
 
-            self._cookie_worker.finished.connect(on_finished, Qt.ConnectionType.QueuedConnection)
-            self._cookie_worker.start()
+            worker.finished.connect(on_finished, Qt.ConnectionType.QueuedConnection)
+            worker.start()
 
-    def _on_webview2_login_clicked(self):
-        """WebView2 登录按钮点击 - 启动浏览器登录流程"""
-        from .dialogs.platform_selector_dialog import PlatformSelectorDialog
-        from ..auth.auth_service import AuthSourceType, auth_service
+    def _on_browser_refresh_clicked(self):
+        """刷新 Cookie — 一次提取两平台 (自动从本地浏览器提取)"""
+        self.browserRefreshCard.button.setEnabled(False)
+        from ..auth.auth_service import auth_service
         
-        dialog = PlatformSelectorDialog(self.window())
-        if not dialog.exec():
-            return
-            
-        platform = dialog.get_selected_platform()
+        def progress_callback(platform_label: str, status_msg: str):
+            """更新状态提示"""
+            InfoBar.info(
+                self.tr("提取进度"), 
+                self.tr(f"正在提取 {platform_label} Cookie... {status_msg}"), 
+                duration=3000, 
+                parent=self
+            )
+        
+        def _do_refresh_all_platforms():
+            try:
+                results = auth_service.extract_browser_cookies_all_platforms(progress_callback)
+                
+                yt_ok = results.get("youtube") is not None
+                x_ok = results.get("twitter") is not None
+                msg = f"YouTube: {'✅' if yt_ok else '❌'} | X: {'✅' if x_ok else '❌'}"
+                
+                if yt_ok or x_ok:
+                    InfoBar.success(
+                        self.tr("提取完成"),
+                        msg,
+                        duration=5000,
+                        parent=self
+                    )
+                else:
+                    InfoBar.error(
+                        self.tr("提取失败"),
+                        self.tr("未提取到任何有效 Cookie。"),
+                        duration=8000,
+                        parent=self
+                    )
+                self._update_cookie_status()
+            except Exception as e:
+                InfoBar.error(self.tr("提取异常"), str(e), duration=8000, parent=self)
+            finally:
+                self.browserRefreshCard.button.setEnabled(True)
+
+        # 使用 QTimer 避免阻塞
+        QTimer.singleShot(100, _do_refresh_all_platforms)
+
+    def _on_webview2_login_clicked(self, platform: str):
+        """WebView2 登录按钮点击 - 启动浏览器登录流程"""
+        from ..auth.auth_service import AuthSourceType, auth_service
 
         # 保证处于 WebView2 模式
         auth_service.set_source(AuthSourceType.WEBVIEW2, auto_refresh=False)
 
-        account = auth_service.current_webview2_account
+        if platform == "twitter":
+            InfoBar.warning(
+                self.tr("登录方式提示"),
+                self.tr("受沙箱安全限制，X 平台目前无法使用「通过 Google / Apple 登录」。\n请在弹出的界面中使用「手机号/用户名/邮箱 + 密码」直接登录，否则会出现白屏！"),
+                duration=12000,
+                parent=self,
+            )
+
+        account = auth_service.get_current_webview2_account(platform=platform)
         account_name = account.localized_name if account else self.tr("默认账号")
 
-        self.webview2LoginCard.button.setEnabled(False)
-        self.webview2LoginCard.setContent(
+        card = self.youtubeAuthCard if platform == "youtube" else self.twitterAuthCard
+        card.set_login_button_enabled(False)
+        card.set_content(
             self.tr("正在后台提取登录态（{}），必要时会自动显示登录窗口...").format(account_name)
         )
 
         # 执行刷新
-        self._do_cookie_refresh(platform=platform)
+        worker = self._do_cookie_refresh(platform=platform)
 
-        # 挂载完成回调（worker 已在 _do_cookie_refresh 中创建）
-        if self._cookie_worker:
+        # 挂载完成回调（worker 已在 _do_cookie_refresh 中创建并返回）
+        if worker:
 
             def _on_webview2_finished(success: bool, message: str, need_admin: bool = False):
                 # 恢复按钮状态
-                self.webview2LoginCard.button.setEnabled(True)
+                card.set_login_button_enabled(True)
 
                 if success:
-                    self.webview2LoginCard.setContent(self.tr("✔ 登录成功，Cookie 已提取"))
+                    card.set_content(self.tr("✔ 登录成功，Cookie 已提取"))
                     from ..auth.cookie_sentinel import cookie_sentinel
 
-                    current_acc = auth_service.current_webview2_account
+                    current_acc = auth_service.get_current_webview2_account(platform=platform)
                     acc_cookie = current_acc.cached_cookie_path if current_acc else "未知"
                     InfoBar.info(
                         self.tr("登录成功"),
                         self.tr("Cookie 已成功提取并保存（{}）\n账号文件: {}\n统一文件: {}").format(
-                            account_name, acc_cookie, cookie_sentinel.cookie_path
+                            account_name, acc_cookie, cookie_sentinel.get_cookie_path_for_platform(platform)
                         ),
                         duration=5000,
                         parent=self,
                     )
                 else:
-                    self.webview2LoginCard.setContent("❌ 登录未完成，请重新点击「启动安全登录」")
+                    card.set_content("❌ 登录未完成，请重新点击「点击登录」")
                     # 解析错误消息，去掉「刷新异常:」前缀
                     clean_msg = message
                     if clean_msg.startswith("刷新异常: "):
@@ -2917,55 +2936,33 @@ class SettingsPage(QWidget):
                         parent=self,
                     )
 
-            self._cookie_worker.finished.connect(
+            worker.finished.connect(
                 _on_webview2_finished,
                 Qt.ConnectionType.QueuedConnection,
             )
 
     def _reload_webview2_account_combo(self, select_current: bool = True) -> None:
-        """刷新 WebView2 账号下拉列表"""
-        from ..auth.auth_service import auth_service
+        """全局刷新所有的 WebView2 账号下拉列表（向后兼容，通常不需要被调用了）"""
+        self.youtubeAuthCard.reload_accounts(select_current)
+        self.twitterAuthCard.reload_accounts(select_current)
 
-        accounts = auth_service.list_webview2_accounts(platform="youtube")
-        self._webview2_account_ids = [a.account_id for a in accounts]
-
-        combo = self.webview2AccountCard.comboBox
-        combo.blockSignals(True)
-        combo.clear()
-
-        for acc in accounts:
-            label = acc.localized_name
-            if acc.is_default:
-                label += self.tr(" (默认)")
-            combo.addItem(label)
-
-        if select_current and self._webview2_account_ids:
-            cur = auth_service.current_webview2_account_id
-            idx = self._webview2_account_ids.index(cur) if cur in self._webview2_account_ids else 0
-            combo.setCurrentIndex(idx)
-
-        combo.blockSignals(False)
-
-    def _on_webview2_account_changed(self, index: int) -> None:
+    def _on_webview2_account_changed(self, platform: str, account_id: str) -> None:
         """切换当前 WebView2 账号"""
         from ..auth.auth_service import auth_service
 
-        if index < 0 or index >= len(self._webview2_account_ids):
-            return
-
-        account_id = self._webview2_account_ids[index]
         if auth_service.set_current_webview2_account(account_id):
-            account = auth_service.current_webview2_account
+            account = auth_service._webview2_accounts.get(account_id)
             name = account.localized_name if account else self.tr("未知账号")
+            plat_name = "YouTube" if platform == "youtube" else ("X" if platform == "twitter" else platform.capitalize())
             InfoBar.info(
                 self.tr("已切换 WebView2 账号"),
-                f"当前账号: {name}",
+                f"当前 {plat_name} 账号: {name}",
                 duration=2500,
                 parent=self,
             )
             self._update_cookie_status()
 
-    def _on_add_webview2_account_clicked(self) -> None:
+    def _on_add_webview2_account_clicked(self, platform: str) -> None:
         """新增 WebView2 账号"""
         from ..auth.auth_service import auth_service
 
@@ -2980,11 +2977,17 @@ class SettingsPage(QWidget):
             InfoBar.warning(self.tr("名称为空"), self.tr("请输入有效账号名称"), duration=2500, parent=self)
             return
 
-        account = auth_service.create_webview2_account(
-            display_name=display_name, platform="youtube"
-        )
-        auth_service.set_current_webview2_account(account.account_id)
-        self._reload_webview2_account_combo(select_current=True)
+        try:
+            account = auth_service.create_webview2_account(
+                display_name=display_name, platform=platform
+            )
+            auth_service.set_current_webview2_account(account.account_id)
+        except ValueError as e:
+            InfoBar.error(self.tr("创建失败"), str(e), duration=3500, parent=self)
+            return
+
+        card = self.youtubeAuthCard if platform == "youtube" else self.twitterAuthCard
+        card.reload_accounts(select_current=True)
 
         InfoBar.info(
             self.tr("账号已创建"),
@@ -2994,13 +2997,15 @@ class SettingsPage(QWidget):
         )
         self._update_cookie_status()
 
-    def _on_remove_webview2_account_clicked(self) -> None:
+    def _on_remove_webview2_account_clicked(self, platform: str) -> None:
         """删除当前 WebView2 账号"""
         from qfluentwidgets import MessageBox
 
         from ..auth.auth_service import auth_service
 
-        account = auth_service.current_webview2_account
+        account_id = auth_service.get_current_webview2_account_id(platform=platform)
+        account = auth_service._webview2_accounts.get(account_id) if account_id else None
+        
         if not account:
             InfoBar.warning(
                 self.tr("无可删账号"), self.tr("当前没有可删除的 WebView2 账号"), duration=2500, parent=self
@@ -3021,11 +3026,12 @@ class SettingsPage(QWidget):
             InfoBar.error(self.tr("删除失败"), self.tr("至少需要保留一个账号"), duration=3000, parent=self)
             return
 
-        self._reload_webview2_account_combo(select_current=True)
+        card = self.youtubeAuthCard if platform == "youtube" else self.twitterAuthCard
+        card.reload_accounts(select_current=True)
         InfoBar.info(self.tr("删除成功"), self.tr("已删除: {}").format(account.localized_name), duration=3000, parent=self)
         self._update_cookie_status()
 
-    def _on_refresh_cookie_clicked(self):
+    def _on_refresh_cookie_clicked(self, platform: str):
         """手动刷新 Cookie 按钮点击"""
         from qfluentwidgets import MessageBox
 
@@ -3055,34 +3061,34 @@ class SettingsPage(QWidget):
 
             if box.exec():
                 from ..utils.admin_utils import restart_as_admin
-
                 restart_as_admin(f"提取 {browser_name} Cookie")
             return
 
         # 非 Edge/Chrome 或已是管理员，正常刷新
-        self._do_cookie_refresh()
+        self._do_cookie_refresh(platform=platform)
 
     def _do_cookie_refresh(self, platform: str | None = None):
         """实际执行Cookie刷新（已确认权限或非Edge/Chrome）"""
         # 禁用按钮
-        self.refreshCookieCard.setEnabled(False)
-        self.refreshCookieCard.button.setText(self.tr("刷新中..."))
+        if platform:
+            card = self.youtubeAuthCard if platform == "youtube" else self.twitterAuthCard
+            card.refreshCookieCard.setEnabled(False)
+            card.refreshCookieCard.button.setText(self.tr("刷新中..."))
 
         # 显示进度提示
         InfoBar.info(self.tr("正在刷新 Cookie"), self.tr("请稍候..."), duration=3000, parent=self)
 
-        # 清理旧worker
-        if self._cookie_worker is not None:
-            self._cookie_worker.deleteLater()
-
+        # 不再清理旧worker，允许并发
         # 创建Qt工作线程
-        self._cookie_worker = CookieRefreshWorker(self, platform=platform)
+        worker = CookieRefreshWorker(self, platform=platform)
+        self._active_workers.add(worker)
 
         # 连接信号（自动在主线程执行）
         def on_finished(success: bool, message: str, need_admin: bool = False):
             # 1. 总是重置按钮状态
-            self.refreshCookieCard.setEnabled(True)
-            self.refreshCookieCard.button.setText(self.tr("立即刷新"))
+            if platform:
+                card.refreshCookieCard.setEnabled(True)
+                card.refreshCookieCard.button.setText(self.tr("立即刷新"))
 
             # 2. 显示结果消息
             if success:
@@ -3108,10 +3114,12 @@ class SettingsPage(QWidget):
                 logger.error(f"更新Cookie状态显示失败: {e}")
 
             # 清理worker
-            self._cookie_worker = None
+            self._active_workers.discard(worker)
+            worker.deleteLater()
 
-        self._cookie_worker.finished.connect(on_finished, Qt.ConnectionType.QueuedConnection)
-        self._cookie_worker.start()
+        worker.finished.connect(on_finished, Qt.ConnectionType.QueuedConnection)
+        worker.start()
+        return worker
 
     def _select_cookie_file(self):
         """选择 Cookie 文件并导入到相应平台的 cookies.txt"""
@@ -3156,14 +3164,25 @@ class SettingsPage(QWidget):
 
             self._update_cookie_status()
 
-    def _open_cookie_location(self):
+    def _open_cookie_location(self, platform: str | None = None):
         """打开 Cookie 文件所在位置"""
         import os
         import subprocess
+        from pathlib import Path
 
         from ..auth.cookie_sentinel import cookie_sentinel
 
-        cookie_path = cookie_sentinel.cookie_path
+        if platform:
+            from ..auth.auth_service import auth_service
+            acc = auth_service.get_current_webview2_account(platform=platform)
+            cookie_path_str = acc.cached_cookie_path if acc else cookie_sentinel.cookie_path
+        else:
+            cookie_path_str = cookie_sentinel.cookie_path
+            
+        cookie_path = Path(cookie_path_str) if cookie_path_str else None
+        
+        if not cookie_path:
+            return
 
         if cookie_path.exists():
             # Windows: 使用 explorer 选中文件
@@ -3178,81 +3197,86 @@ class SettingsPage(QWidget):
                     self.tr("目录不存在"), self.tr("Cookie 目录尚未创建: {}").format(folder), duration=3000, parent=self
                 )
 
+    def _get_status_text_for_platform(self, platform: str) -> str:
+        from ..auth.auth_service import AuthSourceType, auth_service
+        from ..auth.cookie_sentinel import cookie_sentinel
+
+        current_source = auth_service.current_source
+        info = cookie_sentinel.get_status_info(platform)
+
+        if current_source == AuthSourceType.NONE:
+            return self.tr("⚪ 未启用 Cookie 验证")
+
+        if not info["exists"]:
+            if current_source == AuthSourceType.WEBVIEW2:
+                return self.tr("🔑 WebView2 模式 — 尚未登录，请点击「启动安全登录」按钮")
+            elif current_source == AuthSourceType.FILE:
+                return self.tr("❌ Cookie 文件不存在，请重新选择文件")
+            else:
+                return self.tr("❌ 尚无 Cookie — 请点击「立即刷新」从 {} 提取").format(auth_service.current_source_display)
+
+        # === 有 Cookie 文件时的详细状态 ===
+        age = info["age_minutes"]
+        age_str = self.tr("{} 分钟前").format(int(age)) if age is not None else self.tr("未知时间")
+        cookie_count = info["cookie_count"]
+        cookie_valid = info.get("cookie_valid", False)
+        cookie_valid_msg = info.get("cookie_valid_msg", "")
+        actual_display = info.get("actual_source_display") or info["source"]
+
+        # 决定主 emoji 和来源文字
+        if not cookie_valid:
+            emoji = "❌"
+            source_text = actual_display
+        elif info.get("using_fallback") or info.get("source_mismatch"):
+            emoji = "⚠️"
+            if info.get("source_mismatch") and info.get("actual_source_display"):
+                source_text = self.tr("{}（当前配置: {}）").format(actual_display, info['source'])
+            else:
+                source_text = actual_display
+        elif info.get("expiring_soon"):
+            emoji = "⏳"
+            source_text = actual_display
+        elif info["is_stale"]:
+            emoji = "⚠️"
+            source_text = actual_display
+        else:
+            emoji = "✔"
+            source_text = actual_display
+
+        status_text = self.tr("{} {} | 更新于 {} | {} 个 Cookie").format(emoji, source_text, age_str, cookie_count)
+
+        # 即将过期预警
+        earliest = info.get("earliest_expiry")
+        if info.get("expiring_soon") and earliest is not None:
+            if earliest <= 0:
+                status_text += "\n⚠️ 关键 Cookie 已过期，请立即刷新"
+            else:
+                mins = int(earliest / 60)
+                status_text += f"\n⏳ 关键 Cookie 将在 {mins} 分钟后过期，建议尽快刷新"
+
+        # 有效性说明（仅在失效时显示）
+        if not cookie_valid and cookie_valid_msg:
+            status_text += f"\n{cookie_valid_msg}"
+
+        # 回退警告
+        if info.get("fallback_warning"):
+            status_text += f"\n⚠️ {info['fallback_warning']}"
+
+        return status_text
+
     def _update_cookie_status(self):
         """更新 Cookie 状态显示"""
         try:
-            from ..auth.auth_service import AuthSourceType, auth_service
-            from ..auth.cookie_sentinel import cookie_sentinel
-
-            current_source = auth_service.current_source
-            info = cookie_sentinel.get_status_info()
-
-            # === 特殊模式处理 ===
-            if current_source == AuthSourceType.NONE:
-                self.cookieStatusCard.contentLabel.setText(self.tr("⚪ 未启用 Cookie 验证"))
-                return
-
-            if not info["exists"]:
-                if current_source == AuthSourceType.WEBVIEW2:
-                    status_text = self.tr("🔑 WebView2 模式 — 尚未登录，请点击「启动安全登录」按钮")
-                elif current_source == AuthSourceType.FILE:
-                    status_text = self.tr("❌ Cookie 文件不存在，请重新选择文件")
-                else:
-                    status_text = self.tr("❌ 尚无 Cookie — 请点击「立即刷新」从 {} 提取").format(auth_service.current_source_display)
-                self.cookieStatusCard.contentLabel.setText(status_text)
-                return
-
-            # === 有 Cookie 文件时的详细状态 ===
-            age = info["age_minutes"]
-            age_str = self.tr("{} 分钟前").format(int(age)) if age is not None else self.tr("未知时间")
-            cookie_count = info["cookie_count"]
-            cookie_valid = info.get("cookie_valid", False)
-            cookie_valid_msg = info.get("cookie_valid_msg", "")
-            actual_display = info.get("actual_source_display") or info["source"]
-
-            # 决定主 emoji 和来源文字
-            if not cookie_valid:
-                emoji = "❌"
-                source_text = actual_display
-            elif info.get("using_fallback") or info.get("source_mismatch"):
-                emoji = "⚠️"
-                if info.get("source_mismatch") and info.get("actual_source_display"):
-                    source_text = self.tr("{}（当前配置: {}）").format(actual_display, info['source'])
-                else:
-                    source_text = actual_display
-            elif info.get("expiring_soon"):
-                emoji = "⏳"
-                source_text = actual_display
-            elif info["is_stale"]:
-                emoji = "⚠️"
-                source_text = actual_display
-            else:
-                emoji = "✔"
-                source_text = actual_display
-
-            status_text = self.tr("{} {} | 更新于 {} | {} 个 Cookie").format(emoji, source_text, age_str, cookie_count)
-
-            # 即将过期预警
-            earliest = info.get("earliest_expiry")
-            if info.get("expiring_soon") and earliest is not None:
-                if earliest <= 0:
-                    status_text += "\n⚠️ 关键 Cookie 已过期，请立即刷新"
-                else:
-                    mins = int(earliest / 60)
-                    status_text += f"\n⏳ 关键 Cookie 将在 {mins} 分钟后过期，建议尽快刷新"
-
-            # 有效性说明（仅在失效时显示）
-            if not cookie_valid and cookie_valid_msg:
-                status_text += f"\n{cookie_valid_msg}"
-
-            # 回退警告
-            if info.get("fallback_warning"):
-                status_text += f"\n⚠️ {info['fallback_warning']}"
-
-            self.cookieStatusCard.contentLabel.setText(status_text)
-
+            yt_text = self._get_status_text_for_platform("youtube")
+            self.youtubeAuthCard.cookieStatusCard.setContent(yt_text)
         except Exception as e:
-            self.cookieStatusCard.contentLabel.setText(f"状态获取失败: {e}")
+            self.youtubeAuthCard.cookieStatusCard.setContent(f"状态获取失败: {e}")
+
+        try:
+            tw_text = self._get_status_text_for_platform("twitter")
+            self.twitterAuthCard.cookieStatusCard.setContent(tw_text)
+        except Exception as e:
+            self.twitterAuthCard.cookieStatusCard.setContent(f"状态获取失败: {e}")
 
     def _on_check_updates_startup_changed(self, checked: bool) -> None:
         config_manager.set("check_updates_on_startup", checked)

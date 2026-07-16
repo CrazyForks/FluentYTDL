@@ -17,11 +17,12 @@ import json
 import shutil
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 from ..core.config_manager import config_manager
@@ -229,7 +230,7 @@ class AuthService:
         self._current_file_path: str | None = None
         self._auto_refresh: bool = True
         self._last_status: AuthStatus = AuthStatus()
-        self._current_webview2_account_id: str | None = None
+        self._current_webview2_account_ids: dict[str, str] = {}
 
         # 高级：多账户配置
         self._profiles: dict[str, AuthProfile] = {}
@@ -286,15 +287,24 @@ class AuthService:
 
     @property
     def current_webview2_account_id(self) -> str | None:
-        """当前激活的 WebView2 账号 ID"""
-        return self._current_webview2_account_id
+        """当前激活的 YouTube WebView2 账号 ID (向下兼容)"""
+        return self._current_webview2_account_ids.get("youtube")
 
     @property
     def current_webview2_account(self) -> WebView2Account | None:
-        """当前激活的 WebView2 账号"""
-        if not self._current_webview2_account_id:
+        """当前激活的 YouTube WebView2 账号 (向下兼容)"""
+        return self.get_current_webview2_account("youtube")
+
+    def get_current_webview2_account_id(self, platform: str) -> str | None:
+        """获取指定平台的当前激活 WebView2 账号 ID"""
+        return self._current_webview2_account_ids.get(platform)
+
+    def get_current_webview2_account(self, platform: str) -> WebView2Account | None:
+        """获取指定平台的当前激活 WebView2 账号"""
+        account_id = self.get_current_webview2_account_id(platform)
+        if not account_id:
             return None
-        return self._webview2_accounts.get(self._current_webview2_account_id)
+        return self._webview2_accounts.get(account_id)
 
     # ==================== 核心方法 ====================
 
@@ -406,7 +416,7 @@ class AuthService:
                     try:
                         from .providers.webview2_provider import WebView2CookieProvider
 
-                        account = self.current_webview2_account
+                        account = self.get_current_webview2_account(platform)
                         profile_dir = account.profile_dir if account else None
                         account_label = account.localized_name if account else "default"
                         profile_has_data = False
@@ -421,6 +431,7 @@ class AuthService:
                         logger.info(f"开始 WebView2 登录流程（账号: {account_label}）...")
                         provider = WebView2CookieProvider()
                         cookies = provider.extract_cookies(
+                            platform=platform,
                             storage_path=profile_dir,
                             session_tag=account_label,
                             start_hidden=profile_has_data,
@@ -457,6 +468,7 @@ class AuthService:
                         # 写入 Netscape 格式缓存
                         self._write_netscape_file(cookies_dicts, cache_file)
                         self._mark_current_webview2_account_refreshed(
+                            platform=platform,
                             cache_file=cache_file,
                             cookie_count=len(cookies_dicts),
                             valid=True,
@@ -473,6 +485,7 @@ class AuthService:
                             message=f"登录失败: {e}",
                         )
                         self._mark_current_webview2_account_refreshed(
+                            platform=platform,
                             cache_file=cache_file,
                             cookie_count=0,
                             valid=False,
@@ -1034,7 +1047,7 @@ class AuthService:
             "source": self._current_source.value,
             "file_path": self._current_file_path,
             "auto_refresh": self._auto_refresh,
-            "current_webview2_account_id": self._current_webview2_account_id,
+            "current_webview2_account_ids": self._current_webview2_account_ids,
             "updated_at": datetime.now().isoformat(),
         }
         with open(self._config_path, "w", encoding="utf-8") as f:
@@ -1060,7 +1073,15 @@ class AuthService:
             self._current_source = AuthSourceType(source_value)
             self._current_file_path = data.get("file_path")
             self._auto_refresh = data.get("auto_refresh", True)
-            self._current_webview2_account_id = data.get("current_webview2_account_id")
+            if "current_webview2_account_ids" in data:
+                self._current_webview2_account_ids = data["current_webview2_account_ids"]
+            elif "current_webview2_account_id" in data:
+                # 兼容旧配置
+                legacy_id = data["current_webview2_account_id"]
+                if legacy_id:
+                    self._current_webview2_account_ids = {"youtube": legacy_id}
+                else:
+                    self._current_webview2_account_ids = {}
             logger.info(f"已加载验证配置: {self.current_source_display}")
 
             # 尝试恢复上次的验证状态
@@ -1072,8 +1093,8 @@ class AuthService:
 
     def _get_webview2_cache_file(self, platform: str = "youtube") -> Path:
         """获取当前 WebView2 账号对应的缓存文件路径"""
-        self._ensure_current_webview2_account_valid()
-        account = self.current_webview2_account
+        self._ensure_current_webview2_account_valid(platform)
+        account = self.get_current_webview2_account(platform)
         if account and account.cached_cookie_path:
             return Path(account.cached_cookie_path)
 
@@ -1092,12 +1113,13 @@ class AuthService:
 
     def _mark_current_webview2_account_refreshed(
         self,
+        platform: str,
         cache_file: Path,
         cookie_count: int,
         valid: bool,
     ) -> None:
         """刷新后回写当前 WebView2 账号状态"""
-        account = self.current_webview2_account
+        account = self.get_current_webview2_account(platform)
         if not account:
             return
 
@@ -1109,10 +1131,12 @@ class AuthService:
 
     # ==================== WebView2 多账号管理 ====================
 
-    def list_webview2_accounts(self, platform: str = "youtube") -> list[WebView2Account]:
+    def list_webview2_accounts(self, platform: str | None = None) -> list[WebView2Account]:
         """列出 WebView2 账号"""
         self._load_webview2_accounts()
-        return [a for a in self._webview2_accounts.values() if a.platform == platform]
+        if platform:
+            return [a for a in self._webview2_accounts.values() if a.platform == platform]
+        return list(self._webview2_accounts.values())
 
     def create_webview2_account(
         self,
@@ -1121,11 +1145,18 @@ class AuthService:
         notes: str | None = None,
     ) -> WebView2Account:
         """创建 WebView2 账号"""
+        display_name = display_name.strip() or "未命名账号"
+        
+        # 检查是否重复命名（全局范围检查，防止跨平台混淆）
+        for existing in self._webview2_accounts.values():
+            if existing.display_name == display_name:
+                raise ValueError(f"已存在名为 '{display_name}' 的账号，请使用其他名称")
+                
         account_id = uuid4().hex
         profile_dir, cache_file = self._build_webview2_account_paths(account_id, platform)
         account = WebView2Account(
             account_id=account_id,
-            display_name=display_name.strip() or "未命名账号",
+            display_name=display_name,
             platform=platform,
             profile_dir=str(profile_dir),
             cached_cookie_path=str(cache_file),
@@ -1134,8 +1165,8 @@ class AuthService:
         )
         self._webview2_accounts[account_id] = account
 
-        if not self._current_webview2_account_id:
-            self._current_webview2_account_id = account_id
+        if platform not in self._current_webview2_account_ids:
+            self._current_webview2_account_ids[platform] = account_id
             self._save_config()
 
         self._save_webview2_accounts()
@@ -1155,7 +1186,12 @@ class AuthService:
             return False
 
         if display_name is not None:
-            account.display_name = display_name.strip() or account.display_name
+            new_name = display_name.strip() or account.display_name
+            if new_name != account.display_name:
+                for existing in self._webview2_accounts.values():
+                    if existing.display_name == new_name and existing.account_id != account_id:
+                        raise ValueError(f"已存在名为 '{new_name}' 的账号，请使用其他名称")
+            account.display_name = new_name
         if notes is not None:
             account.notes = notes
         if is_default is True:
@@ -1185,8 +1221,10 @@ class AuthService:
             except Exception as e:
                 logger.warning(f"删除 WebView2 账号存储目录失败: {e}")
 
-        if self._current_webview2_account_id == account_id:
-            self._current_webview2_account_id = next(iter(self._webview2_accounts.keys()), None)
+        if account_id == self._current_webview2_account_ids.get(account.platform):
+            self._current_webview2_account_ids[account.platform] = next(
+                (a.account_id for a in self._webview2_accounts.values() if a.platform == account.platform), None
+            )
             self._save_config()
 
         # 保证始终有一个默认账号
@@ -1200,37 +1238,40 @@ class AuthService:
 
     def set_current_webview2_account(self, account_id: str) -> bool:
         """设置当前激活 WebView2 账号"""
-        if account_id not in self._webview2_accounts:
+        account = self._webview2_accounts.get(account_id)
+        if not account:
             return False
-        self._current_webview2_account_id = account_id
+        self._current_webview2_account_ids[account.platform] = account_id
         self._save_config()
 
-        # 按用户预期：切换 WebView2 账号时，立即将该账号 Cookie 同步到统一 bin/cookies.txt
-        self._sync_current_webview2_cookie_to_unified_cookiefile()
+        # 按用户预期：切换 WebView2 账号时，立即将该账号 Cookie 同步到对应的 bin/cookies_xxx.txt
+        self._sync_current_webview2_cookie_to_unified_cookiefile(platform=account.platform)
         return True
 
-    def _sync_current_webview2_cookie_to_unified_cookiefile(self) -> bool:
-        """将当前 WebView2 账号的 Cookie 覆盖同步到统一 bin/cookies.txt"""
-        account = self.current_webview2_account
+    def _sync_current_webview2_cookie_to_unified_cookiefile(self, platform: str = "youtube") -> bool:
+        """将当前 WebView2 账号的 Cookie 覆盖同步到对应的统一 Cookie 文件"""
+        account = self.get_current_webview2_account(platform)
         if not account or not account.cached_cookie_path:
             return False
 
         src = Path(account.cached_cookie_path)
         if not src.exists():
-            logger.info("当前 WebView2 账号尚无 Cookie 缓存，跳过同步到 bin/cookies.txt")
+            logger.info(f"当前 WebView2 账号 ({platform}) 尚无 Cookie 缓存，跳过同步")
             return False
 
         try:
             from fluentytdl.auth.cookie_sentinel import cookie_sentinel
 
-            cookie_sentinel.cookie_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, cookie_sentinel.cookie_path)
-            self._update_status_from_file(str(src))
+            target_path = cookie_sentinel.get_cookie_path_for_platform(platform)
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, target_path)
+            self._update_status_from_file(str(src), platform)
             cookie_sentinel._save_meta(
-                f"webview2:{account.account_id}", self._last_status.cookie_count
+                f"webview2:{account.account_id}", self._last_status.cookie_count, platform
+
             )
             logger.info(
-                f"已切换到 WebView2 账号 {account.localized_name}，并同步 Cookie 到 {cookie_sentinel.cookie_path}"
+                f"已切换到 WebView2 账号 {account.localized_name}，并同步 Cookie 到 {target_path}"
             )
             return True
         except Exception as e:
@@ -1296,22 +1337,25 @@ class AuthService:
         except Exception as e:
             logger.error(f"加载 WebView2 账号配置失败: {e}")
 
-    def _ensure_current_webview2_account_valid(self) -> None:
+    def _ensure_current_webview2_account_valid(self, platform: str = "youtube") -> None:
         """确保当前激活 WebView2 账号存在"""
+        accounts = [a for a in self._webview2_accounts.values() if a.platform == platform]
         # 没有任何账号时创建默认账号
-        if not self._webview2_accounts:
-            default = self.create_webview2_account("默认账号", platform="youtube")
+        if not accounts:
+            default_name = f"{'YouTube' if platform == 'youtube' else 'X'} 默认账号"
+            default = self.create_webview2_account(default_name, platform=platform)
             default.is_default = True
+            accounts = [default]
             self._save_webview2_accounts()
 
-        if self._current_webview2_account_id in self._webview2_accounts:
+        if self._current_webview2_account_ids.get(platform) in self._webview2_accounts:
             return
 
         # 优先默认账号，其次第一个
-        default = next((a for a in self._webview2_accounts.values() if a.is_default), None)
-        chosen = default or next(iter(self._webview2_accounts.values()), None)
+        default = next((a for a in accounts if a.is_default), None)
+        chosen = default or accounts[0]
         if chosen:
-            self._current_webview2_account_id = chosen.account_id
+            self._current_webview2_account_ids[platform] = chosen.account_id
             self._save_config()
 
     def _migrate_legacy_webview2_cache_if_needed(self) -> None:
@@ -1329,8 +1373,8 @@ class AuthService:
         if has_account_cache:
             return
 
-        self._ensure_current_webview2_account_valid()
-        account = self.current_webview2_account
+        self._ensure_current_webview2_account_valid("youtube")
+        account = self.get_current_webview2_account("youtube")
         if not account:
             return
 

@@ -1,6 +1,6 @@
 import json
 
-with open('untranslated.json', 'r', encoding='utf-8') as f:
+with open('untranslated.json', encoding='utf-8') as f:
     data = json.load(f)
 
 replacements = {

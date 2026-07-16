@@ -5,20 +5,18 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
+    QGridLayout,
     QHBoxLayout,
-    QHeaderView,
     QSizePolicy,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
-    QGridLayout,
 )
 from qfluentwidgets import (
+    BodyLabel,
     CaptionLabel,
     CheckBox,
     ComboBox,
     SmoothScrollArea,
-    BodyLabel,
 )
 
 from ...processing.subtitle_manager import (

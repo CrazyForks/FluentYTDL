@@ -1,10 +1,6 @@
-from PySide6.QtCore import QT_TRANSLATE_NOOP
-from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QHBoxLayout,
-    QListWidget,
-    QListWidgetItem,
 )
 from qfluentwidgets import (
     BodyLabel,
@@ -52,7 +48,7 @@ class PlaylistSubtitleConfigDialog(MessageBoxBase):
         # --- 目标语言选取区 ---
         self.viewLayout.addWidget(BodyLabel(self.tr("选择字幕语言 (可多选):"), self))
 
-        from PySide6.QtWidgets import QFrame, QGridLayout, QVBoxLayout, QWidget
+        from PySide6.QtWidgets import QVBoxLayout, QWidget
         content_widget = QWidget(self)
         checkbox_layout = QVBoxLayout(content_widget)
         checkbox_layout.setContentsMargins(8, 8, 8, 8)

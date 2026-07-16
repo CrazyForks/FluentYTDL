@@ -1,6 +1,6 @@
-import os
 import subprocess
 from pathlib import Path
+
 
 def main():
     root_dir = Path(__file__).resolve().parent.parent
@@ -16,17 +16,16 @@ def main():
         ts_file = locales_dir / f"fluentytdl_{lang}.ts"
         print(f"Updating {ts_file}...")
         
-        # 调用 pyside6-lupdate 扫描源代码并更新 ts 文件
-        lupdate_exe = root_dir / ".venv" / "Scripts" / "pyside6-lupdate.exe"
+        # 调用 PySide6 内部的 lupdate.exe 以绕过 uv trampoline 错误
+        lupdate_exe = root_dir / ".venv" / "Lib" / "site-packages" / "PySide6" / "lupdate.exe"
         if not lupdate_exe.exists():
-            lupdate_exe = "pyside6-lupdate"
+            lupdate_exe = "lupdate"
             
-        # 收集所有 .py 文件 (src 下的所有文件，加上根目录的 main.py)
         py_files = [str(p) for p in src_dir.rglob("*.py")]
         main_py = root_dir / "main.py"
         if main_py.exists():
             py_files.append(str(main_py))
-        
+            
         cmd = [
             str(lupdate_exe),
             *py_files,

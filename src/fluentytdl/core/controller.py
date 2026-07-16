@@ -93,6 +93,30 @@ class AppController(QObject):
         """
         created_workers = []
         default_dir = config_manager.get("download_dir")
+        
+        # 追踪当前已经存在的任务标题，以及在当前批次中即将添加的标题
+        active_titles = set()
+        for w in download_manager.active_workers:
+            active_titles.add(w.cached_info.get("title", ""))
+        for w in download_manager._pending_workers:
+            active_titles.add(w.cached_info.get("title", ""))
+            
+        from fluentytdl.download.executor import _sanitize_filename
+        
+        def physical_exists(test_title: str, current_opts: dict) -> bool:
+            sanitized = _sanitize_filename(test_title)
+            target_dir = default_dir
+            if "paths" in current_opts and isinstance(current_opts["paths"], dict) and "home" in current_opts["paths"]:
+                target_dir = current_opts["paths"]["home"]
+            if not target_dir or not os.path.exists(target_dir):
+                return False
+            try:
+                for f in os.listdir(target_dir):
+                    if f.startswith(sanitized):
+                        return True
+            except Exception:
+                pass
+            return False
 
         for _i, (t_title, t_url, t_opts, t_thumb) in enumerate(tasks):
             logger.info(f"[Controller] Creating worker for URL: {t_url}")
@@ -101,6 +125,23 @@ class AppController(QObject):
                 outtmpl = t_opts.get("outtmpl")
                 if not (isinstance(outtmpl, str) and os.path.isabs(outtmpl)):
                     t_opts["paths"] = {"home": str(default_dir)}
+                    
+            # === 全局防重名检查（打通物理层与视图层） ===
+            original_title = t_title
+            counter = 1
+                
+            # 如果在队列中已经存在，或者在物理目录中已经存在，则递增 (n)
+            while t_title in active_titles or physical_exists(t_title, t_opts):
+                t_title = f"{original_title} ({counter})"
+                counter += 1
+                
+            active_titles.add(t_title)
+            
+            # 将重新推断出的完全唯一标题强制植入 yt-dlp 选项
+            if "outtmpl" in t_opts and isinstance(t_opts["outtmpl"], str) and "%(title)s" in t_opts["outtmpl"]:
+                # 覆盖原本的 outtmpl，将其中的 %(title)s 写死为新标题
+                safe_title = _sanitize_filename(t_title)
+                t_opts["outtmpl"] = t_opts["outtmpl"].replace("%(title)s", safe_title)
 
             worker = download_manager.create_worker(
                 t_url,

@@ -39,27 +39,7 @@ def _format_bytes(b: int | float) -> str:
     return f"{size:.1f} TB"
 
 
-def _format_time_ago(ts: float, parent: QWidget) -> str:
-    """时间戳 → '3 分钟前' 之类"""
-    import time
 
-    diff = time.time() - ts
-    if diff < 60:
-        return parent.tr("刚刚")
-    elif diff < 3600:
-        return parent.tr("{} 分钟前").format(int(diff // 60))
-    elif diff < 86400:
-        return parent.tr("{} 小时前").format(int(diff // 3600))
-    
-    days = int(diff // 86400)
-    if days == 1:
-        return parent.tr("昨天")
-    elif days < 30:
-        return parent.tr("{} 天前").format(days)
-    else:
-        from datetime import datetime
-
-        return datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
 
 
 class HistoryItemWidget(CardWidget):
@@ -127,14 +107,32 @@ class HistoryItemWidget(CardWidget):
         if record.file_size > 0:
             meta_parts.append(_format_bytes(record.file_size))
         if record.format_note:
-            meta_parts.append(self.tr(record.format_note))
-        meta_parts.append(_format_time_ago(record.download_time, self))
+            note = record.format_note
+            prefixes = {
+                "整合流": self.tr("整合流"),
+                "最佳画质 (原盘)": self.tr("最佳画质 (原盘)"),
+                "最佳画质 (无音频)": self.tr("最佳画质 (无音频)"),
+                "最佳画质": self.tr("最佳画质"),
+                "最佳音质": self.tr("最佳音质"),
+                "高品质": self.tr("高品质"),
+                "标准品质": self.tr("标准品质"),
+                "纯音频": self.tr("纯音频"),
+                "自定义视频": self.tr("自定义视频"),
+                "自定义音频": self.tr("自定义音频"),
+                "自定义": self.tr("自定义")
+            }
+            for k, v in prefixes.items():
+                if note.startswith(k):
+                    note = note.replace(k, v, 1)
+                    break
+            meta_parts.append(note)
+        meta_parts.append(self._format_time_ago(record.download_time))
 
         # 文件状态
-        if not record.file_exists:
+        if not getattr(record, "file_exists", True):
             meta_parts.append(self.tr("⚠ 文件丢失"))
 
-        if record.quality_deviation:
+        if getattr(record, "quality_deviation", None):
             meta_parts.append(f"⚠️ {record.quality_deviation}")
 
         self.meta_label = CaptionLabel(" · ".join(meta_parts), self)
@@ -256,3 +254,25 @@ class HistoryItemWidget(CardWidget):
         super().mouseDoubleClickEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             self.reparse_requested.emit(self.record.url)
+
+    def _format_time_ago(self, ts: float) -> str:
+        """时间戳 → '3 分钟前' 之类"""
+        import time
+
+        diff = time.time() - ts
+        if diff < 60:
+            return self.tr("刚刚")
+        elif diff < 3600:
+            return self.tr("{} 分钟前").format(int(diff // 60))
+        elif diff < 86400:
+            return self.tr("{} 小时前").format(int(diff // 3600))
+        
+        days = int(diff // 86400)
+        if days == 1:
+            return self.tr("昨天")
+        elif days < 30:
+            return self.tr("{} 天前").format(days)
+        else:
+            from datetime import datetime
+
+            return datetime.fromtimestamp(ts).strftime("%Y-%m-%d")

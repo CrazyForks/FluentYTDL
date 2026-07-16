@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal, QT_TRANSLATE_NOOP, QCoreApplication
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QFrame,
@@ -197,7 +197,6 @@ class ExpandHelpCard(ExpandSettingCard):
         super().__init__(icon, title, content, parent)
         self._browser = _AutoHeightTextBrowser(self.view, is_expand_card=True)
         self._browser.setOpenExternalLinks(True)
-        from PySide6.QtCore import QCoreApplication
         self._html_body = QCoreApplication.translate("HelpWindow", html_body)
         self._browser.document().setDefaultStyleSheet(get_markdown_css() + _EXPAND_CSS_OVERRIDE)
         self._browser.setHtml(self._html_body)
@@ -381,7 +380,6 @@ class WelcomeGuideWidget(QWidget):
         except Exception:
             _ver = "?"
         self._ver = _ver
-        from PySide6.QtCore import QCoreApplication
         _step1_html = QCoreApplication.translate("HelpWindow", _WIZARD_STEP1_HTML).replace("__version__", _ver)
 
         # Create step browsers
@@ -464,8 +462,8 @@ class WelcomeGuideWidget(QWidget):
         bg_color = "#202020" if theme == Theme.DARK else "#F9F9F9"
         self.setStyleSheet(f"WelcomeGuideWidget {{ background-color: {bg_color}; border: none; }}")
 
-        from PySide6.QtCore import QCoreApplication
-        tr = lambda x: QCoreApplication.translate("HelpWindow", x)
+        def tr(text: str) -> str:
+            return QCoreApplication.translate("HelpWindow", text)
         
         if hasattr(self, "step1_browser"):
             from fluentytdl.utils.paths import resource_path

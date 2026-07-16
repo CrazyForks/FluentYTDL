@@ -1,6 +1,6 @@
 import re
 
-with open('src/fluentytdl/ui/help_window.py', 'r', encoding='utf-8') as f:
+with open('src/fluentytdl/ui/help_window.py', encoding='utf-8') as f:
     content = f.read()
 
 if 'QT_TRANSLATE_NOOP' not in content:

@@ -290,8 +290,9 @@ class QuickAddPanel(QWidget):
             )
             return
 
-        from ..utils.url_router import UrlRouter
         from PySide6.QtWidgets import QApplication
+
+        from ..utils.url_router import UrlRouter
 
         self.startBtn.setEnabled(False)
         self.startBtn.setText(self.tr("处理中..."))

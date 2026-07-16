@@ -323,6 +323,14 @@ class Builder:
         self._check_hygiene()
         self.ensure_tools()
 
+        # 编译翻译文件
+        print("🌐 正在编译多语言翻译文件...")
+        i18n_script = ROOT / "scripts" / "i18n_release.py"
+        if i18n_script.exists():
+            subprocess.run([sys.executable, str(i18n_script)], check=True)
+        else:
+            print("  ⚠️ 未找到翻译构建脚本，跳过...")
+
         version_file = ROOT / "build" / "version_info.txt"
         generate_version_info(self.version, version_file)
 

@@ -496,6 +496,9 @@ class DownloadWorker(QThread):
 
             merged = copy.deepcopy(base_opts)
             merged.update(copy.deepcopy(self.opts))
+            
+            # === 防止单个任务变异为播放列表下载造成无限死循环 ===
+            merged["noplaylist"] = True
 
             # 保存原始格式选择（用于错误恢复）
             self._original_format = merged.get("format")
@@ -660,15 +663,28 @@ class DownloadWorker(QThread):
                                 src = os.path.join(root, f)
                                 dst = os.path.join(target_dir, f)
 
-                                # Move the file
-                                if os.path.exists(dst):
-                                    os.remove(dst)
+                                # 确保目标文件名唯一，避免覆盖
+                                def get_unique_path(target_path: str) -> str:
+                                    if not os.path.exists(target_path):
+                                        return target_path
+                                    base, ext = os.path.splitext(target_path)
+                                    counter = 1
+                                    while True:
+                                        new_path = f"{base} ({counter}){ext}"
+                                        if not os.path.exists(new_path):
+                                            return new_path
+                                        counter += 1
+
+                                dst = get_unique_path(dst)
                                 shutil.move(src, dst)
+                                
+                                # 提取新的文件名以便更新追踪
+                                new_f = os.path.basename(dst)
 
                                 # Check if this is the main output path
                                 if self.output_path and os.path.basename(self.output_path) == f:
                                     final_moved_path = dst
-                                elif not self.output_path and not f.endswith(
+                                elif not self.output_path and not new_f.endswith(
                                     (
                                         ".jpg",
                                         ".jpeg",

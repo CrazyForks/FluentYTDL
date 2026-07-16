@@ -117,6 +117,10 @@ def _format_size(value: Any) -> str:
 
 def _analyze_format_tags(r: dict) -> list[tuple[str, str]]:
     """Generates badge data for format details: [(text, color_style), ...]"""
+    from PySide6.QtCore import QCoreApplication
+    def tr(text: str) -> str:
+        return QCoreApplication.translate("FormatSelector", text)
+        
     tags = []
 
     # 1. HDR
@@ -137,7 +141,7 @@ def _analyze_format_tags(r: dict) -> list[tuple[str, str]]:
         track_type = str(r.get("audio_track_type") or "").lower()
         # Original track usually marked by youtube or has language="original" in yt-dlp
         if track_type == "original" or lang.lower() == "orig" or lang.lower() == "original":
-            tags.append((self.tr("原音"), "green"))
+            tags.append((tr("原音"), "green"))
         else:
             tags.append((f"[{lang.upper()}]", "blue"))
 
@@ -591,9 +595,10 @@ class VideoFormatSelectorWidget(QWidget):
 
     selectionChanged = Signal()
 
-    def __init__(self, info: dict[str, Any], parent=None):
+    def __init__(self, info: dict[str, Any], parent=None, is_twitter: bool = False):
         super().__init__(parent)
         self.info = info
+        self.is_twitter = is_twitter
 
         # State for advanced mode
         self._rows: list[dict[str, Any]] = []
@@ -630,8 +635,6 @@ class VideoFormatSelectorWidget(QWidget):
         self.view_switcher = SegmentedWidget(self)
         self.view_switcher.addItem("simple", self.tr("简易模式"))
         self.view_switcher.addItem("advanced", self.tr("专业模式"))
-        self.view_switcher.setCurrentItem("simple")
-        self.view_switcher.currentItemChanged.connect(self._on_mode_changed)
         layout.addWidget(self.view_switcher)
 
         # Stack
@@ -662,6 +665,7 @@ class VideoFormatSelectorWidget(QWidget):
             self.tr("提示：可组装模式仅显示分离流，分别点选“视频”和“音频”即可组装。"), self.advanced_widget
         )
         adv_layout.addWidget(self.hint_label)
+
 
         # --- Tables Area ---
 
@@ -704,12 +708,35 @@ class VideoFormatSelectorWidget(QWidget):
         self.selection_label = CaptionLabel(self.tr("未选择"), self.advanced_widget)
         adv_layout.addWidget(self.selection_label)
 
+        if self.is_twitter:
+            form_layout.parent().layout().removeItem(form_layout)
+            for i in reversed(range(form_layout.count())):
+                form_layout.itemAt(i).widget().hide()
+            self.hint_label.hide()
+            # Important: set current index after all elements are initialized
+            self.mode_combo.setCurrentIndex(1)  # Force Mode 1 (muxed streams)
+            
+            # 移除未使用的大组件，防止撑爆尺寸 (Size Hint)
+            self.stack.removeWidget(self.simple_widget)
+            adv_layout.removeWidget(self.split_container)
+            self.split_container.setParent(None)
+            self.split_container = None
+
         self.stack.addWidget(self.advanced_widget)
 
         # Format Bar
         self.format_bar = _ContainerFormatBar(config_prefix="single", parent=self)
         self.format_bar.formatChanged.connect(self.selectionChanged)
         layout.addWidget(self.format_bar)
+        
+        self.view_switcher.currentItemChanged.connect(self._on_mode_changed)
+        if self.is_twitter:
+            self.view_switcher.hide()
+            self.format_bar.hide()
+            self._current_mode = "advanced"
+            self.stack.setCurrentIndex(1)
+        else:
+            self.view_switcher.setCurrentItem("simple")
 
         self.simple_widget.typeChanged.connect(self._on_simple_type_changed)
 
@@ -952,7 +979,8 @@ class VideoFormatSelectorWidget(QWidget):
         if mode == 0:
             # Split View
             self.table.hide()
-            self.split_container.show()
+            if getattr(self, "split_container", None):
+                self.split_container.show()
 
             video_rows = [r for r in getattr(self, "_rows", []) if r["kind"] == "video"]
             audio_rows = [r for r in getattr(self, "_rows", []) if r["kind"] == "audio"]
@@ -963,19 +991,21 @@ class VideoFormatSelectorWidget(QWidget):
             if not self._selected_video_id and video_rows:
                 self._selected_video_id = video_rows[0]["format_id"]
 
-            self._populate_table(self.video_table, video_rows, self._selected_video_id)
-            self._populate_table(self.audio_table, audio_rows, self._selected_audio_id)
+            if getattr(self, "split_container", None):
+                self._populate_table(self.video_table, video_rows, self._selected_video_id)
+                self._populate_table(self.audio_table, audio_rows, self._selected_audio_id)
 
         else:
             # Single View
-            self.split_container.hide()
+            if getattr(self, "split_container", None):
+                self.split_container.hide()
             self.table.show()
 
             view_rows = []
             for r in self._rows:
                 k = r["kind"]
                 if mode == 1:
-                    if k == "muxed":
+                    if k == "muxed" or (self.is_twitter and k in ("muxed", "video")):
                         view_rows.append(r)
                 elif mode == 2:
                     if k == "video":
@@ -1005,6 +1035,14 @@ class VideoFormatSelectorWidget(QWidget):
     def _populate_table(self, table: QTableWidget, rows: list[dict], selected_id: str | None):
         table.setRowCount(len(rows))
         table.setProperty("_rows", rows)
+
+        # 动态自适应高度，最大显示 6 行
+        row_height = 42
+        header_height = 42 if not table.horizontalHeader().isHidden() else 0
+        visible_rows = min(max(len(rows), 1), 6)
+        total_height = header_height + visible_rows * row_height + 2
+        table.setMinimumHeight(total_height)
+        table.setMaximumHeight(total_height)
 
         for i, r in enumerate(rows):
             kind = r["kind"]

@@ -1,5 +1,6 @@
 from PySide6.QtCore import QCoreApplication
 
+
 def _dummy_translation_strings():
     # Common subtitle languages
     QCoreApplication.translate("Subtitle", "中文(简体)")

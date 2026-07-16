@@ -143,7 +143,10 @@ class ParsePage(QWidget):
             
         from ..utils.validators import UrlValidator
         if UrlValidator.is_youtube_url(text):
-            self.hintLabel.setText(self.tr("✅ 已识别为 YouTube 链接"))
+            if "list=" in text:
+                self.hintLabel.setText(self.tr("✅ 已识别为 YouTube 播放列表链接"))
+            else:
+                self.hintLabel.setText(self.tr("✅ 已识别为 YouTube 视频链接"))
         elif UrlValidator.is_x_url(text):
             if UrlValidator.is_x_video_url(text):
                 self.hintLabel.setText(self.tr("✅ 已识别为 X (Twitter) 视频链接"))

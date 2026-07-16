@@ -32,6 +32,7 @@ datas = [
     ('../docs', 'docs'),
     ('../assets/logo.ico', 'assets'),
     ('../assets/logo.png', 'assets'),
+    ('../assets/locales', 'assets/locales'),
     ('../src/fluentytdl/yt_dlp_plugins_ext', 'fluentytdl/yt_dlp_plugins_ext'),
     ('../VERSION', '.'),  # 版本文件，运行时 __init__.py 读取
 ]

@@ -57,6 +57,11 @@ class DownloadFilterProxyModel(QSortFilterProxyModel):
 
         return state == self._filter
 
+    def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
+        # 因为在 DownloadListModel 中新任务始终插入在 row=0，
+        # 所以 row 越小，任务越新。按照 row 的大小排序即可代表添加时间的先后。
+        return left.row() < right.row()
+
 
 class UnifiedTaskListPage(QWidget):
     """
@@ -93,6 +98,8 @@ class UnifiedTaskListPage(QWidget):
         self.model = DownloadListModel(self)
         self.proxy_model = DownloadFilterProxyModel(self)
         self.proxy_model.setSourceModel(self.model)
+        self.proxy_model.setDynamicSortFilter(True)
+        self.proxy_model.sort(0, Qt.SortOrder.AscendingOrder)
 
         self.delegate = DownloadItemDelegate(self)
 
@@ -205,6 +212,15 @@ class UnifiedTaskListPage(QWidget):
         self.concurrent_box.setFixedHeight(32)  # 防止被拉伸
         self.concurrent_box.currentIndexChanged.connect(self._on_concurrent_changed)
         self.header_layout.addWidget(self.concurrent_box, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        self.header_layout.addSpacing(16)
+        
+        # === 排序切换按钮 ===
+        from qfluentwidgets import ToolButton
+        self.sort_button = ToolButton(FluentIcon.UP, self)
+        self.sort_button.setToolTip(self.tr("切换排序 (最新/最早)"))
+        self.sort_button.clicked.connect(self._on_sort_clicked)
+        self.header_layout.addWidget(self.sort_button, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # === 动作按钮扩展槽 ===
         self.header_layout.addSpacing(16)
@@ -410,6 +426,16 @@ class UnifiedTaskListPage(QWidget):
         config_manager.set("max_concurrent_downloads", value)
         # Force manager to evaluate queued items based on new limit
         download_manager.pump()
+
+    def _on_sort_clicked(self):
+        from PySide6.QtCore import Qt
+        from qfluentwidgets import FluentIcon
+        if self.proxy_model.sortOrder() == Qt.SortOrder.AscendingOrder:
+            self.proxy_model.sort(0, Qt.SortOrder.DescendingOrder)
+            self.sort_button.setIcon(FluentIcon.DOWN)
+        else:
+            self.proxy_model.sort(0, Qt.SortOrder.AscendingOrder)
+            self.sort_button.setIcon(FluentIcon.UP)
 
     def set_filter(self, status: str) -> None:
         """设置过滤条件"""

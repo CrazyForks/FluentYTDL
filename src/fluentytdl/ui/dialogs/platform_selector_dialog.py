@@ -1,14 +1,15 @@
-from typing import Optional
-from PySide6.QtWidgets import QVBoxLayout, QWidget
-from PySide6.QtCore import Qt, QCoreApplication
-from qfluentwidgets import MessageBoxBase, ComboBox, SubtitleLabel
+
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QWidget
+from qfluentwidgets import ComboBox, MessageBoxBase, SubtitleLabel
+
 
 class PlatformSelectorDialog(MessageBoxBase):
     """
     平台选择对话框，用于在手动导入 Cookie 或浏览器提取时指定目标平台。
     """
 
-    def __init__(self, parent: Optional[QWidget] = None, title: str = ""):
+    def __init__(self, parent: QWidget | None = None, title: str = ""):
         super().__init__(parent)
         self.titleLabel = SubtitleLabel(title or QCoreApplication.translate("PlatformSelectorDialog", "选择目标平台"), self)
         

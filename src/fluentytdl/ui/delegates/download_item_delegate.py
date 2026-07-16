@@ -329,7 +329,9 @@ class DownloadItemDelegate(QStyledItemDelegate):
         icon_enum = qfw.FluentIcon.PLAY
         if state == "running" or state == "queued":
             icon_enum = qfw.FluentIcon.PAUSE
-        draw_button("pause", hit_rects["pause"], icon_enum)
+            
+        hide_pause = (state == "completed")
+        draw_button("pause", hit_rects["pause"], icon_enum, hidden=hide_pause)
 
         painter.restore()
 
@@ -406,10 +408,15 @@ class DownloadItemDelegate(QStyledItemDelegate):
         elif event.type() == QEvent.Type.MouseButtonPress:
             pos = event.pos()
             hit_rects = self._get_hit_rects(option)
+            
+            task = index.data(Qt.ItemDataRole.UserRole)
+            worker = task.get("worker") if isinstance(task, dict) else None
+            state = getattr(worker, "effective_state", "") if worker else ""
+            
             if hit_rects["checkbox"].contains(pos):
                 self.selection_toggled.emit(index.row())
                 return True
-            elif hit_rects["pause"].contains(pos):
+            elif hit_rects["pause"].contains(pos) and state != "completed":
                 self.pause_resume_clicked.emit(index.row())
                 return True
             elif hit_rects["folder"].contains(pos):

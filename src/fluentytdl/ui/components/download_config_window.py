@@ -496,12 +496,17 @@ class DownloadConfigWindow(FramelessWindow):
 
         # Helper for auth panel hint labels
         def create_hint_label(text: str, parent: QWidget):
-            lbl = CaptionLabel(text, parent)
-            lbl.setWordWrap(True)
-            lbl.setStyleSheet(
-                "QLabel { background: rgba(128, 128, 128, 0.1); padding: 10px; border-radius: 6px; }"
+            from PySide6.QtWidgets import QFrame
+            container = QFrame(parent)
+            container.setStyleSheet(
+                "QFrame { background: rgba(128, 128, 128, 0.1); border-radius: 6px; }"
             )
-            return lbl
+            lay = QVBoxLayout(container)
+            lay.setContentsMargins(10, 10, 10, 10)
+            lbl = CaptionLabel(text, container)
+            lbl.setWordWrap(True)
+            lay.addWidget(lbl)
+            return container
 
         # --- 面板 1: WebView2 登录 ---
         dle_panel = QWidget()
@@ -586,7 +591,7 @@ class DownloadConfigWindow(FramelessWindow):
         update_lay.setContentsMargins(0, 4, 0, 0)
         update_lay.setSpacing(10)
         update_hint = create_hint_label(
-            self.tr("当前解析失败可能受限于 YouTube 最新的反爬风控机制（如 poToken）。\n") +
+            self.tr("当前解析失败可能受限于平台最新的反爬风控机制（如 poToken 等）。\n") +
             self.tr("建议立即检测并更新 yt-dlp 核心解析组件。"),
             update_panel,
         )
@@ -1313,7 +1318,10 @@ class DownloadConfigWindow(FramelessWindow):
         if self._is_playlist:
             self.titleLabel.show()
             self.yesButton.setEnabled(False)
-            self.setup_playlist_ui(info_dict)
+            if UrlValidator.is_x_url(self.url):
+                self.setup_twitter_playlist_ui(info_dict)
+            else:
+                self.setup_playlist_ui(info_dict)
         else:
             self.titleLabel.hide()
             self.yesButton.setEnabled(True)
@@ -1440,8 +1448,8 @@ class DownloadConfigWindow(FramelessWindow):
         technical_detail = str(err_data.get("technical_detail") or raw_error)
 
         from PySide6.QtGui import QFont
-        from PySide6.QtWidgets import QTextEdit, QVBoxLayout
-        from qfluentwidgets import BodyLabel, PushButton, SimpleCardWidget
+        from PySide6.QtWidgets import QVBoxLayout
+        from qfluentwidgets import BodyLabel, PushButton, SimpleCardWidget, TextEdit
 
         self._error_container = SimpleCardWidget(self)
         err_layout = QVBoxLayout(self._error_container)
@@ -1459,7 +1467,7 @@ class DownloadConfigWindow(FramelessWindow):
 
         if technical_detail:
             toggle_btn = PushButton(self.tr("查看技术详情"), self._error_container)
-            detail_edit = QTextEdit(self._error_container)
+            detail_edit = TextEdit(self._error_container)
             detail_edit.setReadOnly(True)
             detail_edit.setPlainText(technical_detail)
 
@@ -1633,7 +1641,8 @@ class DownloadConfigWindow(FramelessWindow):
         if 0 <= idx < len(self._webview2_account_ids):
             auth_service.set_current_webview2_account(self._webview2_account_ids[idx])
 
-        account = auth_service.current_webview2_account
+        account = auth_service._webview2_accounts.get(self._webview2_account_ids[idx]) if (0 <= idx < len(self._webview2_account_ids)) else None
+        platform = account.platform if account else "youtube"
         account_name = account.localized_name if account else self.tr("默认账号")
 
         self._dleRetryBtn.setEnabled(False)
@@ -1654,7 +1663,7 @@ class DownloadConfigWindow(FramelessWindow):
 
             def run(self):
                 try:
-                    success, msg = cookie_sentinel.force_refresh_with_uac()
+                    success, msg = cookie_sentinel.force_refresh_with_uac(platform=platform)
                     self.finished.emit(success, msg)
                 except Exception as e:
                     self.finished.emit(False, str(e))
@@ -1668,7 +1677,7 @@ class DownloadConfigWindow(FramelessWindow):
                 try:
                     from ...auth.cookie_sentinel import cookie_sentinel
 
-                    cur_acc = auth_service.current_webview2_account
+                    cur_acc = auth_service.get_current_webview2_account(platform=platform)
                     acc_cookie = cur_acc.cached_cookie_path if cur_acc else self.tr("未知")
                     self._dleStatusLabel.setText(
                         self.tr("✅ {} 登录成功，正在重新解析...\n账号文件: {}\n统一文件: {}").format(
@@ -1692,18 +1701,21 @@ class DownloadConfigWindow(FramelessWindow):
         try:
             from ...auth.auth_service import auth_service
 
-            accounts = auth_service.list_webview2_accounts(platform="youtube")
+            accounts = auth_service.list_webview2_accounts(platform=None)
             self._webview2_account_ids = [a.account_id for a in accounts]
 
             self._webview2AccountCombo.blockSignals(True)
             self._webview2AccountCombo.clear()
             for acc in accounts:
-                label = acc.localized_name
+                plat_name = "YouTube" if acc.platform == "youtube" else ("X" if acc.platform == "twitter" else acc.platform.capitalize())
+                label = f"[{plat_name}] {acc.localized_name}"
                 if acc.is_default:
                     label += self.tr(" (默认)")
                 self._webview2AccountCombo.addItem(label)
 
-            cur = auth_service.current_webview2_account_id
+            # 优先选中 YouTube 的当前账号，或者根据当前解析的链接选择平台
+            # 这里简单起见默认选中 YouTube 的
+            cur = auth_service.get_current_webview2_account_id("youtube")
             if cur in self._webview2_account_ids:
                 self._webview2AccountCombo.setCurrentIndex(self._webview2_account_ids.index(cur))
             elif self._webview2_account_ids:
@@ -1809,9 +1821,12 @@ class DownloadConfigWindow(FramelessWindow):
         else:
             self._updateRetryBtn.setEnabled(True)
             self._updateRing.hide()
-            self._updateStatusLabel.setText(
-                self.tr("✅ 当前已是最新版本或配置未变更，建议尝试更换代理节点。")
-            )
+            if data.get("latest") == "unknown":
+                self._updateStatusLabel.setText(self.tr("❌ 检查更新失败，请检查网络连接或更换组件更新源。"))
+            else:
+                self._updateStatusLabel.setText(
+                    self.tr("✅ 当前已是最新版本或配置未变更，建议尝试更换代理节点。")
+                )
 
     def _on_dep_install_finished(self, component: str) -> None:
         if component != "yt-dlp" or getattr(self, "_is_closing", True):
@@ -1830,7 +1845,7 @@ class DownloadConfigWindow(FramelessWindow):
 
         from ...core.config_manager import config_manager
 
-        config_manager.set("cookie_file_path", "")
+        config_manager.set("cookie_file", "")
 
         self._retry_parse_with_auth()
 
@@ -1906,10 +1921,20 @@ class DownloadConfigWindow(FramelessWindow):
             self._ensure_download_dir_bar()
 
     def setup_default_mode_ui(self, info: dict[str, Any]) -> None:
-        self.selector_widget = VideoFormatSelectorWidget(info, self.contentWidget)
+        is_twitter = False
+        try:
+            from ...utils.validators import UrlValidator
+            if UrlValidator.is_x_url(self.url):
+                is_twitter = True
+        except Exception:
+            pass
+
+        self.selector_widget = VideoFormatSelectorWidget(info, self.contentWidget, is_twitter=is_twitter)
         self.contentLayout.addWidget(self.selector_widget)
-        self.options_container = self._build_single_option_switches()
-        self.contentLayout.addWidget(self.options_container)
+        
+        if not is_twitter:
+            self.options_container = self._build_single_option_switches()
+            self.contentLayout.addWidget(self.options_container)
 
     def setup_vr_mode_ui(self, info: dict[str, Any]) -> None:
         self.selector_widget = VRFormatSelectorWidget(info, self.contentWidget)
@@ -1930,6 +1955,83 @@ class DownloadConfigWindow(FramelessWindow):
         self.contentLayout.addWidget(self.selector_widget)
 
     # === 播放列表 UI ===
+    
+    def setup_twitter_playlist_ui(self, info: dict[str, Any]) -> None:
+        title = str(info.get("title") or self.tr("推文媒体列表"))
+        count = 0
+        entries = info.get("entries") or []
+        if isinstance(entries, list):
+            count = len(entries)
+
+        self.titleLabel.setText(self.tr("推文媒体：{}（{} 条）").format(title, count))
+        self.titleLabel.show()
+        
+        from qfluentwidgets import SmoothScrollArea
+        scroll_area = SmoothScrollArea(self.contentWidget)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(SmoothScrollArea.Shape.NoFrame)
+        scroll_area.setStyleSheet(
+            "SmoothScrollArea { background: transparent; border: none; } "
+            "QWidget#scrollWidget { background: transparent; }"
+        )
+
+        scroll_content = QWidget()
+        scroll_content.setObjectName("scrollWidget")
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(12)
+
+        self._twitter_selectors = []
+        self._twitter_thumb_labels = {}
+        from qfluentwidgets import CardWidget, ImageLabel, SubtitleLabel
+
+        from .format_selector import VideoFormatSelectorWidget
+
+        for i, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                continue
+                
+            card = CardWidget(scroll_content)
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(16, 16, 16, 16)
+            card_layout.setSpacing(12)
+            
+            # Header: Thumbnail + Title
+            header_layout = QHBoxLayout()
+            header_layout.setContentsMargins(0, 0, 0, 0)
+            header_layout.setSpacing(12)
+            
+            thumb_label = ImageLabel(card)
+            thumb_label.setFixedSize(120, 68)
+            thumb_label.setBorderRadius(4, 4, 4, 4)
+            thumb_label.setScaledContents(True)
+            thumb_url = entry.get("thumbnail") or ""
+            if thumb_url:
+                self._twitter_thumb_labels[thumb_url] = thumb_label
+                self.image_loader.load(thumb_url, target_size=(120, 68), radius=4)
+            else:
+                thumb_label.setStyleSheet("background: rgba(0,0,0,0.1); border-radius: 4px;")
+                
+            header_layout.addWidget(thumb_label)
+            
+            title_text = entry.get("title") or f"媒体片段 {i + 1}"
+            title_label = SubtitleLabel(title_text, card)
+            title_label.setWordWrap(True)
+            title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            header_layout.addWidget(title_label, 1)
+            
+            card_layout.addLayout(header_layout)
+
+            selector = VideoFormatSelectorWidget(entry, card, is_twitter=True)
+            card_layout.addWidget(selector)
+            
+            scroll_layout.addWidget(card)
+            self._twitter_selectors.append((entry, selector))
+
+        scroll_layout.addStretch(1)
+        scroll_area.setWidget(scroll_content)
+        self.contentLayout.addWidget(scroll_area)
+        self.yesButton.setEnabled(True)
 
     def setup_playlist_ui(self, info: dict[str, Any]) -> None:
         title = str(info.get("title") or self.tr("播放列表"))
@@ -3116,6 +3218,17 @@ class DownloadConfigWindow(FramelessWindow):
         if not u:
             return
         self._thumb_cache[u] = pixmap
+        
+        # 1. 尝试匹配推特实体化列表的缩略图
+        if hasattr(self, "_twitter_thumb_labels"):
+            tw_label = self._twitter_thumb_labels.get(u)
+            if tw_label is not None:
+                try:
+                    tw_label.setImage(pixmap)
+                except Exception:
+                    pass
+
+        # 2. 匹配常规虚拟化表格的缩略图
         affected_rows = self._thumb_url_to_rows.get(u, set())
         if not affected_rows:
             return
@@ -3593,8 +3706,22 @@ class DownloadConfigWindow(FramelessWindow):
                 ydl_opts["__fluentytdl_format_note"] = self.tr("最佳画质")
 
             # Apply checkbox overrides if available (Default Mode)
+            is_twitter = False
+            try:
+                from ...utils.validators import UrlValidator
+                is_twitter = UrlValidator.is_x_url(url)
+            except Exception:
+                pass
+
             sub_config_override = None
-            if hasattr(self, "subtitle_check"):
+            if is_twitter:
+                ydl_opts["writethumbnail"] = False
+                ydl_opts["embedthumbnail"] = False
+                ydl_opts["addmetadata"] = False
+                ydl_opts["writesubtitles"] = False
+                ydl_opts["embedsubtitles"] = False
+                ydl_opts["__fluentytdl_keep_thumbnail"] = False
+            elif hasattr(self, "subtitle_check"):
                 import copy
 
                 from ...core.config_manager import config_manager
@@ -3618,7 +3745,7 @@ class DownloadConfigWindow(FramelessWindow):
                 ydl_opts["addmetadata"] = self.metadata_check.isChecked()
 
             # 字幕集成
-            if self.video_info:
+            if self.video_info and not is_twitter:
                 pick = getattr(self, "_subtitle_pick_result", None)
                 if pick and pick.selected_tracks:
                     from ...processing.subtitle_service import build_subtitle_opts_from_tracks
@@ -3714,6 +3841,36 @@ class DownloadConfigWindow(FramelessWindow):
             return tasks
 
         # 2. Playlist Mode
+        if getattr(self, "_twitter_selectors", None) is not None:
+            for entry, selector in self._twitter_selectors:
+                url = _infer_entry_url(entry) or self.url
+                title = entry.get("title") or self.tr("未命名推文媒体")
+                thumb = entry.get("thumbnail") or ""
+                
+                ydl_opts = {}
+                ydl_opts["writethumbnail"] = False
+                ydl_opts["embedthumbnail"] = False
+                ydl_opts["addmetadata"] = False
+                ydl_opts["writesubtitles"] = False
+                ydl_opts["embedsubtitles"] = False
+                ydl_opts["__fluentytdl_keep_thumbnail"] = False
+                
+                sel = selector.get_selection_result()
+                if sel and sel.get("format"):
+                    ydl_opts["format"] = sel["format"]
+                    ydl_opts.update(sel.get("extra_opts") or {})
+                    try:
+                        ydl_opts["__fluentytdl_format_note"] = selector.get_summary_text()
+                    except Exception:
+                        pass
+                else:
+                    ydl_opts["format"] = "bestvideo+bestaudio/best"
+                    ydl_opts["__fluentytdl_format_note"] = self.tr("最佳画质")
+                    
+                self._apply_download_dir_to_opts(ydl_opts)
+                tasks.append((title, url, ydl_opts, thumb))
+            return tasks
+
         import copy
 
         from ...core.config_manager import config_manager
