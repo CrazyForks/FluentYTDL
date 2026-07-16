@@ -160,6 +160,29 @@ def _webview_subprocess(
         _send_and_close({"error": error_msg})
         return
 
+    # ── 注入自定义代理配置 ──
+    try:
+        # 子进程独立导入 config_manager
+        from ...core.config_manager import config_manager
+        
+        proxy_mode = str(config_manager.get("proxy_mode") or "off").lower().strip()
+        proxy_url = str(config_manager.get("proxy_url") or "").strip()
+        
+        if proxy_mode in ("http", "socks5") and proxy_url:
+            scheme = "socks5" if proxy_mode == "socks5" else "http"
+            proxy_full = f"{scheme}://{proxy_url}"
+            # WebView2 通过附加参数注入代理
+            os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = f"--proxy-server={proxy_full}"
+            _log(f"已注入自定义代理: {proxy_full}")
+        elif proxy_mode == "system":
+            os.environ.pop("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", None)
+            _log("使用系统代理")
+        else:
+            os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--no-proxy-server"
+            _log("强制直连 (禁用代理)")
+    except Exception as e:
+        _log(f"代理配置注入失败: {e}")
+
     # ── 创建窗口 ──
     window_kwargs = {
         "title": "FluentYTDL - YouTube 安全登录" if platform == "youtube" else "FluentYTDL - X (Twitter) 安全登录",
