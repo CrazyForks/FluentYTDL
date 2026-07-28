@@ -29,8 +29,9 @@ from qfluentwidgets import (
     TransparentToolButton,
 )
 
+from fluentytdl.ui.components.home.history_item_widget import HistoryItemWidget
+
 from ...storage.history_service import HistoryRecord, history_service
-from ..components.history_item_widget import HistoryItemWidget
 
 
 class HistoryPage(QWidget):

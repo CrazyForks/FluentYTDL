@@ -83,6 +83,9 @@ pythonVersion = "3.10"
 - **路由与页面**：复杂的子界面必须继承自核心页面组件（如 `ScrollArea` 或适当的 `QWidget`），并通过主界面的侧边栏或路由器进行注册。
 - **列表项优化**：列表项必须使用 `QPainter` 委托（避免大量列表带来巨大的 `QWidget` 性能开销）。
 - **暗色模式支持**：使用 `CustomInfoBar`，而非原始 InfoBar。
+- **文字排版与字重**：严禁使用普通的 `BodyLabel` 作为标题或指令提示（会导致字体发虚）。必须使用 `StrongBodyLabel` 或 `SubtitleLabel`。
+- **文字颜色对比度**：严禁硬编码使用 `Qt.GlobalColor.darkGray` 或 `QColor(160, 160, 160)`。次要文本（如 `CaptionLabel`）必须手动注入高对比度颜色：`setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))`，确保深色模式下清晰锐利。
+- **SettingCard 安全修改**：严禁使用 Monkey Patch 全局修改 `SettingCard` 行为。自定义组件（如 `InlineComboBoxCard`）可能将 `contentLabel` 替换为无 `setTextColor` 方法的普通 `QLabel`，全局 Patch 会导致 `AttributeError`。应在页面级 `__init__` 中使用 `findChildren` 遍历，并结合 `hasattr` 进行安全处理。
 
 ### 文件命名
 

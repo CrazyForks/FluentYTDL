@@ -28,14 +28,14 @@ from qfluentwidgets import (
     SegmentedWidget,
     SmoothScrollArea,
     StrongBodyLabel,
-    TableWidget,
     TransparentToolButton,
 )
 
-from ...core.config_manager import config_manager
-from ...utils.container_compat import choose_lossless_merge_container
-from ...utils.format_scorer import ScoringContext, decide_merge_container, score_audio_format
-from .badges import QualityCellWidget
+from fluentytdl.ui.components.common.badges import QualityCellWidget
+
+from ....core.config_manager import config_manager
+from ....utils.container_compat import choose_lossless_merge_container
+from ....utils.format_scorer import ScoringContext, decide_merge_container, score_audio_format
 
 
 def _get_table_selection_qss() -> str:
@@ -195,7 +195,7 @@ class SimplePresetWidget(QWidget):
         self.audio_pick_btn.clicked.connect(self._on_audio_pick_clicked)
         self.audio_pick_btn.setVisible(False)
         try:
-            from ...processing.audio_track_manager import has_multi_language_audio
+            from ....processing.audio_track_manager import has_multi_language_audio
 
             if has_multi_language_audio(self.info):
                 self.audio_pick_btn.setVisible(True)
@@ -321,6 +321,19 @@ class SimplePresetWidget(QWidget):
         self.typeChanged.emit(selected_type)
         self.presetSelected.emit()
 
+    def _get_max_available_height(self) -> int:
+        formats = self.info.get("formats", [])
+        if not isinstance(formats, list):
+            return 0
+        max_h = 0
+        for f in formats:
+            if not isinstance(f, dict):
+                continue
+            h = f.get("height")
+            if h and isinstance(h, (int, float)) and h > max_h:
+                max_h = int(h)
+        return max_h
+
     def _rebuild_presets(self, current_type: str):
         # 清理旧组
         for r in self.radios:
@@ -333,8 +346,18 @@ class SimplePresetWidget(QWidget):
 
         self.radios.clear()
 
+        max_available_height = self._get_max_available_height()
+
         presets = self._all_presets.get(current_type, [])
         for i, (pid, title, desc, intent) in enumerate(presets):
+            intent_max_h = intent.get("max_height")
+            if (
+                max_available_height > 0
+                and intent_max_h is not None
+                and intent_max_h > max_available_height
+            ):
+                continue
+
             container = CardWidget(self.content_widget)
             h_layout = QHBoxLayout(container)
 
@@ -385,7 +408,7 @@ class SimplePresetWidget(QWidget):
         if not self.info:
             return
 
-        from ..dialogs.audio_picker_dialog import AudioPickerDialog
+        from ...dialogs.audio_picker_dialog import AudioPickerDialog
 
         # 调用时不需要 container 因为目前由 format_selector 后台全盘推断
         dialog = AudioPickerDialog(
@@ -439,7 +462,7 @@ class _ContainerFormatBar(QFrame):
 
         # 加载记忆偏好
         if self.config_prefix:
-            from ...core.config_manager import config_manager
+            from ....core.config_manager import config_manager
 
             c_val = config_manager.get(
                 f"{self.config_prefix}_container_override", self.tr("自动推断")
@@ -471,7 +494,7 @@ class _ContainerFormatBar(QFrame):
 
     def _on_container_changed(self):
         if self.config_prefix:
-            from ...core.config_manager import config_manager
+            from ....core.config_manager import config_manager
 
             config_manager.set(
                 f"{self.config_prefix}_container_override", self.container_combo.currentText()
@@ -480,7 +503,7 @@ class _ContainerFormatBar(QFrame):
 
     def _on_audio_changed(self):
         if self.config_prefix:
-            from ...core.config_manager import config_manager
+            from ....core.config_manager import config_manager
 
             config_manager.set(
                 f"{self.config_prefix}_audio_override", self.audio_combo.currentText()
@@ -599,10 +622,9 @@ class VideoFormatSelectorWidget(QWidget):
 
     selectionChanged = Signal()
 
-    def __init__(self, info: dict[str, Any], parent=None, is_twitter: bool = False):
+    def __init__(self, info: dict[str, Any], parent=None):
         super().__init__(parent)
         self.info = info
-        self.is_twitter = is_twitter
 
         # State for advanced mode
         self._rows: list[dict[str, Any]] = []
@@ -721,20 +743,6 @@ class VideoFormatSelectorWidget(QWidget):
         self.selection_label = CaptionLabel(self.tr("未选择"), self.advanced_widget)
         adv_layout.addWidget(self.selection_label)
 
-        if self.is_twitter:
-            form_layout.parent().layout().removeItem(form_layout)
-            for i in reversed(range(form_layout.count())):
-                form_layout.itemAt(i).widget().hide()
-            self.hint_label.hide()
-            # Important: set current index after all elements are initialized
-            self.mode_combo.setCurrentIndex(1)  # Force Mode 1 (muxed streams)
-
-            # 移除未使用的大组件，防止撑爆尺寸 (Size Hint)
-            self.stack.removeWidget(self.simple_widget)
-            adv_layout.removeWidget(self.split_container)
-            self.split_container.setParent(None)
-            self.split_container = None
-
         self.stack.addWidget(self.advanced_widget)
 
         # Format Bar
@@ -743,18 +751,12 @@ class VideoFormatSelectorWidget(QWidget):
         layout.addWidget(self.format_bar)
 
         self.view_switcher.currentItemChanged.connect(self._on_mode_changed)
-        if self.is_twitter:
-            self.view_switcher.hide()
-            self.format_bar.hide()
-            self._current_mode = "advanced"
-            self.stack.setCurrentIndex(1)
-        else:
-            self.view_switcher.setCurrentItem("simple")
+        self.view_switcher.setCurrentItem("simple")
 
         self.simple_widget.typeChanged.connect(self._on_simple_type_changed)
 
     def _create_table(self, multi_select: bool = False):
-        t = TableWidget(self.advanced_widget)
+        t = QTableWidget(self.advanced_widget)
         t.setStyleSheet(_get_table_selection_qss())
         t.setColumnCount(3)
         t.setHorizontalHeaderLabels([self.tr("类型"), self.tr("质量"), self.tr("详情")])
@@ -824,12 +826,19 @@ class VideoFormatSelectorWidget(QWidget):
             ext = str(f.get("ext") or "-")
             height = int(f.get("height") or 0)
 
+            video_ext = str(f.get("video_ext") or "none")
+            audio_ext = str(f.get("audio_ext") or "none")
+            resolution = str(f.get("resolution") or "")
+
+            has_video = vcodec != "none" or (video_ext != "none" and resolution != "audio only")
+            has_audio = acodec != "none" or audio_ext != "none"
+
             kind = "unknown"
-            if vcodec != "none" and acodec != "none":
+            if has_video and has_audio:
                 kind = "muxed"
-            elif vcodec != "none" and acodec == "none":
+            elif has_video and not has_audio:
                 kind = "video"
-            elif vcodec == "none" and acodec != "none":
+            elif not has_video and has_audio:
                 kind = "audio"
             else:
                 continue
@@ -1018,7 +1027,7 @@ class VideoFormatSelectorWidget(QWidget):
             for r in self._rows:
                 k = r["kind"]
                 if mode == 1:
-                    if k == "muxed" or (self.is_twitter and k in ("muxed", "video")):
+                    if k == "muxed":
                         view_rows.append(r)
                 elif mode == 2:
                     if k == "video":
@@ -1049,10 +1058,10 @@ class VideoFormatSelectorWidget(QWidget):
         table.setRowCount(len(rows))
         table.setProperty("_rows", rows)
 
-        # 动态自适应高度，最大显示 6 行
+        # 动态自适应高度，最大显示 2 行
         row_height = 42
         header_height = 42 if not table.horizontalHeader().isHidden() else 0
-        visible_rows = min(max(len(rows), 1), 6)
+        visible_rows = min(max(len(rows), 1), 2)
         total_height = header_height + visible_rows * row_height + 2
         table.setMinimumHeight(total_height)
         table.setMaximumHeight(total_height)
@@ -1457,8 +1466,8 @@ def resolve_global_format(info: dict | None, override: Any) -> tuple[str, dict]:
     if not info or not isinstance(info.get("formats"), list):
         return _fallback_global_format_str(override)
 
-    from ...core.config_manager import config_manager
-    from ...utils.format_scorer import ScoringContext, decide_merge_container, score_audio_format
+    from ....core.config_manager import config_manager
+    from ....utils.format_scorer import ScoringContext, decide_merge_container, score_audio_format
 
     formats = info["formats"]
     candidates = []

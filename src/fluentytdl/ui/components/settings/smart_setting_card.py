@@ -6,8 +6,13 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFileDialog, QWidget
 from qfluentwidgets import CaptionLabel, PushButton, SettingCard
 
-from ...core.config_manager import config_manager
-from .validated_edit_dialog import Fixer, ValidatedEditDialog, Validator
+from fluentytdl.ui.components.dialogs.validated_edit_dialog import (
+    Fixer,
+    ValidatedEditDialog,
+    Validator,
+)
+
+from ....core.config_manager import config_manager
 
 
 class SmartSettingCard(SettingCard):

@@ -6,6 +6,7 @@ Clean Logger 模块
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -77,6 +78,11 @@ class CleanLogger:
         callback: Callable[[str, float, str], None],
         duration: float = 0.0,
         playlist_tracker: Any = None,
+        section_cut_mode: str = "",
+        section_duration: float = 0.0,
+        section_start: float = 0.0,
+        section_stream_layout: str = "",
+        section_estimated_bytes: int = 0,
     ):
         """
         :param callback: 向外发射的清理后信号方法 (状态码, float进度, 友好状态文案)
@@ -90,6 +96,14 @@ class CleanLogger:
         self._stream_phase = _StreamPhase()
         self._phase_just_switched = False
         self._duration = duration
+        self._section_cut_mode = section_cut_mode
+        self._section_duration = section_duration
+        self._section_start = section_start
+        self._section_stream_layout = section_stream_layout
+        self._section_estimated_bytes = max(0, int(section_estimated_bytes or 0))
+        self._active_postprocessor = ""
+        self._last_ffmpeg_bytes = 0
+        self._last_ffmpeg_tick = 0.0
 
     def _emit(self, state: str, percent: float, msg: str) -> None:
         # 进度不后退规则（仅在同一阶段内生效）
@@ -137,7 +151,7 @@ class CleanLogger:
             return
 
         # 拦截前置准备动作 (Parsing Phase)
-        if msg.startswith("[youtube] Extracting URL"):
+        if "] Extracting URL" in msg:
             self._emit("parsing", 0, "🔍 正在解析目标地址...")
             return
         elif msg.startswith("[info]"):
@@ -219,28 +233,91 @@ class CleanLogger:
 
         status = progress_data.get("status", "downloading")
 
+        if status == "section_file_progress" and self._section_cut_mode:
+            output_bytes = int(progress_data.get("output_bytes") or 0)
+            rate = float(progress_data.get("speed") or 0.0)
+            raw_pct = 0.0
+            if self._section_estimated_bytes:
+                raw_pct = min(99.0, output_bytes * 100.0 / self._section_estimated_bytes)
+            elif output_bytes:
+                # No upstream size/bitrate is available. Keep the bar moving
+                # while clearly marking the total as an estimate-in-progress.
+                raw_pct = 90.0 * (1.0 - 1.0 / (1.0 + output_bytes / (10 * 1024 * 1024)))
+            pct = round(self._stream_phase.map_progress(_StreamPhase.SINGLE, raw_pct), 1)
+            layout = self._section_layout_label()
+            total = (
+                self._format_bytes(self._section_estimated_bytes)
+                if self._section_estimated_bytes
+                else "估算中"
+            )
+            speed = self._format_bytes(rate) + "/s" if rate else "计算中"
+            self._emit(
+                "downloading",
+                pct,
+                f"✂️ 裁切下载 · {layout} | 已写入 {self._format_bytes(output_bytes)}/{total} | ⬇️ {speed}",
+            )
+            return
+
         if status == "ffmpeg_progress":
+            is_precise_cut = (
+                self._section_cut_mode == "precise"
+                and self._active_postprocessor == "ModifyChapters"
+            )
+            # Both coarse and precise clips begin with FFmpegFD downloading the
+            # selected range. Precise clips only switch to re-encoding when
+            # yt-dlp subsequently starts ModifyChapters.
+            is_section_download = bool(self._section_cut_mode) and not is_precise_cut
+            if not is_precise_cut and not is_section_download:
+                return
             time_sec = progress_data.get("time_sec", 0.0)
             speed = progress_data.get("speed", "1x")
 
-            if self._duration > 0:
-                raw_pct = (time_sec / self._duration) * 100.0
+            # ffmpeg's -ss input seek may report either source timestamps or
+            # timestamps rebased to zero, depending on the selected stream.
+            # Normalize the former to the requested clip duration.
+            clip_time = float(time_sec or 0.0)
+            if self._section_start and clip_time > self._section_duration:
+                clip_time -= self._section_start
+
+            if self._section_duration > 0:
+                raw_pct = (clip_time / self._section_duration) * 100.0
                 raw_pct = min(100.0, max(0.0, raw_pct))
             else:
                 raw_pct = 50.0  # unknown duration
 
-            pct = self._stream_phase.map_progress(_StreamPhase.POST, raw_pct)
+            phase = _StreamPhase.POST if is_precise_cut else _StreamPhase.SINGLE
+            pct = self._stream_phase.map_progress(phase, raw_pct)
             pct = round(pct, 1)
-            msg = f"🔄 FFmpeg 转码中 {raw_pct:.1f}% | 速度: {speed}..."
-            self._emit("processing", pct, msg)
+            if is_precise_cut:
+                msg = f"✂️ 正在精确裁切与重编码 {raw_pct:.1f}% | 速度: {speed}"
+                self._emit("processing", pct, msg)
+            else:
+                output_bytes = int(progress_data.get("output_bytes") or 0)
+                output_rate = self._update_ffmpeg_output_rate(output_bytes)
+                written = self._format_bytes(output_bytes)
+                total = (
+                    self._format_bytes(self._section_estimated_bytes)
+                    if self._section_estimated_bytes
+                    else "估算中"
+                )
+                layout = self._section_layout_label()
+                rate = self._format_bytes(output_rate) + "/s" if output_rate else "计算中"
+                msg = (
+                    f"✂️ 裁切下载 · {layout} {raw_pct:.1f}% | "
+                    f"已写入 {written}/{total} | ⬇️ {rate} | 媒体速度 {speed}"
+                )
+                self._emit("downloading", pct, msg)
             return
 
         if status == "postprocess":  # 来自 FLUENTYTDL|postprocess| 钩子
             pp_name = progress_data.get("postprocessor", "Unknown")
             pp_status = progress_data.get("pp_status", "")  # started/finished
+            self._active_postprocessor = str(pp_name)
 
             if pp_status == "started":
-                if pp_name == "Merger":
+                if pp_name == "ModifyChapters" and self._section_cut_mode == "precise":
+                    msg = "✂️ 片段下载完成，正在准备精确裁切…"
+                elif pp_name == "Merger":
                     msg = "📦 正在无损合并音视频 (FFmpeg)..."
                 elif pp_name == "EmbedSubtitle":
                     msg = "📝 正在内嵌字幕轨道..."
@@ -318,9 +395,8 @@ class CleanLogger:
             total_str = self._format_bytes(tot_bytes) if tot_bytes > 0 else "?"
             eta_str = self._format_time(eta)
 
-            detail_text = (
-                f"{stream_type} | ⬇️ {speed_str} | {downloaded_str}/{total_str} | 剩余: {eta_str}"
-            )
+            prefix = "✂️ 正在下载裁切片段 | " if self._section_cut_mode else ""
+            detail_text = f"{prefix}{stream_type} | ⬇️ {speed_str} | {downloaded_str}/{total_str} | 剩余: {eta_str}"
 
             # 如果是播放列表模式，劫持最终输出
             if self.playlist_tracker:
@@ -339,7 +415,12 @@ class CleanLogger:
 
         elif status == "finished":
             # [download] 标明 finish，但后续可能有 [ffmpeg] 处理
-            self._emit("processing", 99.0, "下载流完毕，等待后续合并与处理...")
+            if self._section_cut_mode == "precise":
+                self._emit("processing", 95.0, "✂️ 片段下载完成，正在准备精确裁切…")
+            elif self._section_cut_mode:
+                self._emit("processing", 95.0, "✂️ 正在整理裁切文件…")
+            else:
+                self._emit("processing", 99.0, "下载流完毕，等待后续合并与处理...")
 
     def _format_bytes(self, bytes_val: float) -> str:
         if not bytes_val:
@@ -349,6 +430,27 @@ class CleanLogger:
                 return f"{bytes_val:.2f}{unit}"
             bytes_val /= 1024.0
         return f"{bytes_val:.2f}TB"
+
+    def _update_ffmpeg_output_rate(self, output_bytes: int) -> float:
+        """Estimate write/network throughput from consecutive FFmpeg reports."""
+        now = time.monotonic()
+        rate = 0.0
+        if self._last_ffmpeg_tick and output_bytes >= self._last_ffmpeg_bytes:
+            elapsed = now - self._last_ffmpeg_tick
+            if elapsed > 0:
+                rate = (output_bytes - self._last_ffmpeg_bytes) / elapsed
+        self._last_ffmpeg_tick = now
+        self._last_ffmpeg_bytes = output_bytes
+        return rate
+
+    def _section_layout_label(self) -> str:
+        labels = {
+            "muxed": "整合流（视频 + 音频）",
+            "video_audio": "视频 + 音频分流",
+            "video": "视频流",
+            "audio": "音频流",
+        }
+        return labels.get(self._section_stream_layout, "媒体流")
 
     def _format_time(self, seconds: int) -> str:
         if not seconds:

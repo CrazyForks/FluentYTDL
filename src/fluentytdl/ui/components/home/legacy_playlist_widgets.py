@@ -27,10 +27,10 @@ from qfluentwidgets import (
     ToolTipPosition,
 )
 
-from .cover_selector import CoverSelectorWidget
-from .format_selector import VideoFormatSelectorWidget
-from .subtitle_selector import SubtitleSelectorWidget
-from .vr_format_selector import VRFormatSelectorWidget
+from fluentytdl.ui.components.platforms.cover import CoverSelectorWidget
+from fluentytdl.ui.components.platforms.subtitle import SubtitleSelectorWidget
+from fluentytdl.ui.components.platforms.vr import VRFormatSelectorWidget
+from fluentytdl.ui.components.platforms.youtube import VideoFormatSelectorWidget
 
 
 def _get_table_selection_qss() -> str:
@@ -601,7 +601,7 @@ class PlaylistFormatDialog(MessageBoxBase):
         self.sub_override_btn.clicked.connect(lambda: self._open_subtitle_picker(info))
 
     def _open_subtitle_picker(self, info):
-        from ..dialogs.subtitle_picker_dialog import SubtitlePickerDialog
+        from ...dialogs.subtitle_picker_dialog import SubtitlePickerDialog
 
         container = None
         if hasattr(self.selector, "get_selection_result"):

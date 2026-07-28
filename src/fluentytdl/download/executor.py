@@ -12,6 +12,8 @@ import os
 import re
 import shutil
 import subprocess
+import threading
+import time
 from collections import deque
 from collections.abc import Callable
 from pathlib import Path
@@ -258,7 +260,19 @@ class DownloadExecutor:
             **_win_hide_kwargs(),
         )
 
+        # FFmpegFD does not consistently forward its child FFmpeg progress to
+        # yt-dlp's stdout. While it is silent, monitor the sandbox .part file
+        # so the UI still reflects real download activity.
+        if ydl_opts.get("download_sections"):
+            threading.Thread(
+                target=_monitor_section_part_progress,
+                args=(self._proc, work_dir, on_progress),
+                daemon=True,
+                name="section-part-progress",
+            ).start()
+
         output_path: str | None = None
+        self._active_postprocessor = ""
         dest_paths: set[str] = set()
         tail: deque[str] = deque(maxlen=120)
         expected_total_bytes: int = 0  # 累计预期文件大小，用于完整性校验
@@ -266,7 +280,7 @@ class DownloadExecutor:
         proc = self._proc
         assert proc is not None
         assert proc.stdout is not None
-        for raw in proc.stdout:
+        for raw in _iter_process_output(proc.stdout):
             if cancel_check():
                 self._terminate_proc()
                 raise RuntimeError("用户取消下载")
@@ -326,6 +340,9 @@ class DownloadExecutor:
                             "status": "ffmpeg_progress",
                             "time_sec": parsed.progress.info_dict.get("time_sec"),
                             "speed": parsed.progress.info_dict.get("speed"),
+                            "output_bytes": parsed.progress.info_dict.get("output_bytes"),
+                            "bitrate": parsed.progress.info_dict.get("bitrate"),
+                            "postprocessor": getattr(self, "_active_postprocessor", ""),
                         }
                     )
 
@@ -337,7 +354,19 @@ class DownloadExecutor:
                 if parsed.message:
                     on_status(parsed.message)
 
-            elif parsed.type in ("subtitle", "status", "postprocess"):
+            elif parsed.type == "postprocess":
+                self._active_postprocessor = parsed.postprocessor or ""
+                on_progress(
+                    {
+                        "status": "postprocess",
+                        "postprocessor": parsed.postprocessor or "",
+                        "pp_status": parsed.postprocessor_status or "",
+                    }
+                )
+                if parsed.message:
+                    on_status(parsed.message)
+
+            elif parsed.type in ("subtitle", "status"):
                 if parsed.message:
                     on_status(parsed.message)
                 if parsed.path:
@@ -670,6 +699,63 @@ class DownloadExecutor:
 
 
 # ── 工具查找 ──────────────────────────────────────────────
+
+
+def _iter_process_output(stream) -> Any:
+    """Yield subprocess output frames separated by either LF or CR.
+
+    yt-dlp prints normal events with newlines, while FFmpeg continuously
+    rewrites its progress line with carriage returns. Iterating over the pipe
+    directly only sees the latter after FFmpeg exits, which leaves the UI
+    stuck on the preceding status message.
+    """
+    pending = b""
+    while True:
+        reader = getattr(stream, "read1", None)
+        chunk = reader(4096) if callable(reader) else stream.read(4096)
+        if not chunk:
+            break
+        pending += chunk
+        frames = re.split(rb"[\r\n]+", pending)
+        pending = frames.pop()
+        for frame in frames:
+            if frame:
+                yield frame
+    if pending:
+        yield pending
+
+
+def _monitor_section_part_progress(
+    proc: subprocess.Popen[Any], work_dir: str, on_progress: ProgressCallback
+) -> None:
+    """Emit fallback progress from a growing section-download .part file."""
+    previous_bytes = 0
+    previous_tick = time.monotonic()
+    root = Path(work_dir)
+    while proc.poll() is None:
+        total_bytes = 0
+        try:
+            for candidate in root.glob("*.part"):
+                if candidate.is_file():
+                    total_bytes += candidate.stat().st_size
+        except OSError:
+            pass
+
+        now = time.monotonic()
+        if total_bytes > 0:
+            speed = 0.0
+            if total_bytes >= previous_bytes and now > previous_tick:
+                speed = (total_bytes - previous_bytes) / (now - previous_tick)
+            on_progress(
+                {
+                    "status": "section_file_progress",
+                    "output_bytes": total_bytes,
+                    "speed": speed,
+                }
+            )
+        previous_bytes = total_bytes
+        previous_tick = now
+        time.sleep(0.75)
 
 
 def _find_ffmpeg() -> str | None:

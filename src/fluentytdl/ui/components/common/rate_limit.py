@@ -24,7 +24,7 @@ from qfluentwidgets import (
     ToolTipPosition,
 )
 
-from ...core.config_manager import config_manager
+from ....core.config_manager import config_manager
 
 # 限速预设值 (bytes/s), 0 表示不限速
 RATE_LIMIT_PRESETS = [

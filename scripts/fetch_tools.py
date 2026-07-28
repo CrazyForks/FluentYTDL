@@ -254,7 +254,9 @@ def fetch_atomicparsley(dest_dir: Path) -> None:
         tmp_path = Path(tmp)
         zip_path = tmp_path / "atomicparsley.zip"
 
-        url = "https://github.com/wez/atomicparsley/releases/latest/download/AtomicParsleyWindows.zip"
+        url = (
+            "https://github.com/wez/atomicparsley/releases/latest/download/AtomicParsleyWindows.zip"
+        )
         download_file(url, zip_path)
 
         # 解压

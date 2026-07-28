@@ -11,11 +11,7 @@ import pytest
 # Load updater.py directly via importlib to avoid triggering
 # fluentytdl.core.__init__ -> config_manager -> PySide6 import chain.
 _updater_path = (
-    Path(__file__).resolve().parent.parent
-    / "src"
-    / "fluentytdl"
-    / "core"
-    / "updater.py"
+    Path(__file__).resolve().parent.parent / "src" / "fluentytdl" / "core" / "updater.py"
 )
 _spec = importlib.util.spec_from_file_location("_updater_under_test", _updater_path)
 _updater_mod = importlib.util.module_from_spec(_spec)

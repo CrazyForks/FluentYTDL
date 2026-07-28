@@ -185,9 +185,17 @@ class VideoInfoMapper:
         for fmt in formats:
             if not isinstance(fmt, dict):
                 continue
-            if fmt.get("vcodec") != "none":
+            has_video = str(fmt.get("vcodec") or "none") != "none" or (
+                str(fmt.get("video_ext") or "none") != "none"
+                and str(fmt.get("resolution") or "") != "audio only"
+            )
+            if has_video:
                 continue
-            if fmt.get("acodec") in (None, "none"):
+            has_audio = (
+                str(fmt.get("acodec") or "none") != "none"
+                or str(fmt.get("audio_ext") or "none") != "none"
+            )
+            if not has_audio:
                 continue
 
             abr_raw = fmt.get("abr") or fmt.get("tbr") or 0

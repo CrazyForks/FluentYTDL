@@ -92,7 +92,7 @@ class PlatformAuthExpandCard(ExpandGroupSettingCard):
 
     def reload_accounts(self, select_current: bool = True) -> None:
         """刷新当前平台下的 WebView2 账号列表"""
-        from ...auth.auth_service import auth_service
+        from ....auth.auth_service import auth_service
 
         accounts = auth_service.list_webview2_accounts(platform=self.platform)
         self._account_ids = [a.account_id for a in accounts]

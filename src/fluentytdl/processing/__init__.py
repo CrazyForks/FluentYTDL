@@ -6,11 +6,13 @@ FluentYTDL 后处理功能域
 
 from .audio_processor import AudioProcessor, audio_processor
 from .section_download import (
+    SectionCutMode,
     TimeRange,
     build_section_opts,
     lossless_cut,
     parse_time_input,
     parse_time_range,
+    section_filename_suffix,
 )
 from .sponsorblock import (
     SponsorBlockConfig,
@@ -54,9 +56,11 @@ __all__ = [
     "subtitle_processor",
     "SubtitleProcessResult",
     "TimeRange",
+    "SectionCutMode",
     "parse_time_input",
     "parse_time_range",
     "build_section_opts",
+    "section_filename_suffix",
     "lossless_cut",
     "SponsorBlockConfig",
     "sponsorblock_config",

@@ -157,7 +157,9 @@ def main() -> None:
 
     # 允许 Qt 使用操作系统的精确小数缩放比例 (如 125%, 150%)
     if hasattr(Qt.HighDpiScaleFactorRoundingPolicy, "PassThrough"):
-        QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+        QApplication.setHighDpiScaleFactorRoundingPolicy(
+            Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+        )
 
     # 1. 创建应用
     app = QApplication(sys.argv)
@@ -175,7 +177,8 @@ def main() -> None:
         main_win = getattr(app, "_main_window", None)
         if main_win:
             main_win.setWindowState(
-                main_win.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive
+                main_win.windowState() & ~Qt.WindowState.WindowMinimized
+                | Qt.WindowState.WindowActive
             )
             main_win.show()
             main_win.raise_()
@@ -184,6 +187,7 @@ def main() -> None:
     single_instance.new_instance_detected.connect(activate_main_window)
     # === 初始化国际化 (i18n) ===
     from fluentytdl.core.i18n import I18nManager
+
     I18nManager.setup_language()
 
     # === 避免强制写死浅色模式，跟随用户配置动态调整 ===
@@ -200,10 +204,10 @@ def main() -> None:
     else:
         qfluentwidgets.setTheme(qfluentwidgets.Theme.AUTO)
 
-    # Set application icon from assets/logo.png if available (comprehensive replacement)
+    # Set application icon from assets/logo_tight.png (cropped variant) to fix Qt internal scaling bugs
     try:
         root_dir = Path(__file__).resolve().parent
-        icon_path = root_dir / "assets" / "logo.png"
+        icon_path = root_dir / "assets" / "logo_tight.png"
         if icon_path.exists():
             from PySide6.QtGui import QIcon
 

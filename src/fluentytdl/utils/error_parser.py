@@ -168,6 +168,16 @@ ERROR_RULES = [
     # ---- 网络连接错误 ----
     {
         "condition": "regex",
+        "value": r"EOF occurred in violation of protocol|SSLError.*EOF occurred",
+        "error_code": ErrorCode.NETWORK_ERROR,
+        "severity": "recoverable",
+        "fix_action": "switch_proxy",
+        "title": "SSL 连接意外中断 (EOF)",
+        "message": "TLS/SSL 握手被强行中断。这通常是因为本地代理软件不稳定、节点被阻断 (SNI 阻断) 或网络服务商拦截了请求。",
+        "recovery_hint": "更换代理节点或检查代理软件",
+    },
+    {
+        "condition": "regex",
         "value": r"Connection reset by peer|Connection refused|Connection timed out|Read timed out|Timed out|WinError 10060",
         "error_code": ErrorCode.NETWORK_ERROR,
         "severity": "recoverable",
@@ -294,7 +304,8 @@ def diagnose_error(
 
     # 1. JSON 层级判断（如果有传入解析好的 JSON 错误快照，未来可扩展）
     if parsed_json and isinstance(parsed_json, dict):
-        err_type = parsed_json.get("error", {}).get("_type")
+        err_obj = parsed_json.get("error", {})
+        err_type = err_obj.get("_type") if isinstance(err_obj, dict) else None
         if err_type == "premium_only":
             return DiagnosedError(
                 code=ErrorCode.LOGIN_REQUIRED,
@@ -306,23 +317,38 @@ def diagnose_error(
                 recovery_hint="导入 Cookie",
             )
 
+    # 检测是否包含版本过老的警告
+    is_outdated = bool(re.search(r"is older than \d+ days", clean_msg, re.IGNORECASE))
+
     # 2. 启发式文本/正则层级判断
     for rule in ERROR_RULES:
         if rule.get("condition") == "regex":
             if re.search(rule["value"], clean_msg, re.IGNORECASE):
+                msg = rule["message"]
+                fix_action = rule.get("fix_action")
+                recovery_hint = rule.get("recovery_hint", "")
+
+                if is_outdated:
+                    msg += "\n⚠️ 检测到核心组件(yt-dlp)版本过旧，建议立即更新以排除兼容性问题。"
+                    # 如果发生严重错误且组件过老，优先引导用户去更新
+                    fix_action = "update_component"
+                    recovery_hint = "去设置更新组件"
+
                 return DiagnosedError(
                     code=rule["error_code"],
                     severity=rule["severity"],  # type: ignore
                     user_title=rule["title"],
-                    user_message=rule["message"],
-                    fix_action=rule.get("fix_action"),
+                    user_message=msg,
+                    fix_action=fix_action,
                     technical_detail=f"exit_code={exit_code}\n{stderr}",
-                    recovery_hint=rule.get("recovery_hint", ""),
+                    recovery_hint=recovery_hint,
                 )
 
     # 3. 兜底解析：尝试提取 yt-dlp 的 ERROR/WARNING 行信息
     fallback_title = "解析或下载失败"
     fallback_msg = "系统遇到无法完全识别的错误，请查看错误原始日志。"
+    fallback_fix_action = None
+    fallback_recovery_hint = ""
 
     # 匹配 HTTP 错误码
     http_match = re.search(r"HTTP Error (\d{3})", clean_msg, re.IGNORECASE)
@@ -348,14 +374,19 @@ def diagnose_error(
             if len(fallback_msg) > 300:
                 fallback_msg = fallback_msg[:297] + "..."
 
+    if is_outdated:
+        fallback_msg += "\n⚠️ 检测到核心组件(yt-dlp)版本过旧，建议立即更新以排除兼容性问题。"
+        fallback_fix_action = "update_component"
+        fallback_recovery_hint = "去设置更新组件"
+
     return DiagnosedError(
         code=ErrorCode.GENERAL,
         severity="fatal",
         user_title=fallback_title,
         user_message=fallback_msg,
-        fix_action=None,
+        fix_action=fallback_fix_action,
         technical_detail=f"exit_code={exit_code}\n{stderr}",
-        recovery_hint="",
+        recovery_hint=fallback_recovery_hint,
     )
 
 

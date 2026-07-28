@@ -26,8 +26,9 @@ from qfluentwidgets import (
     TableWidget,
 )
 
-from ...utils.container_compat import choose_lossless_merge_container
-from .badges import QualityCellWidget
+from fluentytdl.ui.components.common.badges import QualityCellWidget
+
+from ....utils.container_compat import choose_lossless_merge_container
 
 
 def _analyze_format_tags(r: dict) -> list[tuple[str, str]]:
@@ -341,7 +342,7 @@ class VRFormatTableWidget(QWidget):
         split_layout.setSpacing(8)
 
         # Video Section
-        from .format_selector import FormatExpandCard
+        from fluentytdl.ui.components.platforms.youtube import FormatExpandCard
 
         self.video_container = FormatExpandCard(
             FluentIcon.VIDEO, "\u89c6\u9891\u6d41", self.split_container

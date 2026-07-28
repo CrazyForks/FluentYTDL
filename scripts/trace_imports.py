@@ -13,7 +13,7 @@ modules = [
     "fluentytdl.ui.components.rate_limit",
     "fluentytdl.ui.components.settings_cards",
     "fluentytdl.ui.components.smart_setting_card",
-    "fluentytdl.ui.dialogs.playlist_subtitle_dialog"
+    "fluentytdl.ui.dialogs.playlist_subtitle_dialog",
 ]
 
 for mod in modules:

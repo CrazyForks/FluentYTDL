@@ -3,9 +3,10 @@ from dataclasses import dataclass
 from PySide6.QtWidgets import QHBoxLayout
 from qfluentwidgets import CaptionLabel, ComboBox, MessageBoxBase, SubtitleLabel
 
+from fluentytdl.ui.components.platforms.subtitle import SubtitleSelectorWidget, SubtitleTrack
+
 from ...core.config_manager import config_manager
 from ...utils.container_compat import check_subtitle_container_compat
-from ..components.subtitle_selector import SubtitleSelectorWidget, SubtitleTrack
 
 
 @dataclass

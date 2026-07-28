@@ -30,7 +30,7 @@ qt_excludes = [m.strip() for m in qt_excludes_raw.split(',') if m.strip()]
 # ----------------------------------------------------------------------------
 datas = [
     ('../docs', 'docs'),
-    ('../assets/logo.ico', 'assets'),
+    ('../assets/FluentYTDL_v2.ico', 'assets'),
     ('../assets/logo.png', 'assets'),
     ('../assets/locales', 'assets/locales'),
     ('../src/fluentytdl/yt_dlp_plugins_ext', 'fluentytdl/yt_dlp_plugins_ext'),
@@ -98,7 +98,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['../assets/logo.ico'],
+    icon=['../assets/FluentYTDL_v2.ico'],
     version=version_file if os.path.exists(version_file) else None,
 )
 

@@ -142,12 +142,13 @@ def _read_changelog(full_version: str) -> str:
             content = changelog_file.read_text(encoding="utf-8")
             # 查找版本标题（## v-3.0.18 或 ## 3.0.18）
             import re
+
             numeric = re.sub(r"^[a-zA-Z\-]+", "", full_version)
             for pattern in [f"## {full_version}", f"## v{numeric}", f"## {numeric}"]:
                 idx = content.find(pattern)
                 if idx != -1:
                     # 截取到下一个 ## 或文件末尾
-                    rest = content[idx + len(pattern):]
+                    rest = content[idx + len(pattern) :]
                     next_section = rest.find("\n## ")
                     if next_section != -1:
                         return rest[:next_section].strip()

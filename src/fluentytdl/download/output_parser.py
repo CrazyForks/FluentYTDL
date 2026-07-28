@@ -38,6 +38,7 @@ class ParsedLine:
     path: str | None = None  # 目标文件路径
     message: str | None = None  # 状态消息
     postprocessor: str | None = None  # 后处理器名
+    postprocessor_status: str | None = None
 
 
 # ── yt-dlp 输出解析器 ────────────────────────────────────
@@ -78,8 +79,9 @@ class YtDlpOutputParser:
     _RE_EXTRACT_AUDIO = re.compile(r"^\[ExtractAudio\]\s+Destination:\s+(?P<path>.+)$")
 
     _RE_FFMPEG_PROGRESS = re.compile(
-        r"size=\s*[\d]+\w*\s+time=(?P<time>\d{2}:\d{2}:\d{2}\.\d{2})"
-        r".*?speed=\s*(?P<speed>[\d.]+)x"
+        r"size=\s*(?P<size>[\d.]+)\s*(?P<size_unit>[kKMGT]?B)\s+"
+        r"time=(?P<time>\d{2}:\d{2}:\d{2}\.\d{2})"
+        r".*?(?:bitrate=\s*(?P<bitrate>\S+).*?)?speed=\s*(?P<speed>[\d.]+)x"
     )
 
     # 后处理器名称映射
@@ -170,7 +172,14 @@ class YtDlpOutputParser:
                     status="ffmpeg_progress",
                     speed=0,
                     eta=0,
-                    info_dict={"time_sec": time_sec, "speed": speed},
+                    info_dict={
+                        "time_sec": time_sec,
+                        "speed": speed,
+                        "output_bytes": _ffmpeg_size_to_bytes(
+                            m.group("size"), m.group("size_unit")
+                        ),
+                        "bitrate": m.group("bitrate") or "",
+                    },
                 ),
             )
 
@@ -241,7 +250,12 @@ class YtDlpOutputParser:
                 msg = f"后处理: {pp_display}..."
             else:
                 msg = "后处理中..."
-            return ParsedLine(type="postprocess", postprocessor=pp, message=msg)
+            return ParsedLine(
+                type="postprocess",
+                postprocessor=pp,
+                postprocessor_status=status,
+                message=msg,
+            )
 
         return ParsedLine(type="unknown", message=line)
 
@@ -312,6 +326,16 @@ def _size_to_bytes(value: str, unit: str) -> int:
     u = unit.upper().rstrip("B").rstrip("I")
     multipliers = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
     return int(n * multipliers.get(u, 1))
+
+
+def _ffmpeg_size_to_bytes(value: str, unit: str) -> int:
+    """Parse ffmpeg's decimal output-size units (normally kB)."""
+    try:
+        amount = float(value)
+    except (TypeError, ValueError):
+        return 0
+    multipliers = {"B": 1, "KB": 1000, "MB": 1000**2, "GB": 1000**3, "TB": 1000**4}
+    return int(amount * multipliers.get((unit or "B").upper(), 1))
 
 
 def _parse_eta_hms(eta: str) -> int | None:

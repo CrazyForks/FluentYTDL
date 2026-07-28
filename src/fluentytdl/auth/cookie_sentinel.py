@@ -286,7 +286,13 @@ class CookieSentinel:
 
             now = int(time.time())
             content = cookie_path.read_text(encoding="utf-8", errors="replace")
-            key_names = {"SID", "HSID", "SSID", "SAPISID", "APISID"}
+            _PLATFORM_KEY_NAMES = {
+                "youtube": {"SID", "HSID", "SSID", "SAPISID", "APISID"},
+                "twitter": {"auth_token", "ct0"},
+            }
+            key_names = _PLATFORM_KEY_NAMES.get(platform, set())
+            if not key_names:
+                return None
             earliest = None
             for line in content.splitlines():
                 line = line.strip()
@@ -362,38 +368,30 @@ class CookieSentinel:
 
                 # WebView2 模式是交互式流程（需用户登录），不能在启动时自动触发
                 if current_source == AuthSourceType.WEBVIEW2:
-                    cache_file = auth_service.get_cookie_file_for_ytdlp(
-                        platform="youtube", force_refresh=False
-                    )
-                    if cache_file and Path(cache_file).exists():
-                        account = auth_service.current_webview2_account
-                        source_tag = (
-                            f"webview2:{account.account_id}"
-                            if account and account.account_id
-                            else "webview2"
+                    for plat in ("youtube", "twitter"):
+                        cache_file = auth_service.get_cookie_file_for_ytdlp(
+                            platform=plat, force_refresh=False
                         )
-
-                        logger.info("[CookieSentinel] WebView2 模式：使用已缓存的 Cookie 文件")
-                        import shutil
-
-                        shutil.copy2(str(cache_file), self.cookie_path)
-                        self._last_update = datetime.now()
-
-                        # 复用 auth_service._update_status_from_file 验证 Cookie 有效性
-                        # 这会更新 auth_service.last_status，供 UI 层的 check_cookie_status 直接使用
-                        auth_service._update_status_from_file(str(cache_file), "youtube")
-                        self._save_meta(
-                            source_tag, auth_service.last_status.cookie_count, "youtube"
-                        )
-
-                        if auth_service.last_status.valid:
-                            logger.info("[CookieSentinel] WebView2 Cookie 有效")
-                        else:
-                            logger.warning(
-                                f"[CookieSentinel] WebView2 Cookie 无效: {auth_service.last_status.message}"
+                        if cache_file and Path(cache_file).exists():
+                            account = auth_service.get_current_webview2_account(platform=plat)
+                            source_tag = (
+                                f"webview2:{account.account_id}"
+                                if account and account.account_id
+                                else "webview2"
                             )
-                    else:
-                        logger.info("[CookieSentinel] WebView2 模式：无缓存 Cookie，等待用户登录")
+                            import shutil
+
+                            dest = self.get_cookie_path_for_platform(plat)
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(str(cache_file), dest)
+
+                            auth_service._update_status_from_file(str(cache_file), plat)
+                            self._save_meta(source_tag, auth_service.last_status.cookie_count, plat)
+                            logger.info(f"[CookieSentinel] WebView2 {plat} Cookie 同步完成")
+                        else:
+                            logger.info(f"[CookieSentinel] WebView2 模式：无 {plat} 缓存 Cookie")
+
+                    self._last_update = datetime.now()
                     return
 
                 # 获取期望的来源标识
@@ -406,9 +404,11 @@ class CookieSentinel:
                     # 手动导入文件，直接复制
                     success = self._copy_from_auth_service()
                     if success:
-                        # 复用 auth_service 验证 Cookie 有效性，供 UI 层 check_cookie_status 使用
-                        auth_service._update_status_from_file(str(self.cookie_path), "youtube")
-                        self._save_meta("file", auth_service.last_status.cookie_count, "youtube")
+                        for plat in ("youtube", "twitter"):
+                            plat_path = self.get_cookie_path_for_platform(plat)
+                            if plat_path.exists():
+                                auth_service._update_status_from_file(str(plat_path), plat)
+                                self._save_meta("file", auth_service.last_status.cookie_count, plat)
                         logger.info("[CookieSentinel] 已复制手动导入的Cookie文件")
                     else:
                         logger.warning("[CookieSentinel] 手动导入的Cookie文件不存在或无效")
@@ -681,18 +681,18 @@ class CookieSentinel:
         """
         success_any = False
         platforms = [platform] if platform else ["youtube", "twitter"]
-        for platform in platforms:
+        for plat in platforms:
             try:
                 # 通过 AuthService 获取 Cookie 文件
                 # force=True 时会触发 UAC（如果需要）
                 auth_cookie_file = auth_service.get_cookie_file_for_ytdlp(
-                    platform=platform, force_refresh=force
+                    platform=plat, force_refresh=force
                 )
 
                 if auth_cookie_file and Path(auth_cookie_file).exists():
                     import shutil
 
-                    dest_path = self.get_cookie_path_for_platform(platform)
+                    dest_path = self.get_cookie_path_for_platform(plat)
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(auth_cookie_file, dest_path)
 
@@ -700,17 +700,17 @@ class CookieSentinel:
 
                     source_id = auth_service.current_source.value
                     if auth_service.current_source == AuthSourceType.WEBVIEW2:
-                        account = auth_service.get_current_webview2_account(platform=platform)
+                        account = auth_service.get_current_webview2_account(platform=plat)
                         source_id = f"webview2:{account.account_id}" if account else "webview2"
 
-                    self._save_meta(source_id, auth_service.last_status.cookie_count, platform)
+                    self._save_meta(source_id, auth_service.last_status.cookie_count, plat)
                     success_any = True
-                    logger.info(f"[CookieSentinel] {platform} Cookie 已更新: {dest_path}")
+                    logger.info(f"[CookieSentinel] {plat} Cookie 已更新: {dest_path}")
             except Exception as e:
                 if silent:
-                    logger.debug(f"[CookieSentinel] {platform} 静默更新失败: {e}")
+                    logger.debug(f"[CookieSentinel] {plat} 静默更新失败: {e}")
                 else:
-                    logger.warning(f"[CookieSentinel] {platform} 更新失败: {e}")
+                    logger.warning(f"[CookieSentinel] {plat} 更新失败: {e}")
 
         if success_any:
             self._last_update = datetime.now()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from collections import deque
 from enum import Enum
@@ -35,26 +36,8 @@ from qfluentwidgets import (
 )
 from qframelesswindow import FramelessWindow
 
-from ...download.extract_manager import AsyncExtractManager
-from ...download.workers import EntryDetailWorker, InfoExtractWorker, VRInfoExtractWorker
-from ...models.mappers import VideoInfoMapper
-from ...models.subtitle_config import PlaylistSubtitleOverride
-from ...models.video_info import VideoInfo
-from ...models.video_task import VideoTask
-from ...processing import subtitle_service
-from ...utils.filesystem import sanitize_filename
-from ...utils.image_loader import get_image_loader
-from ...utils.logger import logger
-from ...utils.paths import resource_path
-from ...youtube.youtube_service import YoutubeServiceOptions
-from ..delegates.playlist_delegate import PlaylistItemDelegate
-from ..dialogs.playlist_subtitle_dialog import PlaylistSubtitleConfigDialog
-from ..dialogs.subtitle_picker_dialog import SubtitlePickerDialog, SubtitlePickerResult
-from ..models.playlist_model import PlaylistListModel
-from ..playlist_scheduler import PlaylistScheduler
-from .cover_selector import CoverSelectorWidget
-from .format_selector import VideoFormatSelectorWidget
-from .selection_dialog import (
+from fluentytdl.ui.components.dialogs.section_range_selector import SectionRangeSelector
+from fluentytdl.ui.components.dialogs.selection_dialog import (
     PlaylistFormatDialog,
     PlaylistPreviewWidget,
     _clean_audio_formats,
@@ -65,8 +48,29 @@ from .selection_dialog import (
     _infer_entry_thumbnail,
     _infer_entry_url,
 )
-from .subtitle_selector import SubtitleSelectorWidget
-from .vr_format_selector import VR_PRESETS, VRFormatSelectorWidget
+from fluentytdl.ui.components.platforms.cover import CoverSelectorWidget
+from fluentytdl.ui.components.platforms.subtitle import SubtitleSelectorWidget
+from fluentytdl.ui.components.platforms.vr import VR_PRESETS, VRFormatSelectorWidget
+from fluentytdl.ui.components.platforms.youtube import VideoFormatSelectorWidget
+
+from ....core.section_download import build_section_opts, section_filename_suffix
+from ....download.extract_manager import AsyncExtractManager
+from ....download.workers import EntryDetailWorker, InfoExtractWorker, VRInfoExtractWorker
+from ....models.mappers import VideoInfoMapper
+from ....models.subtitle_config import PlaylistSubtitleOverride
+from ....models.video_info import VideoInfo
+from ....models.video_task import VideoTask
+from ....processing import subtitle_service
+from ....utils.filesystem import sanitize_filename
+from ....utils.image_loader import get_image_loader
+from ....utils.logger import logger
+from ....utils.paths import resource_path
+from ....youtube.youtube_service import YoutubeServiceOptions
+from ...delegates.playlist_delegate import PlaylistItemDelegate
+from ...dialogs.playlist_subtitle_dialog import PlaylistSubtitleConfigDialog
+from ...dialogs.subtitle_picker_dialog import SubtitlePickerDialog, SubtitlePickerResult
+from ...models.playlist_model import PlaylistListModel
+from ...playlist_scheduler import PlaylistScheduler
 
 
 class _PlaylistModelRowProxy:
@@ -262,6 +266,42 @@ def _normalize_info_payload(info: Any) -> dict[str, Any]:
     return normalized
 
 
+def _section_stream_metadata(
+    formats: Any, format_expr: str, section_duration: float, full_duration: float
+) -> tuple[str, int]:
+    """Describe the selected source streams and estimate their clip bytes."""
+    if not isinstance(formats, list) or section_duration <= 0 or full_duration <= 0:
+        return "", 0
+    selected_ids = set(re.findall(r"(?<![\w-])(\d+)(?![\w-])", format_expr or ""))
+    selected = [
+        item
+        for item in formats
+        if isinstance(item, dict) and str(item.get("format_id") or "") in selected_ids
+    ]
+    has_video = any(str(item.get("vcodec") or "none").lower() != "none" for item in selected)
+    has_audio = any(str(item.get("acodec") or "none").lower() != "none" for item in selected)
+    has_muxed = any(
+        str(item.get("vcodec") or "none").lower() != "none"
+        and str(item.get("acodec") or "none").lower() != "none"
+        for item in selected
+    )
+    layout = (
+        "muxed"
+        if has_muxed
+        else ("video_audio" if has_video and has_audio else ("video" if has_video else "audio"))
+    )
+    source_bytes = sum(
+        int(item.get("filesize") or item.get("filesize_approx") or 0) for item in selected
+    )
+    if not source_bytes:
+        # YouTube often omits an exact file size but supplies total bitrate.
+        # Estimate the requested range from stream bitrate in that case.
+        total_kbps = sum(float(item.get("tbr") or 0.0) for item in selected)
+        if total_kbps > 0:
+            source_bytes = int(total_kbps * 1000 / 8 * full_duration)
+    return layout, int(source_bytes * section_duration / full_duration) if source_bytes else 0
+
+
 class DownloadConfigWindow(FramelessWindow):
     """
     独立非模态下载配置窗口
@@ -296,7 +336,7 @@ class DownloadConfigWindow(FramelessWindow):
         self.video_info: dict[str, Any] | None = None
         self.video_info_dto: VideoInfo | None = None
         try:
-            from ...core.config_manager import config_manager
+            from ....core.config_manager import config_manager
 
             self._download_dir = str(config_manager.get("download_dir") or "").strip()
         except Exception:
@@ -367,6 +407,8 @@ class DownloadConfigWindow(FramelessWindow):
         self._subtitle_embed_choice: bool | None = None
         self._subtitle_choice_made = False
         self._subtitle_pick_result: SubtitlePickerResult | None = None
+        self._section_selector: SectionRangeSelector | None = None
+        self._subtitle_state_before_section: tuple[bool, bool] | None = None
         self._playlist_sub_override: PlaylistSubtitleOverride | None = None
 
         # P4: 使用全局单例，所有窗口共享同一个 NetworkManager
@@ -692,7 +734,7 @@ class DownloadConfigWindow(FramelessWindow):
         self._playlist_format_override = None
 
         # 绑定全局组件更新信号
-        from ...core.dependency_manager import dependency_manager
+        from ....core.dependency_manager import dependency_manager
 
         dependency_manager.check_finished.connect(self._on_dep_check_finished)
         dependency_manager.install_finished.connect(self._on_dep_install_finished)
@@ -812,8 +854,8 @@ class DownloadConfigWindow(FramelessWindow):
             else:
                 self.playlist_subtitle_pick_btn.setText(f"已选 {len(langs)} 种语言 ✓")
 
-    def _build_single_option_switches(self) -> QWidget:
-        from ...core.config_manager import config_manager
+    def _build_single_option_switches(self, platform: str = "youtube") -> QWidget:
+        from ....core.config_manager import config_manager
 
         container = QWidget(self.contentWidget)
         layout = QHBoxLayout(container)
@@ -822,6 +864,8 @@ class DownloadConfigWindow(FramelessWindow):
 
         title = CaptionLabel(self.tr("下载选项"), container)
         layout.addWidget(title)
+
+        is_twitter = platform == "twitter"
 
         sub_enabled = config_manager.get_subtitle_config().enabled
         self.subtitle_check = self._add_labeled_toggle(
@@ -833,6 +877,10 @@ class DownloadConfigWindow(FramelessWindow):
         self.subtitle_pick_btn.setEnabled(sub_enabled)
         self.subtitle_pick_btn.clicked.connect(self._on_subtitle_pick_clicked)
         layout.addWidget(self.subtitle_pick_btn)
+
+        if is_twitter:
+            self.subtitle_check.hide()
+            self.subtitle_pick_btn.hide()
 
         # 联动：开关变化时控制按钮可用性
         self.subtitle_check.checkedChanged.connect(
@@ -865,7 +913,7 @@ class DownloadConfigWindow(FramelessWindow):
         return container
 
     def _build_playlist_option_switches(self) -> QWidget:
-        from ...core.config_manager import config_manager
+        from ....core.config_manager import config_manager
 
         container = QWidget(self.contentWidget)
         layout = QHBoxLayout(container)
@@ -879,7 +927,7 @@ class DownloadConfigWindow(FramelessWindow):
             layout.addWidget(CaptionLabel(self.tr("全局下载语言:"), container))
             from qfluentwidgets import ComboBox
 
-            from ...processing.subtitle_manager import COMMON_SUBTITLE_LANGUAGES
+            from ....processing.subtitle_manager import COMMON_SUBTITLE_LANGUAGES
 
             self.playlist_subtitle_lang_combo = ComboBox(container)
             self.playlist_subtitle_lang_combo.addItem(
@@ -999,7 +1047,7 @@ class DownloadConfigWindow(FramelessWindow):
             warnings = getattr(self, "_preflight_warnings", [])
             if warnings:
                 # 弹窗询问
-                from ..dialogs.quality_report_dialog import QualityReportDialog
+                from ...dialogs.quality_report_dialog import QualityReportDialog
 
                 if not QualityReportDialog(warnings, self).exec():
                     return
@@ -1023,7 +1071,7 @@ class DownloadConfigWindow(FramelessWindow):
             y_offset = 30
             x_offset = 25
         elif self._vr_mode:
-            w, h = 880, 620
+            w, h = 880, 750
             y_offset = 80
             x_offset = 0
         elif self._mode in ("subtitle", "cover"):
@@ -1031,8 +1079,8 @@ class DownloadConfigWindow(FramelessWindow):
             y_offset = 30
             x_offset = 0
         else:
-            w, h = 760, 520
-            y_offset = 110
+            w, h = 760, 750
+            y_offset = 80
             x_offset = 0
 
         target_geo = self._get_target_geometry(w, h, y_offset, x_offset)
@@ -1122,7 +1170,7 @@ class DownloadConfigWindow(FramelessWindow):
             pass
 
         try:
-            from ...core.dependency_manager import dependency_manager
+            from ....core.dependency_manager import dependency_manager
 
             dependency_manager.check_finished.disconnect(self._on_dep_check_finished)
             dependency_manager.install_finished.disconnect(self._on_dep_install_finished)
@@ -1170,12 +1218,12 @@ class DownloadConfigWindow(FramelessWindow):
         )
         self._current_options = None
 
-        from ...utils.validators import UrlValidator
+        from ....utils.validators import UrlValidator
 
         self._is_channel = UrlValidator.is_channel_url(self.url)
 
         if self._is_channel:
-            from ...download.workers import ChannelExtractWorker
+            from ....download.workers import ChannelExtractWorker
 
             target_tabs = (
                 ["videos", "shorts", "streams"] if self._target_tab == "all" else [self._target_tab]
@@ -1282,7 +1330,7 @@ class DownloadConfigWindow(FramelessWindow):
 
         # === 智能 VR 检测 ===
         if self._smart_detect:
-            from ...core.video_analyzer import check_is_vr_content
+            from ....core.video_analyzer import check_is_vr_content
 
             is_vr = check_is_vr_content(info_dict)
 
@@ -1323,7 +1371,7 @@ class DownloadConfigWindow(FramelessWindow):
         )
 
         # 频道检测：通过 URL 模式判断
-        from ...utils.validators import UrlValidator
+        from ....utils.validators import UrlValidator
 
         self._is_channel = UrlValidator.is_channel_url(self.url)
 
@@ -1332,10 +1380,7 @@ class DownloadConfigWindow(FramelessWindow):
         if self._is_playlist:
             self.titleLabel.show()
             self.yesButton.setEnabled(False)
-            if UrlValidator.is_x_url(self.url):
-                self.setup_twitter_playlist_ui(info_dict)
-            else:
-                self.setup_playlist_ui(info_dict)
+            self.setup_playlist_ui(info_dict)
         else:
             self.titleLabel.hide()
             self.yesButton.setEnabled(True)
@@ -1360,8 +1405,8 @@ class DownloadConfigWindow(FramelessWindow):
     def _run_cookie_precheck(self) -> None:
         """窗口打开时本地预检 Cookie 状态（零网络消耗）"""
         try:
-            from ...auth.auth_service import AuthSourceType, auth_service
-            from ...auth.cookie_sentinel import cookie_sentinel
+            from ....auth.auth_service import AuthSourceType, auth_service
+            from ....auth.cookie_sentinel import cookie_sentinel
 
             if auth_service.current_source == AuthSourceType.NONE:
                 return  # 未启用验证，不预检
@@ -1438,8 +1483,8 @@ class DownloadConfigWindow(FramelessWindow):
 
         raw_error = str(err_data.get("raw_error") or "")
 
-        from ...models.errors import ErrorCode
-        from ...utils.error_parser import diagnose_error
+        from ....models.errors import ErrorCode
+        from ....utils.error_parser import diagnose_error
 
         code_val = err_data.get("code")
         if code_val is not None:
@@ -1515,8 +1560,16 @@ class DownloadConfigWindow(FramelessWindow):
         idx = self.viewLayout.indexOf(self.titleLabel)
         self.viewLayout.insertWidget(idx + 1 if idx >= 0 else 1, self._error_label)
 
+        fix_action = err_data.get("fix_action")
+        if not fix_action and "diag" in locals():
+            fix_action = diag.fix_action
+
         # === 根据分类决定显示哪个面板 ===
-        if category in (
+        if fix_action == "update_component":
+            self._switch_to_state(WindowState.ERROR_COOKIE)
+            self._authSegment.setCurrentItem("update")
+            self.networkDiagWidget.hide()
+        elif category in (
             ErrorCode.LOGIN_REQUIRED,
             ErrorCode.COOKIE_EXPIRED,
             ErrorCode.RATE_LIMITED,
@@ -1562,7 +1615,7 @@ class DownloadConfigWindow(FramelessWindow):
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
 
-        from ...utils.error_parser import generate_issue_url
+        from ....utils.error_parser import generate_issue_url
 
         issue_url = generate_issue_url(title, raw_error)
         QDesktopServices.openUrl(QUrl(issue_url))
@@ -1596,7 +1649,7 @@ class DownloadConfigWindow(FramelessWindow):
             finished = QSignal(bool)
 
             def run(self):
-                from ...utils.error_parser import probe_youtube_connectivity
+                from ....utils.error_parser import probe_youtube_connectivity
 
                 result = probe_youtube_connectivity(timeout=8.0)
                 self.finished.emit(result)
@@ -1651,8 +1704,8 @@ class DownloadConfigWindow(FramelessWindow):
 
     def _on_webview2_retry_clicked(self) -> None:
         """WebView2 登录模式重试"""
-        from ...auth.auth_service import AuthSourceType, auth_service
-        from ...auth.cookie_sentinel import cookie_sentinel
+        from ....auth.auth_service import AuthSourceType, auth_service
+        from ....auth.cookie_sentinel import cookie_sentinel
 
         self._reload_webview2_account_combo()
 
@@ -1699,7 +1752,7 @@ class DownloadConfigWindow(FramelessWindow):
             self._dleRetryBtn.setText(self.tr("登录 YouTube 并重试"))
             if success:
                 try:
-                    from ...auth.cookie_sentinel import cookie_sentinel
+                    from ....auth.cookie_sentinel import cookie_sentinel
 
                     cur_acc = auth_service.get_current_webview2_account(platform=platform)
                     acc_cookie = cur_acc.cached_cookie_path if cur_acc else self.tr("未知")
@@ -1725,7 +1778,7 @@ class DownloadConfigWindow(FramelessWindow):
     def _reload_webview2_account_combo(self) -> None:
         """刷新 WebView2 账号下拉列表"""
         try:
-            from ...auth.auth_service import auth_service
+            from ....auth.auth_service import auth_service
 
             accounts = auth_service.list_webview2_accounts(platform=None)
             self._webview2_account_ids = [a.account_id for a in accounts]
@@ -1756,8 +1809,8 @@ class DownloadConfigWindow(FramelessWindow):
 
     def _on_extract_retry_clicked(self) -> None:
         """浏览器提取模式重试"""
-        from ...auth.auth_service import AuthSourceType, auth_service
-        from ...auth.cookie_sentinel import cookie_sentinel
+        from ....auth.auth_service import AuthSourceType, auth_service
+        from ....auth.cookie_sentinel import cookie_sentinel
 
         idx = self._extractCombo.currentIndex()
         source_map = [
@@ -1815,7 +1868,7 @@ class DownloadConfigWindow(FramelessWindow):
 
     def _on_import_retry_clicked(self) -> None:
         """手动导入模式重试"""
-        from ...auth.auth_service import AuthSourceType, auth_service
+        from ....auth.auth_service import AuthSourceType, auth_service
 
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -1835,7 +1888,7 @@ class DownloadConfigWindow(FramelessWindow):
         self._updateRing.show()
         self._updateStatusLabel.setText(self.tr("正在检查更新..."))
 
-        from ...core.dependency_manager import dependency_manager
+        from ....core.dependency_manager import dependency_manager
 
         dependency_manager.check_update("yt-dlp")
 
@@ -1845,7 +1898,7 @@ class DownloadConfigWindow(FramelessWindow):
         # check update_available
         if data.get("update_available", False) or data.get("local_version") == self.tr("未安装"):
             self._updateStatusLabel.setText(self.tr("发现新版本，正在后台下载安装..."))
-            from ...core.dependency_manager import dependency_manager
+            from ....core.dependency_manager import dependency_manager
 
             dependency_manager.install_component("yt-dlp")
         else:
@@ -1875,7 +1928,7 @@ class DownloadConfigWindow(FramelessWindow):
         self._updateRing.hide()
         self._updateStatusLabel.setText(f"❌ 更新异常: {msg}")
 
-        from ...core.config_manager import config_manager
+        from ....core.config_manager import config_manager
 
         config_manager.set("cookie_file", "")
 
@@ -1953,26 +2006,57 @@ class DownloadConfigWindow(FramelessWindow):
             self._ensure_download_dir_bar()
 
     def setup_default_mode_ui(self, info: dict[str, Any]) -> None:
-        is_twitter = False
-        try:
-            from ...utils.validators import UrlValidator
+        from fluentytdl.ui.components.platforms.youtube import VideoFormatSelectorWidget
 
-            if UrlValidator.is_x_url(self.url):
-                is_twitter = True
-        except Exception:
-            pass
+        from ....utils.url_router import url_router
 
-        self.selector_widget = VideoFormatSelectorWidget(
-            info, self.contentWidget, is_twitter=is_twitter
-        )
+        platform = url_router.detect_platform(self.url) if self.url else "youtube"
+        self.selector_widget = VideoFormatSelectorWidget(info, self.contentWidget)
+
         self.contentLayout.addWidget(self.selector_widget)
 
-        if not is_twitter:
-            self.options_container = self._build_single_option_switches()
-            self.contentLayout.addWidget(self.options_container)
+        self.options_container = self._build_single_option_switches(platform=platform)
+        self.contentLayout.addWidget(self.options_container)
+
+        # Sections require a known finite duration and are intentionally scoped
+        # to normal YouTube videos in this first release.
+        duration = float(info.get("duration") or 0.0)
+        if platform == "youtube" and duration > 0 and not info.get("is_live"):
+            self._section_selector = SectionRangeSelector(duration, self.contentWidget)
+            self._section_selector.enabledChanged.connect(self._on_section_enabled_changed)
+            self._section_selector.selectionChanged.connect(self._on_section_selection_changed)
+            self.contentLayout.addWidget(self._section_selector)
+
+    def _on_section_selection_changed(self) -> None:
+        """Do not route a single-video control through playlist button logic."""
+        selector = self._section_selector
+        if not self._is_playlist and selector is not None:
+            self.yesButton.setEnabled(selector.is_valid())
+
+    def _on_section_enabled_changed(self, enabled: bool) -> None:
+        """Keep subtitles mutually exclusive with v1 clip downloads."""
+        if not hasattr(self, "subtitle_check") or not hasattr(self, "subtitle_pick_btn"):
+            return
+        if enabled:
+            self._subtitle_state_before_section = (
+                self.subtitle_check.isChecked(),
+                self.subtitle_pick_btn.isEnabled(),
+            )
+            self.subtitle_check.setChecked(False)
+            self.subtitle_check.setEnabled(False)
+            self.subtitle_pick_btn.setEnabled(False)
+            self.subtitle_pick_btn.setToolTip(self.tr("视频裁切暂不支持字幕"))
+        else:
+            was_enabled, _ = self._subtitle_state_before_section or (False, False)
+            self.subtitle_check.setEnabled(True)
+            self.subtitle_check.setChecked(was_enabled)
+            self.subtitle_pick_btn.setEnabled(was_enabled)
+            self.subtitle_pick_btn.setToolTip("")
+            self._subtitle_state_before_section = None
 
     def setup_vr_mode_ui(self, info: dict[str, Any]) -> None:
         self.selector_widget = VRFormatSelectorWidget(info, self.contentWidget)
+
         self.contentLayout.addWidget(self.selector_widget)
         self.options_container = self._build_single_option_switches()
         self.contentLayout.addWidget(self.options_container)
@@ -1990,84 +2074,6 @@ class DownloadConfigWindow(FramelessWindow):
         self.contentLayout.addWidget(self.selector_widget)
 
     # === 播放列表 UI ===
-
-    def setup_twitter_playlist_ui(self, info: dict[str, Any]) -> None:
-        title = str(info.get("title") or self.tr("推文媒体列表"))
-        count = 0
-        entries = info.get("entries") or []
-        if isinstance(entries, list):
-            count = len(entries)
-
-        self.titleLabel.setText(self.tr("推文媒体：{}（{} 条）").format(title, count))
-        self.titleLabel.show()
-
-        from qfluentwidgets import SmoothScrollArea
-
-        scroll_area = SmoothScrollArea(self.contentWidget)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(SmoothScrollArea.Shape.NoFrame)
-        scroll_area.setStyleSheet(
-            "SmoothScrollArea { background: transparent; border: none; } "
-            "QWidget#scrollWidget { background: transparent; }"
-        )
-
-        scroll_content = QWidget()
-        scroll_content.setObjectName("scrollWidget")
-        scroll_layout = QVBoxLayout(scroll_content)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)
-        scroll_layout.setSpacing(12)
-
-        self._twitter_selectors = []
-        self._twitter_thumb_labels = {}
-        from qfluentwidgets import CardWidget, ImageLabel, SubtitleLabel
-
-        from .format_selector import VideoFormatSelectorWidget
-
-        for i, entry in enumerate(entries):
-            if not isinstance(entry, dict):
-                continue
-
-            card = CardWidget(scroll_content)
-            card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(16, 16, 16, 16)
-            card_layout.setSpacing(12)
-
-            # Header: Thumbnail + Title
-            header_layout = QHBoxLayout()
-            header_layout.setContentsMargins(0, 0, 0, 0)
-            header_layout.setSpacing(12)
-
-            thumb_label = ImageLabel(card)
-            thumb_label.setFixedSize(120, 68)
-            thumb_label.setBorderRadius(4, 4, 4, 4)
-            thumb_label.setScaledContents(True)
-            thumb_url = entry.get("thumbnail") or ""
-            if thumb_url:
-                self._twitter_thumb_labels[thumb_url] = thumb_label
-                self.image_loader.load(thumb_url, target_size=(120, 68), radius=4)
-            else:
-                thumb_label.setStyleSheet("background: rgba(0,0,0,0.1); border-radius: 4px;")
-
-            header_layout.addWidget(thumb_label)
-
-            title_text = entry.get("title") or f"媒体片段 {i + 1}"
-            title_label = SubtitleLabel(title_text, card)
-            title_label.setWordWrap(True)
-            title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            header_layout.addWidget(title_label, 1)
-
-            card_layout.addLayout(header_layout)
-
-            selector = VideoFormatSelectorWidget(entry, card, is_twitter=True)
-            card_layout.addWidget(selector)
-
-            scroll_layout.addWidget(card)
-            self._twitter_selectors.append((entry, selector))
-
-        scroll_layout.addStretch(1)
-        scroll_area.setWidget(scroll_content)
-        self.contentLayout.addWidget(scroll_area)
-        self.yesButton.setEnabled(True)
 
     def setup_playlist_ui(self, info: dict[str, Any]) -> None:
         title = str(info.get("title") or self.tr("播放列表"))
@@ -2199,7 +2205,7 @@ class DownloadConfigWindow(FramelessWindow):
 
             # Initial default global format for non-VR playlists
             if self._is_playlist and self._mode not in ("subtitle", "cover"):
-                from ...models.playlist_format import PlaylistGlobalFormatOverride
+                from ....models.playlist_format import PlaylistGlobalFormatOverride
 
                 self._playlist_format_override = PlaylistGlobalFormatOverride(
                     download_type="video_audio",
@@ -2220,7 +2226,7 @@ class DownloadConfigWindow(FramelessWindow):
         self.concurrency_combo = ComboBox(self.contentWidget)
         self.concurrency_combo.addItems(["1", "2", "3", "5", "8", "12", "16"])
 
-        from ...core.config_manager import config_manager
+        from ....core.config_manager import config_manager
 
         curr_val = int(config_manager.get("playlist_extract_concurrency", 2))
         try:
@@ -2259,7 +2265,7 @@ class DownloadConfigWindow(FramelessWindow):
         self._list_view = list_view
         self._playlist_model = playlist_model
         self._playlist_delegate = playlist_delegate
-        from ...core.config_manager import config_manager
+        from ....core.config_manager import config_manager
 
         concurrency = int(config_manager.get("playlist_extract_concurrency", 2))
         self._extract_manager = AsyncExtractManager(max_concurrent=concurrency, parent=self)
@@ -2411,7 +2417,7 @@ class DownloadConfigWindow(FramelessWindow):
                 return str(self._playlist_rows[row].get("url") or "").strip() or None
             return None
 
-        from ...core.config_manager import config_manager
+        from ....core.config_manager import config_manager
 
         concurrency = int(config_manager.get("playlist_extract_concurrency", 3))
         scheduler = PlaylistScheduler(
@@ -2485,7 +2491,7 @@ class DownloadConfigWindow(FramelessWindow):
 
         # 重新连接 dependency_manager 信号
         try:
-            from ...core.dependency_manager import dependency_manager
+            from ....core.dependency_manager import dependency_manager
 
             dependency_manager.check_finished.connect(self._on_dep_check_finished)
             dependency_manager.install_finished.connect(self._on_dep_install_finished)
@@ -2562,7 +2568,7 @@ class DownloadConfigWindow(FramelessWindow):
             show_ring=True,
         )
 
-        from ...download.workers import ChannelExtractWorker
+        from ....download.workers import ChannelExtractWorker
 
         w = ChannelExtractWorker(self.url, needs_fetch, self._current_options)
         w.progress.connect(self._on_channel_progress)
@@ -2714,7 +2720,7 @@ class DownloadConfigWindow(FramelessWindow):
         override = getattr(self, "_playlist_format_override", None)
         if override is not None:
             aw.set_loading(False)
-            from .format_selector import resolve_global_format
+            from fluentytdl.ui.components.platforms.youtube import resolve_global_format
 
             fmt_str, _ = resolve_global_format(data.get("detail"), override)
 
@@ -3041,7 +3047,7 @@ class DownloadConfigWindow(FramelessWindow):
         vals = [1, 2, 3, 5, 8, 12, 16]
         if 0 <= index < len(vals):
             new_val = vals[index]
-            from ...core.config_manager import config_manager
+            from ....core.config_manager import config_manager
 
             config_manager.set("playlist_extract_concurrency", new_val)
             if self._extract_manager:
@@ -3050,7 +3056,7 @@ class DownloadConfigWindow(FramelessWindow):
                 self._scheduler.set_concurrency(new_val)
 
     def _on_global_format_clicked(self):
-        from ..dialogs.playlist_format_dialog import PlaylistFormatConfigDialog
+        from ...dialogs.playlist_format_dialog import PlaylistFormatConfigDialog
 
         dialog = PlaylistFormatConfigDialog(
             current_override=self._playlist_format_override, parent=self
@@ -3580,7 +3586,7 @@ class DownloadConfigWindow(FramelessWindow):
     def _handle_container_conflict(self, ydl_opts: dict) -> bool:
         from qfluentwidgets import BodyLabel, MessageBoxBase, PushButton, SubtitleLabel
 
-        from ...utils.container_compat import (
+        from ....utils.container_compat import (
             check_audio_multistream_container_compat,
             check_subtitle_container_compat,
         )
@@ -3777,13 +3783,9 @@ class DownloadConfigWindow(FramelessWindow):
                 ydl_opts["__fluentytdl_format_note"] = self.tr("最佳画质")
 
             # Apply checkbox overrides if available (Default Mode)
-            is_twitter = False
-            try:
-                from ...utils.validators import UrlValidator
+            from ....utils.url_router import url_router
 
-                is_twitter = UrlValidator.is_x_url(url)
-            except Exception:
-                pass
+            is_twitter = url_router.detect_platform(url) == "twitter"
 
             sub_config_override = None
             if is_twitter:
@@ -3796,7 +3798,7 @@ class DownloadConfigWindow(FramelessWindow):
             elif hasattr(self, "subtitle_check"):
                 import copy
 
-                from ...core.config_manager import config_manager
+                from ....core.config_manager import config_manager
 
                 # Subtitles
                 sub_config_override = copy.deepcopy(config_manager.get_subtitle_config())
@@ -3816,11 +3818,14 @@ class DownloadConfigWindow(FramelessWindow):
                 # Metadata
                 ydl_opts["addmetadata"] = self.metadata_check.isChecked()
 
-            # 字幕集成
-            if self.video_info and not is_twitter:
+            section_selector = getattr(self, "_section_selector", None)
+            section_enabled = bool(section_selector and section_selector.is_enabled())
+
+            # 字幕集成。裁切下载在首期与字幕互斥，避免原时间轴字幕错位。
+            if self.video_info and not is_twitter and not section_enabled:
                 pick = getattr(self, "_subtitle_pick_result", None)
                 if pick and pick.selected_tracks:
-                    from ...processing.subtitle_service import build_subtitle_opts_from_tracks
+                    from ....processing.subtitle_service import build_subtitle_opts_from_tracks
 
                     sub_opts = build_subtitle_opts_from_tracks(pick.selected_tracks)
                     ydl_opts.update(sub_opts)
@@ -3844,7 +3849,7 @@ class DownloadConfigWindow(FramelessWindow):
                         if sub_config_override:
                             embed_type = sub_config_override.embed_type
                         else:
-                            from ...core.config_manager import config_manager as cfg
+                            from ....core.config_manager import config_manager as cfg
 
                             embed_type = cfg.get_subtitle_config().embed_type
 
@@ -3854,7 +3859,7 @@ class DownloadConfigWindow(FramelessWindow):
                             ydl_opts["embedsubtitles"] = False
 
                 # Check explicit conflict
-                from ...utils.container_compat import (
+                from ....utils.container_compat import (
                     ensure_audio_multistream_compatible_container,
                     ensure_subtitle_compatible_container,
                 )
@@ -3873,7 +3878,7 @@ class DownloadConfigWindow(FramelessWindow):
 
             # === Quality Guard Pre-flight Check (Single Video) ===
             if self._mode not in ("subtitle", "cover") and not ydl_opts.get("skip_download"):
-                from ...download.quality_guard import resolve_format_with_guard
+                from ....download.quality_guard import resolve_format_with_guard
 
                 original_format = ydl_opts.get("format", "bestvideo+bestaudio/best")
                 intent_max_height = None
@@ -3906,6 +3911,24 @@ class DownloadConfigWindow(FramelessWindow):
                     if not hasattr(self, "_preflight_warnings"):
                         self._preflight_warnings = []
                     self._preflight_warnings.append((title, verdict))
+
+            if section_enabled and section_selector:
+                time_range = section_selector.get_time_range()
+                if time_range is None:
+                    raise ValueError(self.tr("视频裁切时间范围无效"))
+                ydl_opts.update(build_section_opts(time_range, section_selector.get_cut_mode()))
+                layout, estimated_bytes = _section_stream_metadata(
+                    info.get("formats"),
+                    str(ydl_opts.get("format") or ""),
+                    time_range.duration_seconds or 0.0,
+                    float(info.get("duration") or 0.0),
+                )
+                ydl_opts["__fluentytdl_section_stream_layout"] = layout
+                ydl_opts["__fluentytdl_section_estimated_bytes"] = estimated_bytes
+                ydl_opts["writesubtitles"] = False
+                ydl_opts["writeautomaticsub"] = False
+                ydl_opts["embedsubtitles"] = False
+                ydl_opts["outtmpl"] = f"%(title)s{section_filename_suffix(time_range)}.%(ext)s"
 
             self._apply_download_dir_to_opts(ydl_opts)
 
@@ -3945,7 +3968,7 @@ class DownloadConfigWindow(FramelessWindow):
 
         import copy
 
-        from ...core.config_manager import config_manager
+        from ....core.config_manager import config_manager
 
         # Prepare Overrides
         pl_sub_override = copy.deepcopy(config_manager.get_subtitle_config())
@@ -4115,7 +4138,7 @@ class DownloadConfigWindow(FramelessWindow):
 
             elif getattr(self, "_playlist_format_override", None) is not None:
                 # Playlist Global Format Config
-                from .format_selector import resolve_global_format
+                from fluentytdl.ui.components.platforms.youtube import resolve_global_format
 
                 fmt_str, e_opts = resolve_global_format(
                     row_data.get("detail"), self._playlist_format_override
@@ -4262,7 +4285,7 @@ class DownloadConfigWindow(FramelessWindow):
 
             # === Quality Guard Pre-flight Check (Playlist/Channel) ===
             if self._mode not in ("subtitle", "cover") and not row_opts.get("skip_download"):
-                from ...download.quality_guard import resolve_format_with_guard
+                from ....download.quality_guard import resolve_format_with_guard
 
                 original_format = row_opts.get("format", "bestvideo+bestaudio/best")
 

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
-    BodyLabel,
     CaptionLabel,
     CardWidget,
     FluentIcon,
     LineEdit,
     PrimaryPushButton,
     PushButton,
+    StrongBodyLabel,
     SubtitleLabel,
 )
 
@@ -55,7 +56,9 @@ class SubtitleDownloadPage(QWidget):
         self.cardLayout.setContentsMargins(20, 20, 20, 20)
         self.cardLayout.setSpacing(15)
 
-        self.instructionLabel = BodyLabel(self.tr("在此处粘贴 YouTube 视频链接以下载字幕"), self)
+        self.instructionLabel = StrongBodyLabel(
+            self.tr("在此处粘贴 YouTube 视频链接以下载字幕"), self
+        )
         self.cardLayout.addWidget(self.instructionLabel)
 
         # Input row
@@ -94,6 +97,7 @@ class SubtitleDownloadPage(QWidget):
         )
         self.tipsLabel.setWordWrap(True)
         self.tipsLabel.setMaximumWidth(760)
+        self.tipsLabel.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         self.centerLayout.addWidget(self.tipsLabel)
 
         # Connect to theme changes

@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 import subprocess
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,13 @@ class TimeRange:
         if self.end_seconds is None:
             return f"{self.start_str}-结尾"
         return f"{self.start_str}-{self.end_str}"
+
+
+class SectionCutMode(str, Enum):
+    """yt-dlp section-cut quality policy."""
+
+    COARSE = "coarse"
+    PRECISE = "precise"
 
 
 def parse_time_input(text: str) -> float:
@@ -146,7 +154,9 @@ def _seconds_to_timestr(seconds: float) -> str:
         return f"{m}:{s:05.2f}"
 
 
-def build_section_opts(time_range: TimeRange) -> dict[str, Any]:
+def build_section_opts(
+    time_range: TimeRange, mode: SectionCutMode | str = SectionCutMode.COARSE
+) -> dict[str, Any]:
     """
     构建片段下载的 yt-dlp 选项
 
@@ -167,13 +177,22 @@ def build_section_opts(time_range: TimeRange) -> dict[str, Any]:
 
     opts["download_sections"] = section
 
-    # 强制使用 ffmpeg 进行片段切割
-    opts["force_keyframes_at_cuts"] = True
+    cut_mode = SectionCutMode(mode)
+    opts["__fluentytdl_section_cut_mode"] = cut_mode.value
+    opts["__fluentytdl_section_duration"] = time_range.duration_seconds or 0.0
+    opts["__fluentytdl_section_start"] = time_range.start_seconds
+    opts["__fluentytdl_section_end"] = time_range.end_seconds
+    # Precise cuts re-encode around cut points. Coarse cuts keep the original
+    # streams and therefore naturally align to nearby keyframes.
+    if cut_mode is SectionCutMode.PRECISE:
+        opts["force_keyframes_at_cuts"] = True
 
     return opts
 
 
-def build_section_cli_args(time_range: TimeRange) -> list[str]:
+def build_section_cli_args(
+    time_range: TimeRange, mode: SectionCutMode | str = SectionCutMode.COARSE
+) -> list[str]:
     """
     构建片段下载的 CLI 参数
 
@@ -188,11 +207,24 @@ def build_section_cli_args(time_range: TimeRange) -> list[str]:
     else:
         section = f"*{time_range.start_seconds}-inf"
 
-    return [
-        "--download-sections",
-        section,
-        "--force-keyframes-at-cuts",
-    ]
+    args = ["--download-sections", section]
+    if SectionCutMode(mode) is SectionCutMode.PRECISE:
+        args.append("--force-keyframes-at-cuts")
+    return args
+
+
+def section_filename_suffix(time_range: TimeRange) -> str:
+    """Return a filesystem-safe, human-readable suffix for a section output."""
+
+    def _safe(seconds: float | None) -> str:
+        if seconds is None:
+            return "end"
+        total = int(round(seconds))
+        hours, remain = divmod(total, 3600)
+        minutes, secs = divmod(remain, 60)
+        return f"{hours:02d}-{minutes:02d}-{secs:02d}"
+
+    return f" [clip {_safe(time_range.start_seconds)}-{_safe(time_range.end_seconds)}]"
 
 
 def lossless_cut(

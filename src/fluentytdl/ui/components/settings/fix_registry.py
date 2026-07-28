@@ -67,11 +67,27 @@ def change_download_dir(parent_widget: QWidget) -> None:
         )
 
 
+def update_component(parent_widget: QWidget) -> None:
+    """更新核心组件"""
+    main_win = parent_widget.window()
+    settings_iface = getattr(main_win, "settings_interface", None)
+    if settings_iface is not None and hasattr(main_win, "switchTo"):
+        main_win.switchTo(settings_iface)  # type: ignore
+        InfoBar.info(
+            tr("组件更新"),
+            tr("请在设置页中检查并更新 yt-dlp 核心组件。"),
+            parent=main_win,
+            position=InfoBarPosition.TOP,
+            duration=5000,
+        )
+
+
 FIX_ACTIONS = {
     "relogin": do_relogin,
     "extract_cookie": extract_cookie,
     "switch_proxy": switch_proxy,
     "change_download_dir": change_download_dir,
+    "update_component": update_component,
 }
 
 

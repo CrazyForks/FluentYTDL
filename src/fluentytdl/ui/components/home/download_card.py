@@ -22,9 +22,9 @@ from qfluentwidgets import (
     TransparentToolButton,
 )
 
-from ...download.download_manager import download_manager
-from ...download.workers import DownloadWorker
-from ...utils.image_loader import ImageLoader
+from ....download.download_manager import download_manager
+from ....download.workers import DownloadWorker
+from ....utils.image_loader import ImageLoader
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
@@ -267,20 +267,25 @@ class DownloadItemCard(CardWidget):
 
         # Also forward to MainWindow if it provides a structured error dialog.
         try:
+            print("[DEBUG] Connecting worker.error to _forward_error_to_window")
             self.worker.error.connect(
                 self._forward_error_to_window, Qt.ConnectionType.UniqueConnection
             )
-        except Exception:
-            pass
+            print("[DEBUG] Connected successfully")
+        except Exception as e:
+            print(f"[ERROR] Failed to connect _forward_error_to_window: {e}")
 
     def _forward_error_to_window(self, err_data: dict) -> None:
+        print(f"[DEBUG] _forward_error_to_window called on DownloadCard for {self.url}")
         try:
             win = self.window()
+            print(f"[DEBUG] DownloadCard.window() is {win}")
             handler = getattr(win, "on_worker_error", None)
+            print(f"[DEBUG] handler found: {handler}")
             if callable(handler):
                 handler(err_data)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[ERROR] Exception in _forward_error_to_window: {e}")
 
     def _jump_to_settings(self, hint: str) -> None:
         """跳转到设置页并显示提示"""
@@ -457,7 +462,7 @@ class DownloadItemCard(CardWidget):
         if fix_action:
             # 如果包含诊断出的修复方案，使用 MessageBox 弹出并引导修复
             try:
-                from .fix_registry import execute_fix_action
+                from fluentytdl.ui.components.settings.fix_registry import execute_fix_action
 
                 detail_text = (
                     f"{technical_detail[:1000]}..."
@@ -531,7 +536,7 @@ class DownloadItemCard(CardWidget):
         if not box.exec():
             # Manual adjust: open selection dialog for this single video
             try:
-                from .selection_dialog import SelectionDialog
+                from fluentytdl.ui.components.dialogs.selection_dialog import SelectionDialog
             except Exception:
                 return
 

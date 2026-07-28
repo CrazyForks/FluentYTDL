@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
@@ -10,6 +11,8 @@ from qfluentwidgets import (
     IconWidget,
     PushButton,
     ScrollArea,
+    StrongBodyLabel,
+    SubtitleLabel,
     TransparentToolButton,
 )
 
@@ -44,7 +47,7 @@ class NotificationCard(QFrame):
         self.iconWidget = IconWidget(icon, self)
         self.iconWidget.setFixedSize(16, 16)
 
-        self.titleLabel = BodyLabel(notif.title, self)
+        self.titleLabel = StrongBodyLabel(notif.title, self)
         self.titleLabel.setWordWrap(False)
         if notif.severity in ("warning", "critical") and color:
             self.titleLabel.setStyleSheet(f"color: {color}; font-weight: bold;")
@@ -55,7 +58,7 @@ class NotificationCard(QFrame):
         dt = datetime.fromtimestamp(notif.timestamp)
         time_str = dt.strftime("%m-%d %H:%M")
         self.timeLabel = CaptionLabel(time_str, self)
-        self.timeLabel.setTextColor(Qt.GlobalColor.gray, Qt.GlobalColor.darkGray)
+        self.timeLabel.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
 
         self.deleteBtn = TransparentToolButton(FluentIcon.CLOSE, self)
         self.deleteBtn.setFixedSize(24, 24)
@@ -109,7 +112,7 @@ class NotificationFlyoutView(FlyoutViewBase):
 
         # 头部
         self.headerLayout = QHBoxLayout()
-        self.titleLabel = BodyLabel(self.tr("消息中心"), self)
+        self.titleLabel = SubtitleLabel(self.tr("消息中心"), self)
         font = self.titleLabel.font()
         font.setPixelSize(16)
         font.setBold(True)
@@ -143,7 +146,7 @@ class NotificationFlyoutView(FlyoutViewBase):
 
         self.emptyLabel = BodyLabel(self.tr("暂无通知"), self)
         self.emptyLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.emptyLabel.setTextColor(Qt.GlobalColor.gray, Qt.GlobalColor.darkGray)
+        self.emptyLabel.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         self.vBoxLayout.addWidget(self.emptyLabel)
         self.emptyLabel.hide()
 

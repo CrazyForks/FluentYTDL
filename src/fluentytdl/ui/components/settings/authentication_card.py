@@ -31,7 +31,7 @@ from qfluentwidgets import (
     SwitchButton,
 )
 
-from ...auth.auth_service import (
+from ....auth.auth_service import (
     AuthSourceType,
     AuthStatus,
     auth_service,
@@ -211,7 +211,7 @@ class AuthenticationCard(CardWidget):
 
     def _startup_refresh(self):
         """启动时自动刷新 Cookie"""
-        from ...utils.admin_utils import is_admin
+        from ....utils.admin_utils import is_admin
 
         current_source = auth_service.current_source
 

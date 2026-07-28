@@ -137,7 +137,7 @@ class BuildGUI(QMainWindow):
         self.setMinimumSize(700, 550)
 
         # 尝试设置图标
-        icon_path = ROOT / "assets" / "logo.ico"
+        icon_path = ROOT / "assets" / "FluentYTDL_v2.ico"
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
 

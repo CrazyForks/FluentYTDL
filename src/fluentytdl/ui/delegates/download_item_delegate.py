@@ -295,10 +295,19 @@ class DownloadItemDelegate(QStyledItemDelegate):
         )
 
         # --- 5. Buttons ---
-        def draw_button(name: str, rect: QRect, icon_enum: Any, hidden: bool = False):
+        def draw_button(
+            name: str,
+            rect: QRect,
+            icon_enum: Any,
+            hidden: bool = False,
+            interactive: bool = True,
+            custom_color: QColor | None = None,
+        ):
             if hidden:
                 return
-            is_btn_hovered = self._hovered_row == index.row() and self._hovered_button == name
+            is_btn_hovered = (
+                self._hovered_row == index.row() and self._hovered_button == name and interactive
+            )
 
             # Hover BG
             if is_btn_hovered:
@@ -309,10 +318,15 @@ class DownloadItemDelegate(QStyledItemDelegate):
 
             # Draw Icon (使用缓存，避免每帧 icon.pixmap() 热路径)
             theme = Theme.DARK if is_dark else Theme.LIGHT
-            cache_key = f"{icon_enum}_{theme}"
+            color_key = custom_color.name() if custom_color else "default"
+            cache_key = f"{icon_enum}_{theme}_{color_key}"
+
             icon_pixmap = self._icon_cache.get(cache_key)
             if icon_pixmap is None:
-                icon_pixmap = icon_enum.icon(theme=theme).pixmap(16, 16)
+                if custom_color:
+                    icon_pixmap = icon_enum.icon(color=custom_color).pixmap(16, 16)
+                else:
+                    icon_pixmap = icon_enum.icon(theme=theme).pixmap(16, 16)
                 self._icon_cache[cache_key] = icon_pixmap
 
             icon_x = rect.left() + (rect.width() - 16) // 2
@@ -325,13 +339,26 @@ class DownloadItemDelegate(QStyledItemDelegate):
         # Delete button (always show)
         draw_button("delete", hit_rects["delete"], qfw.FluentIcon.DELETE)
 
-        # Pause/Resume button
+        # Pause/Resume button (or completed checkmark)
         icon_enum = qfw.FluentIcon.PLAY
+        interactive = True
+        custom_color = None
+
         if state == "running" or state == "queued":
             icon_enum = qfw.FluentIcon.PAUSE
+        elif state == "completed":
+            icon_enum = qfw.FluentIcon.COMPLETED
+            interactive = False
+            custom_color = QColor(16, 124, 16) if not is_dark else QColor(114, 204, 114)
 
-        hide_pause = state == "completed"
-        draw_button("pause", hit_rects["pause"], icon_enum, hidden=hide_pause)
+        draw_button(
+            "pause",
+            hit_rects["pause"],
+            icon_enum,
+            hidden=False,
+            interactive=interactive,
+            custom_color=custom_color,
+        )
 
         painter.restore()
 

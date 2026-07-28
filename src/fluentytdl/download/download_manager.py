@@ -19,6 +19,9 @@ from .workers import DownloadWorker
 class DownloadManager(QObject):
     # 通知 UI：任务列表/状态变化（新增/结束/删除/暂停等）
     task_updated = Signal()
+    status_msg = Signal(str)
+    completed = Signal(str)
+    worker_error = Signal(dict)
 
     def __init__(self) -> None:
         super().__init__()
@@ -115,6 +118,16 @@ class DownloadManager(QObject):
     def _running_count(self) -> int:
         return sum(1 for w in self.active_workers if w.isRunning())
 
+    @staticmethod
+    def _is_precise_section_worker(worker: DownloadWorker) -> bool:
+        return getattr(worker, "opts", {}).get("__fluentytdl_section_cut_mode") == "precise"
+
+    def _has_running_precise_section(self) -> bool:
+        return any(
+            worker.isRunning() and self._is_precise_section_worker(worker)
+            for worker in self.active_workers
+        )
+
     def running_count(self) -> int:
         return self._running_count()
 
@@ -140,7 +153,20 @@ class DownloadManager(QObject):
 
         limit = self._max_concurrent()
         while self._pending_workers and self._running_count() < limit:
+            precise_running = self._has_running_precise_section()
+            candidate_index = next(
+                (
+                    index
+                    for index, worker in enumerate(self._pending_workers)
+                    if not (precise_running and self._is_precise_section_worker(worker))
+                ),
+                None,
+            )
+            if candidate_index is None:
+                break
+            self._pending_workers.rotate(-candidate_index)
             w = self._pending_workers.popleft()
+            self._pending_workers.rotate(candidate_index)
             try:
                 if w.isRunning() or w.isFinished():
                     continue
@@ -195,6 +221,7 @@ class DownloadManager(QObject):
 
         def _on_error(err: dict):
             self.task_updated.emit()
+            self.worker_error.emit(err)
 
         worker.unified_status.connect(_on_unified_status, Qt.ConnectionType.QueuedConnection)
         worker.output_path_ready.connect(_on_output_ready, Qt.ConnectionType.QueuedConnection)
@@ -225,7 +252,10 @@ class DownloadManager(QObject):
         if worker.isFinished():
             return False
 
-        if self._running_count() < self._max_concurrent():
+        can_start_precise = not (
+            self._is_precise_section_worker(worker) and self._has_running_precise_section()
+        )
+        if self._running_count() < self._max_concurrent() and can_start_precise:
             try:
                 worker.start()
                 self.task_updated.emit()

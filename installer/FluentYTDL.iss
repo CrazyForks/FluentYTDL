@@ -12,7 +12,7 @@
 
 ; --- 版本定义 (可通过命令行覆盖) ---
 #ifndef MyAppVersion
-  #define MyAppVersion "3.5.4"
+  #define MyAppVersion "3.5.5"
 #endif
 
 #ifndef SourceDir
@@ -68,7 +68,7 @@ AllowNoIcons=yes
 ; 输出配置
 OutputDir={#OutputDir}
 OutputBaseFilename={#OutputBaseFilename}
-SetupIconFile=..\assets\logo.ico
+SetupIconFile=..\assets\FluentYTDL_v2.ico
 
 ; 压缩配置 (LZMA2 最高压缩)
 Compression=lzma2/ultra64

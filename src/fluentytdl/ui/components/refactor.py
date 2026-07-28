@@ -7,7 +7,7 @@ with open(file_path, encoding="utf-8") as f:
 # 1. Imports
 content = content.replace(
     "from ..delegates.playlist_delegate import PlaylistItemDelegate\nfrom ..models.playlist_model import PlaylistListModel, PlaylistModelRoles",
-    "from .playlist_item_card import PlaylistItemCard",
+    "from fluentytdl.ui.components.home.playlist_item_card import PlaylistItemCard",
 )
 
 # 2. _PlaylistModelRowProxy

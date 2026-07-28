@@ -9,7 +9,7 @@ from PySide6.QtGui import QColor, QFont, QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout
 from qfluentwidgets import CaptionLabel, CheckBox, StrongBodyLabel
 
-from ...models.video_task import VideoTask
+from ....models.video_task import VideoTask
 
 
 class PlaylistItemCard(QFrame):

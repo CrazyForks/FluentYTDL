@@ -30,13 +30,14 @@ from qfluentwidgets import (
     TransparentToolButton,
 )
 
+from fluentytdl.ui.components.common.clipboard_monitor import ClipboardMonitor
+from fluentytdl.ui.components.dialogs.download_config_window import DownloadConfigWindow
+
 from ..core.config_manager import config_manager
 from ..download.download_manager import download_manager
 from ..utils.logger import logger
 from ..utils.paths import resource_path
 from .channel_parse_page import ChannelParsePage
-from .components.clipboard_monitor import ClipboardMonitor
-from .components.download_config_window import DownloadConfigWindow
 from .cover_download_page import CoverDownloadPage
 from .help_window import HelpWindow
 from .pages.history_page import HistoryPage
@@ -269,6 +270,11 @@ class MainWindow(FluentWindow):
         # === 恢复重启前的未完成任务到 UI 层 ===
         self._restore_tasks_to_ui()
 
+        # === 监听 DownloadManager 发出的全局 Worker 错误 ===
+        from fluentytdl.download.download_manager import download_manager
+
+        download_manager.worker_error.connect(self.on_worker_error)
+
     def _restore_tasks_to_ui(self) -> None:
         """将 DownloadManager 中恢复的 Worker 同步到 DownloadListModel"""
         restored = 0
@@ -468,7 +474,7 @@ class MainWindow(FluentWindow):
     # ... (系统托盘、剪贴板逻辑复用 main_window.py) ...
     def init_system_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
-        icon_path = resource_path("assets", "logo.png")
+        icon_path = resource_path("assets", "logo_tight.png")
         chosen_icon = None
         try:
             if icon_path.exists():
@@ -1451,15 +1457,82 @@ class MainWindow(FluentWindow):
         except Exception as e:
             logger.error(f"[MainWindow] Cookie状态检查失败: {e}")
 
+    def on_worker_error(self, err_data: dict) -> None:
+        """
+        处理后台下载任务发出的错误（支持重试所有挂起任务）
+        """
+        print(f"[DEBUG] on_worker_error called with err_data: {err_data}")
+        if getattr(self, "_worker_error_dialog_showing", False):
+            print("[DEBUG] Dialog already showing, skipping.")
+            return
+
+        self._worker_error_dialog_showing = True
+        try:
+            from fluentytdl.ui.components.dialogs.worker_error_dialog import WorkerErrorDialog
+
+            print("[DEBUG] Creating WorkerErrorDialog...")
+            dlg = WorkerErrorDialog(err_data, self)
+
+            def handle_retry_all():
+                from qfluentwidgets import InfoBar, InfoBarPosition
+
+                from fluentytdl.download.download_manager import download_manager
+
+                count = 0
+                for w in download_manager.active_workers:
+                    if getattr(w, "is_suspended", False):
+                        w.resume_suspension("retry")
+                        count += 1
+                if count > 0:
+                    InfoBar.success(
+                        self.tr("操作成功"),
+                        self.tr(f"已恢复 {count} 个挂起的任务"),
+                        duration=3000,
+                        parent=self,
+                        position=InfoBarPosition.TOP_RIGHT,
+                    )
+
+            def handle_go_settings():
+                self.switchTo(self.settings_interface)
+
+            def handle_fetch_cookie():
+                from fluentytdl.ui.components.settings.fix_registry import execute_fix_action
+
+                execute_fix_action("extract_cookie", self)
+
+            def handle_update_ytdlp():
+                from fluentytdl.ui.components.settings.fix_registry import execute_fix_action
+
+                execute_fix_action("update_component", self)
+                # 触发后也尝试重试任务
+                handle_retry_all()
+
+            dlg.retry_all_requested.connect(handle_retry_all)
+            dlg.go_settings_requested.connect(handle_go_settings)
+            dlg.fetch_cookie_requested.connect(handle_fetch_cookie)
+            dlg.update_ytdlp_requested.connect(handle_update_ytdlp)
+
+            print("[DEBUG] Executing WorkerErrorDialog...")
+            dlg.exec()
+            print("[DEBUG] WorkerErrorDialog closed.")
+        except Exception as e:
+            print(f"[ERROR] Exception in on_worker_error: {e}")
+            import traceback
+
+            traceback.print_exc()
+        finally:
+            self._worker_error_dialog_showing = False
+
     def _show_cookie_repair(self, source_type, source_name: str, reason: str) -> None:
         """
         弹出 Cookie 修复引导（复用 CookieRepairDialog）
 
         根据当前验证模式自动调整引导文案和按钮行为。
         """
+        from fluentytdl.ui.components.dialogs.cookie_repair_dialog import CookieRepairDialog
+
         from ..auth.auth_service import AuthSourceType
         from ..auth.cookie_sentinel import cookie_sentinel
-        from .components.cookie_repair_dialog import CookieRepairDialog
 
         # 映射 auth_source 字符串
         source_map = {

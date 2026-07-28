@@ -27,7 +27,7 @@ from qfluentwidgets import (
     TableWidget,
 )
 
-from ...utils.image_loader import ImageLoader
+from ....utils.image_loader import ImageLoader
 
 
 class UrlValidatorThread(QThread):

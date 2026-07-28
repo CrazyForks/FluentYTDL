@@ -121,6 +121,33 @@ class UrlRouter:
             return "twitter"
         return "unknown"
 
+    @classmethod
+    def fast_check(cls, url: str) -> str:
+        """快速无阻塞地判断 URL 类型（供 UI 防抖和输入框提示使用）"""
+        url = url.strip()
+        if not url:
+            return "unknown"
+
+        lower_url = url.lower()
+        if "youtube.com" in lower_url or "youtu.be" in lower_url:
+            if "list=" in lower_url:
+                return "youtube_playlist"
+            return "youtube_video"
+
+        if lower_url.startswith("https://t.co/") or lower_url.startswith("http://t.co/"):
+            return "tco_shortlink"
+
+        if (
+            "twitter.com" in lower_url
+            or "x.com" in lower_url
+            or any(d in lower_url for d in cls._MIRROR_DOMAINS)
+        ):
+            if cls._X_STATUS_RE.search(url):
+                return "twitter_video"
+            return "twitter_unsupported"
+
+        return "unknown"
+
     def process(self, url: str) -> UrlProcessResult:
         """处理 URL，返回预处理结果"""
         original_url = url.strip()

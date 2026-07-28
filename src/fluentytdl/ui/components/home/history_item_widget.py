@@ -22,8 +22,8 @@ from qfluentwidgets import (
     TransparentToolButton,
 )
 
-from ...storage.history_service import HistoryRecord
-from ...utils.image_loader import ImageLoader
+from ....storage.history_service import HistoryRecord
+from ....utils.image_loader import ImageLoader
 
 
 def _format_bytes(b: int | float) -> str:
@@ -194,7 +194,6 @@ class HistoryItemWidget(CardWidget):
             effect = QGraphicsOpacityEffect(self)
             effect.setOpacity(0.55)
             self.setGraphicsEffect(effect)
-            self.title_label.setTextColor(QColor(160, 160, 160), QColor(100, 100, 100))
 
         # 加载缩略图
         if record.thumbnail_url:

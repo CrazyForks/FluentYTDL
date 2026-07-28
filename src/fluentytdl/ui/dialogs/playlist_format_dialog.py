@@ -1,8 +1,9 @@
 from PySide6.QtCore import Qt
 from qfluentwidgets import MessageBoxBase, SubtitleLabel
 
+from fluentytdl.ui.components.platforms.youtube import SimplePresetWidget, _ContainerFormatBar
+
 from ...models.playlist_format import PlaylistGlobalFormatOverride
-from ..components.format_selector import SimplePresetWidget, _ContainerFormatBar
 
 
 class PlaylistFormatConfigDialog(MessageBoxBase):

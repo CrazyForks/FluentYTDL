@@ -37,25 +37,26 @@ from qfluentwidgets import (
     isDarkTheme,
 )
 
-from ...download.extract_manager import AsyncExtractManager
-from ...download.workers import InfoExtractWorker, VRInfoExtractWorker
-from ...models.mappers import VideoInfoMapper
-from ...models.video_info import VideoInfo
-from ...processing import subtitle_service
-from ...utils.container_compat import (
+from fluentytdl.ui.components.home.playlist_item_card import PlaylistItemCard
+from fluentytdl.ui.components.platforms.cover import CoverSelectorWidget
+from fluentytdl.ui.components.platforms.subtitle import SubtitleSelectorWidget
+from fluentytdl.ui.components.platforms.vr import VR_PRESETS, VRFormatSelectorWidget
+from fluentytdl.ui.components.platforms.youtube import VideoFormatSelectorWidget
+
+from ....download.extract_manager import AsyncExtractManager
+from ....download.workers import InfoExtractWorker, VRInfoExtractWorker
+from ....models.mappers import VideoInfoMapper
+from ....models.video_info import VideoInfo
+from ....processing import subtitle_service
+from ....utils.container_compat import (
     choose_lossless_merge_container,
     ensure_subtitle_compatible_container,
 )
-from ...utils.filesystem import sanitize_filename
-from ...utils.image_loader import ImageLoader
-from ...utils.logger import logger
-from ...youtube.youtube_service import YoutubeServiceOptions, YtDlpAuthOptions
-from ..models.playlist_model import PlaylistModelRoles
-from .cover_selector import CoverSelectorWidget
-from .format_selector import VideoFormatSelectorWidget
-from .playlist_item_card import PlaylistItemCard
-from .subtitle_selector import SubtitleSelectorWidget
-from .vr_format_selector import VR_PRESETS, VRFormatSelectorWidget
+from ....utils.filesystem import sanitize_filename
+from ....utils.image_loader import ImageLoader
+from ....utils.logger import logger
+from ....youtube.youtube_service import YoutubeServiceOptions, YtDlpAuthOptions
+from ...models.playlist_model import PlaylistModelRoles
 
 # ---- 字幕容器兼容性辅助函数 ----
 # MP4 和 MKV 都支持字幕嵌入（FFmpeg 自动将 SRT 转为 mov_text），只有 WebM 不支持 SRT/ASS
@@ -620,9 +621,16 @@ def _clean_audio_formats(info: Any) -> list[dict[str, Any]]:
         if not isinstance(f, dict):
             continue
         # audio-only streams
-        if f.get("vcodec") != "none":
+        has_video = str(f.get("vcodec") or "none") != "none" or (
+            str(f.get("video_ext") or "none") != "none"
+            and str(f.get("resolution") or "") != "audio only"
+        )
+        if has_video:
             continue
-        if f.get("acodec") in (None, "none"):
+        has_audio = (
+            str(f.get("acodec") or "none") != "none" or str(f.get("audio_ext") or "none") != "none"
+        )
+        if not has_audio:
             continue
 
         abr_raw = f.get("abr") or f.get("tbr") or 0
@@ -681,6 +689,15 @@ class PlaylistFormatDialog(MessageBoxBase):
         else:
             self.selector = VideoFormatSelectorWidget(info, self)
 
+        # 应用相同的手风琴固定高度调整
+        if hasattr(self.selector, "video_table"):
+            self.selector.video_table.setFixedHeight(130)
+        if hasattr(self.selector, "audio_table"):
+            self.selector.audio_table.setFixedHeight(130)
+
+        # 限制整体弹窗高度，防止被撑开
+        self.widget.setFixedHeight(650)
+
         self.viewLayout.addWidget(self.selector)
 
         # 新增：单视频独立字幕配置区域
@@ -717,7 +734,7 @@ class PlaylistFormatDialog(MessageBoxBase):
         self.sub_override_btn.clicked.connect(lambda: self._open_subtitle_picker(info))
 
     def _open_subtitle_picker(self, info):
-        from ..dialogs.subtitle_picker_dialog import SubtitlePickerDialog
+        from ...dialogs.subtitle_picker_dialog import SubtitlePickerDialog
 
         container = None
         if hasattr(self.selector, "get_selection_result"):
@@ -794,7 +811,7 @@ class SelectionDialog(MessageBoxBase):
         self._is_playlist = False
         self.download_tasks: list[dict[str, Any]] = []
         try:
-            from ...core.config_manager import config_manager
+            from ....core.config_manager import config_manager
 
             self._download_dir = str(config_manager.get("download_dir") or "").strip()
         except Exception:
@@ -1201,8 +1218,8 @@ class SelectionDialog(MessageBoxBase):
         suggestion = str(err_data.get("suggestion") or "")
         raw_error = str(err_data.get("raw_error") or "")
 
-        from ...models.errors import ErrorCode
-        from ...utils.error_parser import diagnose_error
+        from ....models.errors import ErrorCode
+        from ....utils.error_parser import diagnose_error
 
         category = ErrorCode.GENERAL
         if raw_error:
@@ -1212,14 +1229,42 @@ class SelectionDialog(MessageBoxBase):
         if suggestion:
             text += f"\n\n建议操作：\n{suggestion}"
 
+        fix_action = err_data.get("fix_action")
+        if not fix_action and raw_error:
+            from ....utils.error_parser import diagnose_error
+
+            diag = diagnose_error(1, raw_error)
+            fix_action = diag.fix_action
+
         # === 根据分类决定显示哪个面板 ===
-        if category in (ErrorCode.LOGIN_REQUIRED, ErrorCode.COOKIE_EXPIRED):
+        if fix_action:
+            self.titleLabel.setText(self.tr("需要修复"))
+            self.retryWidget.hide()
+
+            from qfluentwidgets import MessageBox
+
+            from fluentytdl.ui.components.settings.fix_registry import execute_fix_action
+
+            box = MessageBox(
+                title,
+                text,
+                parent=self.window(),
+            )
+            recovery_hint = err_data.get("recovery_hint") or (
+                diag.recovery_hint if "diag" in locals() else self.tr("去处理")
+            )
+            box.yesButton.setText(recovery_hint)
+            box.cancelButton.setText(self.tr("关闭"))
+            if box.exec():
+                execute_fix_action(fix_action, self)
+        elif category in (ErrorCode.LOGIN_REQUIRED, ErrorCode.COOKIE_EXPIRED):
             self.titleLabel.setText(self.tr("身份验证失败"))
             # 不用长文显示 _error_label，避免视觉打断
             self.retryWidget.hide()
 
-            from ...auth.auth_service import AuthSourceType, auth_service
-            from .cookie_repair_dialog import CookieRepairDialog
+            from fluentytdl.ui.components.dialogs.cookie_repair_dialog import CookieRepairDialog
+
+            from ....auth.auth_service import AuthSourceType, auth_service
 
             current_source = auth_service.current_source
             source_map = {
@@ -1241,7 +1286,7 @@ class SelectionDialog(MessageBoxBase):
 
             def on_auto_repair():
                 if current_source == AuthSourceType.WEBVIEW2:
-                    from ...core.controller import Controller
+                    from ....core.controller import Controller
 
                     ctrl = Controller.get_instance()
                     dialog.accept()
@@ -1249,7 +1294,7 @@ class SelectionDialog(MessageBoxBase):
                         ctrl.show_settings_page()
                     self.reject()
                 elif current_source == AuthSourceType.FILE:
-                    from ...core.controller import Controller
+                    from ....core.controller import Controller
 
                     ctrl = Controller.get_instance()
                     dialog.accept()
@@ -1257,7 +1302,7 @@ class SelectionDialog(MessageBoxBase):
                         ctrl.show_settings_page()
                     self.reject()
                 else:
-                    from ...auth.cookie_sentinel import cookie_sentinel
+                    from ....auth.cookie_sentinel import cookie_sentinel
 
                     success, msg = cookie_sentinel.force_refresh_with_uac()
                     dialog.show_repair_result(success, msg)
@@ -1278,7 +1323,7 @@ class SelectionDialog(MessageBoxBase):
                     return
                 import_dlg = CookieImportDialog(self.window())
                 if import_dlg.exec() == QDialog.DialogCode.Accepted:
-                    from ...auth.cookie_sentinel import cookie_sentinel
+                    from ....auth.cookie_sentinel import cookie_sentinel
 
                     cookie_sentinel.force_refresh()
                     self.start_extraction()
@@ -1604,7 +1649,7 @@ class SelectionDialog(MessageBoxBase):
         self._scroll_throttle_timer.timeout.connect(self._on_scroll_throttled)
         self._scroll_area.verticalScrollBar().valueChanged.connect(self._on_scroll_value_changed)
 
-        from ...core.config_manager import config_manager
+        from ....core.config_manager import config_manager
 
         concurrency = int(config_manager.get("playlist_extract_concurrency", 3))
         self._extract_manager = AsyncExtractManager(max_concurrent=concurrency, parent=self)
@@ -1667,7 +1712,7 @@ class SelectionDialog(MessageBoxBase):
         """Process up to _build_chunk_size entries, then schedule the next chunk."""
         if self._is_closing or not self._build_is_chunking:
             return
-        from ...models.video_task import VideoTask
+        from ....models.video_task import VideoTask
 
         entries = self._build_chunk_entries
         offset = self._build_chunk_offset
@@ -2851,7 +2896,7 @@ class SelectionDialog(MessageBoxBase):
 
                 # 如果用户明确选择了嵌入选项，需要根据 embed_type 来决定行为
                 if embed_override is not None:
-                    from ...core.config_manager import config_manager as cfg
+                    from ....core.config_manager import config_manager as cfg
 
                     embed_type = cfg.get_subtitle_config().embed_type
 
@@ -3502,7 +3547,7 @@ class SelectionDialog(MessageBoxBase):
 
                 # 根据 embed_type 应用覆盖选项
                 if embed_subtitles_override is not None:
-                    from ...core.config_manager import config_manager as cfg
+                    from ....core.config_manager import config_manager as cfg
 
                     embed_type = cfg.get_subtitle_config().embed_type
                     if embed_type == "soft":
@@ -3541,7 +3586,7 @@ class SelectionDialog(MessageBoxBase):
 
             # 根据 embed_type 应用覆盖选项
             if embed_subtitles_override is not None:
-                from ...core.config_manager import config_manager as cfg
+                from ....core.config_manager import config_manager as cfg
 
                 embed_type = cfg.get_subtitle_config().embed_type
                 if embed_type == "soft":

@@ -19,7 +19,7 @@ from qfluentwidgets import (
     SmoothScrollArea,
 )
 
-from ...processing.subtitle_manager import (
+from ....processing.subtitle_manager import (
     SubtitleSourceType,
     SubtitleTrack,
     extract_subtitle_tracks,
@@ -111,7 +111,7 @@ class SubtitleSelectorWidget(QFrame):
         self.formatCombo = ComboBox(self)
         self.formatCombo.addItems(["srt", "ass", "vtt", "lrc", "json3"])
 
-        from ...core.config_manager import config_manager
+        from ....core.config_manager import config_manager
 
         out_fmt = config_manager.get("subtitle_output_format", "srt")
         idx = self.formatCombo.findText(out_fmt)

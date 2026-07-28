@@ -85,6 +85,9 @@ pythonVersion = "3.10"
 - **Routing & Pages**: Complex sub-interfaces must inherit from core page components (like `ScrollArea` or `QWidget` styled appropriately) and be registered via the main window's navigation/router interface.
 - **Delegates**: Use QPainter delegates for list items (avoids QWidget overhead for large lists).
 - **Dark mode support**: use `CustomInfoBar`, not raw InfoBar.
+- **Typography & Font Weight**: NEVER use plain `BodyLabel` for titles, instructions, or prominent text (causes text to appear thin and blurry). MUST use `StrongBodyLabel` or `SubtitleLabel`.
+- **Text Color Contrast**: NEVER hardcode `Qt.GlobalColor.darkGray` or `QColor(160, 160, 160)`. Secondary descriptive text (e.g., `CaptionLabel`) MUST manually receive high contrast colors via `setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))` to ensure sharpness in dark mode.
+- **SettingCard Safety**: NEVER globally monkey patch `SettingCard` behavior. Custom components (like `InlineComboBoxCard`) may replace `contentLabel` with a standard `QLabel` lacking the `setTextColor` method, causing `AttributeError` during global initialization. Use explicit `findChildren` iterations within the page's `__init__` and perform `hasattr` checks instead.
 
 ### File Naming
 

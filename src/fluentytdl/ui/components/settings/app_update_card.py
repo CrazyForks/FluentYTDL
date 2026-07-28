@@ -22,8 +22,9 @@ from qfluentwidgets import (
     ToolTipPosition,
 )
 
-from ...core.component_update_manager import component_update_manager
-from .custom_info_bar import InfoBar
+from fluentytdl.ui.components.common.custom_info_bar import InfoBar
+
+from ....core.component_update_manager import component_update_manager
 
 
 class AppUpdateSettingCard(SettingCard):
@@ -212,7 +213,7 @@ class AppUpdateSettingCard(SettingCard):
         if not self._latest_info:
             return
 
-        from .update_dialog import UpdateDialog
+        from fluentytdl.ui.components.dialogs.update_dialog import UpdateDialog
 
         dialog = UpdateDialog(
             {

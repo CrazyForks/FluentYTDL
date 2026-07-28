@@ -6,14 +6,14 @@ from pathlib import Path
 root_dir = Path("E:/YouTube/FluentYTDL/src")
 sys.path.insert(0, str(root_dir))
 
-ui_dir = root_dir / 'fluentytdl' / 'ui'
-for py_file in ui_dir.rglob('*.py'):
-    if py_file.name == '__init__.py':
+ui_dir = root_dir / "fluentytdl" / "ui"
+for py_file in ui_dir.rglob("*.py"):
+    if py_file.name == "__init__.py":
         continue
-        
+
     rel_path = py_file.relative_to(root_dir)
-    module_name = str(rel_path).replace('\\', '.').replace('/', '.')[:-3]
-    
+    module_name = str(rel_path).replace("\\", ".").replace("/", ".")[:-3]
+
     try:
         importlib.import_module(module_name)
     except Exception as e:

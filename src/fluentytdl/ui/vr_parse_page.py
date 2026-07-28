@@ -4,13 +4,13 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
-    BodyLabel,
     CaptionLabel,
     CardWidget,
     FluentIcon,
     LineEdit,
     PrimaryPushButton,
     PushButton,
+    StrongBodyLabel,
     SubtitleLabel,
 )
 
@@ -56,10 +56,7 @@ class VRParsePage(QWidget):
         infoLayout.setContentsMargins(20, 16, 20, 16)
         infoLayout.setSpacing(8)
 
-        infoTitle = BodyLabel(self.tr("为什么需要 VR 模式？"), self.infoCard)
-        font = infoTitle.font()
-        font.setBold(True)
-        infoTitle.setFont(font)
+        infoTitle = StrongBodyLabel(self.tr("为什么需要 VR 模式？"), self.infoCard)
         infoLayout.addWidget(infoTitle)
 
         infoText = CaptionLabel(
@@ -70,6 +67,7 @@ class VRParsePage(QWidget):
             self.infoCard,
         )
         infoText.setWordWrap(True)
+        infoText.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         infoLayout.addWidget(infoText)
 
         self.centerLayout.addWidget(self.infoCard)
@@ -82,7 +80,7 @@ class VRParsePage(QWidget):
         self.cardLayout.setContentsMargins(20, 20, 20, 20)
         self.cardLayout.setSpacing(15)
 
-        self.instructionLabel = BodyLabel(self.tr("粘贴 YouTube VR 视频链接"), self)
+        self.instructionLabel = StrongBodyLabel(self.tr("粘贴 YouTube VR 视频链接"), self)
         self.cardLayout.addWidget(self.instructionLabel)
 
         # 输入框行

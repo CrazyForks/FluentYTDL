@@ -331,7 +331,15 @@ class DownloadWorker(QThread):
 
         from ..utils.clean_logger import CleanLogger
 
-        self._clean_logger = CleanLogger(self._on_clean_update, duration=self.v_duration)
+        self._clean_logger = CleanLogger(
+            self._on_clean_update,
+            duration=self.v_duration,
+            section_cut_mode=str(opts.get("__fluentytdl_section_cut_mode") or ""),
+            section_duration=float(opts.get("__fluentytdl_section_duration") or 0.0),
+            section_start=float(opts.get("__fluentytdl_section_start") or 0.0),
+            section_stream_layout=str(opts.get("__fluentytdl_section_stream_layout") or ""),
+            section_estimated_bytes=int(opts.get("__fluentytdl_section_estimated_bytes") or 0),
+        )
 
     def _on_clean_update(self, state: str, pct: float, msg: str) -> None:
         self._final_state = state
@@ -359,6 +367,12 @@ class DownloadWorker(QThread):
         return "queued"
 
     # ── 红绿灯 API (线程安全，可从任意线程调用) ──
+
+    def resume_suspension(self, action: str = "retry") -> None:
+        """从挂起状态恢复。action 可以是 'retry' 或 'cancel'。"""
+        if hasattr(self, "suspend_event") and getattr(self, "is_suspended", False):
+            self.suspend_action = action
+            self.suspend_event.set()
 
     def pause(self) -> None:
         """暂停下载：红灯亮起，Worker 线程将在下次进度回调时自动阻塞。"""
@@ -516,6 +530,15 @@ class DownloadWorker(QThread):
             logger.debug(
                 "DownloadWorker options - writethumbnail: {}", merged.get("writethumbnail")
             )
+            if merged.get("__fluentytdl_section_cut_mode"):
+                logger.info(
+                    "[Section] mode={} layout={} estimate={}B range={}..{}",
+                    merged.get("__fluentytdl_section_cut_mode"),
+                    merged.get("__fluentytdl_section_stream_layout") or "unknown",
+                    merged.get("__fluentytdl_section_estimated_bytes") or 0,
+                    merged.get("__fluentytdl_section_start"),
+                    merged.get("__fluentytdl_section_end"),
+                )
 
             # Derive download directory from outtmpl (best effort).
             try:
@@ -587,40 +610,76 @@ class DownloadWorker(QThread):
             # === 执行下载 ===
             logger.info("🚀 启动下载...")
 
-            # 让 UI 瞬间响应，不再傻等
-            self._clean_logger.force_update("parsing", 0.0, "🔍 正在拉取元数据...")
-            self.status_msg.emit("🚀 准备启动执行器...")
+            while True:
+                # 让 UI 瞬间响应，不再傻等
+                self._clean_logger.force_update("parsing", 0.0, "🔍 正在拉取元数据...")
+                self.status_msg.emit("🚀 准备启动执行器...")
 
-            self.executor = DownloadExecutor()
-            try:
-                # 执行
-                final_path = self.executor.execute(
-                    self.url,
-                    merged,
-                    on_progress=on_progress,
-                    on_status=on_status,
-                    on_path=on_path,
-                    cancel_check=lambda: self.is_cancelled,
-                    on_file_created=on_file_created,
-                    cached_info_dict=self.cached_info,
-                )
+                self.executor = DownloadExecutor()
+                try:
+                    # 执行
+                    final_path = self.executor.execute(
+                        self.url,
+                        merged,
+                        on_progress=on_progress,
+                        on_status=on_status,
+                        on_path=on_path,
+                        cancel_check=lambda: self.is_cancelled,
+                        on_file_created=on_file_created,
+                        cached_info_dict=self.cached_info,
+                    )
 
-                if final_path:
-                    self.output_path = final_path
-                    if not hasattr(self, "sandbox_dir"):
-                        self.output_path_ready.emit(final_path)
+                    if final_path:
+                        self.output_path = final_path
+                        if not hasattr(self, "sandbox_dir"):
+                            self.output_path_ready.emit(final_path)
 
-            except DownloadCancelled:
-                raise
+                    break  # 跳出 while 循环，进入后续处理
 
-            except Exception as exc:
-                logger.warning(f"下载失败: {exc}")
+                except YtDlpExecutionError as exc:
+                    logger.exception("yt-dlp 执行错误: {}", self.url)
+                    pct = getattr(self, "progress_val", 0.0)
 
-                if self.is_cancelled:
-                    raise DownloadCancelled() from None
+                    # 使用新的诊断引擎生成结构化错误
+                    diag = diagnose_error(exc.exit_code, exc.stderr, exc.parsed_json)
 
-                # 直接抛出，让外层 except 做精准诊断
-                raise exc
+                    # 更新内部状态和日志
+                    self._clean_logger.force_update(
+                        "error", pct, f"❌ {diag.user_title}: {diag.user_message}"
+                    )
+
+                    # 将当前 Worker 设为挂起状态
+                    self.is_suspended = True
+                    self.suspend_event = threading.Event()
+                    self.suspend_action = "cancel"
+
+                    # 传递结构化的 DiagnosedError 给 UI 层，并附带 worker 实例或 id 标识
+                    err_dict = diag.to_dict()
+                    err_dict["worker_id"] = id(self)
+                    self.error.emit(err_dict)
+
+                    self.status_msg.emit("挂起等待修复...")
+
+                    # 阻塞等待用户选择：重试或取消
+                    self.suspend_event.wait()
+                    self.is_suspended = False
+
+                    if self.suspend_action == "retry":
+                        self.status_msg.emit("重新尝试下载...")
+                        self._clean_logger.force_update("parsing", pct, "正在重试...")
+                        continue
+                    else:
+                        raise DownloadCancelled() from None
+
+                except DownloadCancelled:
+                    raise
+
+                except Exception as exc:
+                    logger.warning(f"下载失败: {exc}")
+                    if self.is_cancelled:
+                        raise DownloadCancelled() from None
+                    # 直接抛出，让外层 except 做精准诊断
+                    raise exc
 
             # === Feature Pipeline: Post-process ===
             # 执行各模块的后处理逻辑（封面嵌入、字幕合并、VR转码等）
@@ -729,21 +788,6 @@ class DownloadWorker(QThread):
             self._sweep_part_files()
             self.status_msg.emit("任务已取消")
             self.cancelled.emit()
-        except YtDlpExecutionError as exc:
-            logger.exception("yt-dlp 执行错误: {}", self.url)
-            pct = getattr(self, "progress_val", 0.0)
-
-            # 使用新的诊断引擎生成结构化错误
-            diag = diagnose_error(exc.exit_code, exc.stderr, exc.parsed_json)
-
-            # 更新内部状态和日志
-            self._clean_logger.force_update(
-                "error", pct, f"❌ {diag.user_title}: {diag.user_message}"
-            )
-
-            # 传递结构化的 DiagnosedError 给 UI 层
-            self.error.emit(diag.to_dict())
-
         except Exception as exc:
             msg = str(exc)
             logger.exception("下载过程发生未知异常: {}", self.url)

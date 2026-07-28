@@ -23,8 +23,9 @@ from qfluentwidgets import (
     ToolTipPosition,
 )
 
-from ...core.dependency_manager import dependency_manager
-from .custom_info_bar import InfoBar
+from fluentytdl.ui.components.common.custom_info_bar import InfoBar
+
+from ....core.dependency_manager import dependency_manager
 
 # ============================================================================
 # Cookie 刷新 Worker（使用Qt线程，确保打包后正常工作）
@@ -41,9 +42,9 @@ class CookieRefreshWorker(QThread):
 
     def run(self):
         """在Qt线程中执行Cookie刷新"""
-        from ...auth.auth_service import auth_service
-        from ...auth.cookie_sentinel import cookie_sentinel
-        from ...utils.logger import logger
+        from ....auth.auth_service import auth_service
+        from ....auth.cookie_sentinel import cookie_sentinel
+        from ....utils.logger import logger
 
         success = False
         message = self.tr("未知错误")

@@ -25,7 +25,7 @@ from qfluentwidgets import (
     SwitchButton,
 )
 
-from ...core.section_download import (
+from ....core.section_download import (
     TimeRange,
     build_section_opts,
     parse_time_range,

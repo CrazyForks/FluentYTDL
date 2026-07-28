@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
-    BodyLabel,
     CaptionLabel,
     CardWidget,
     FluentIcon,
     LineEdit,
     PrimaryPushButton,
     PushButton,
+    StrongBodyLabel,
     SubtitleLabel,
 )
 
@@ -64,7 +65,7 @@ class ParsePage(QWidget):
         self.cardLayout.setContentsMargins(20, 20, 20, 20)
         self.cardLayout.setSpacing(15)
 
-        self.instructionLabel = BodyLabel(
+        self.instructionLabel = StrongBodyLabel(
             self.tr("在此处粘贴视频链接 (支持 YouTube / X 平台)"), self
         )
         self.cardLayout.addWidget(self.instructionLabel)
@@ -72,6 +73,7 @@ class ParsePage(QWidget):
         self.hintLabel = CaptionLabel(
             self.tr("提示：如需自动识别剪贴板，请到“设置 → 体验”开启。"), self
         )
+        self.hintLabel.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         self.cardLayout.addWidget(self.hintLabel)
 
         # 输入框行
@@ -116,6 +118,7 @@ class ParsePage(QWidget):
         )
         self.tipsLabel.setWordWrap(True)
         self.tipsLabel.setMaximumWidth(760)
+        self.tipsLabel.setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))
         self.centerLayout.addWidget(self.tipsLabel)
 
         self.vBoxLayout.addWidget(self.standardPage, 1)
@@ -144,20 +147,39 @@ class ParsePage(QWidget):
             self.hintLabel.setText(self.tr("提示：如需自动识别剪贴板，请到“设置 → 体验”开启。"))
             return
 
-        from ..utils.validators import UrlValidator
+        from ..utils.url_router import url_router
 
-        if UrlValidator.is_youtube_url(text):
-            if "list=" in text:
-                self.hintLabel.setText(self.tr("✅ 已识别为 YouTube 播放列表链接"))
-            else:
-                self.hintLabel.setText(self.tr("✅ 已识别为 YouTube 视频链接"))
-        elif UrlValidator.is_x_url(text):
-            if UrlValidator.is_x_video_url(text):
-                self.hintLabel.setText(self.tr("✅ 已识别为 X (Twitter) 视频链接"))
-            else:
-                self.hintLabel.setText(
-                    self.tr("❌ 不支持的 X 链接：请提供包含 status/ 的具体推文视频链接")
-                )
+        # 同步快速判断
+        fast_result = url_router.fast_check(text)
+        if fast_result == "youtube_playlist":
+            self.hintLabel.setText(self.tr("✅ 已识别为 YouTube 播放列表链接"))
+        elif fast_result == "youtube_video":
+            self.hintLabel.setText(self.tr("✅ 已识别为 YouTube 视频链接"))
+        elif fast_result == "twitter_video":
+            self.hintLabel.setText(self.tr("✅ 已识别为 X (Twitter) 视频链接"))
+        elif fast_result == "twitter_unsupported":
+            self.hintLabel.setText(
+                self.tr("❌ 不支持的 X 链接：请提供包含 status/ 的具体推文视频链接")
+            )
+        elif fast_result == "tco_shortlink":
+            self.hintLabel.setText(self.tr("⏳ 正在解析短链接..."))
+            self.parseBtn.setEnabled(False)
+
+            # 记录当前处理的文本，用于回调时校验防覆盖
+            self._current_check_text = text
+
+            def _on_resolved(result):
+                # 校验是否过期
+                if getattr(self, "_current_check_text", None) != text:
+                    return
+                self.parseBtn.setEnabled(True)
+                if result.accepted:
+                    self.hintLabel.setText(self.tr("✅ 短链接已解析并被支持"))
+                else:
+                    self.hintLabel.setText(self.tr("❓ 未知或暂不支持的短链接目标"))
+
+            # 使用 QTimer 触发防抖和异步
+            QTimer.singleShot(300, lambda: url_router.process_async(text, _on_resolved))
         else:
             self.hintLabel.setText(self.tr("❓ 未知或暂不支持的链接格式"))
 
@@ -166,15 +188,17 @@ class ParsePage(QWidget):
         if not url:
             return
 
-        from ..utils.validators import UrlValidator
+        from ..utils.url_router import url_router
 
-        if UrlValidator.is_x_url(url) and not UrlValidator.is_x_video_url(url):
+        result = url_router.process(url)
+
+        if not result.accepted:
             from qfluentwidgets import InfoBar, InfoBarPosition
 
             InfoBar.error(
-                title=self.tr("不支持的 X 链接"),
+                title=self.tr("不支持的链接"),
                 content=self.tr(
-                    "目前仅支持 X (Twitter) 的单推文视频链接 (包含 status/)，暂不支持主页、列表或空间等链接。"
+                    "未知的链接格式或目前不支持该平台/类型（X 平台仅支持包含 status/ 的单推文视频）。"
                 ),
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
@@ -184,7 +208,7 @@ class ParsePage(QWidget):
             )
             return
 
-        self.parse_requested.emit(url)
+        self.parse_requested.emit(result.normalized_url)
 
     def on_paste_clicked(self) -> None:
         text = (QApplication.clipboard().text() or "").strip()

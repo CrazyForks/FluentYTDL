@@ -87,7 +87,7 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Flavor shell
 
 PyInstaller 在 Windows 需要 `.ico`。
 
-- 放置：`assets/logo.ico`
+- 放置：`assets/FluentYTDL_v2.ico`
 - 若不存在，会使用默认图标。
 
 ## 5. MSI / 安装包（建议路线）

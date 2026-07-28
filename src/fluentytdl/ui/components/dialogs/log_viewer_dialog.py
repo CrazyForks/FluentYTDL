@@ -28,8 +28,8 @@ from qfluentwidgets import (
     ToolTipPosition,
 )
 
-from ...utils.log_signal_handler import log_signal_handler
-from ...utils.logger import LOG_DIR
+from ....utils.log_signal_handler import log_signal_handler
+from ....utils.logger import LOG_DIR
 
 # 日志级别颜色映射
 LEVEL_COLORS = {

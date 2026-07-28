@@ -21,8 +21,8 @@ from qfluentwidgets import (
     TextEdit,
 )
 
-from ...core.component_update_manager import component_update_manager
-from ...core.config_manager import config_manager
+from ....core.component_update_manager import component_update_manager
+from ....core.config_manager import config_manager
 
 
 class UpdateDialog(MessageBoxBase):

@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from PySide6.QtCore import QCoreApplication, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QCoreApplication, Qt, QThread, Signal
 from PySide6.QtWidgets import QFileDialog, QStackedWidget, QVBoxLayout, QWidget
 from qfluentwidgets import (
     CheckBox,
@@ -31,6 +31,10 @@ from qfluentwidgets import (
     ToolTipPosition,
 )
 
+from fluentytdl.ui.components.common.custom_info_bar import InfoBar
+from fluentytdl.ui.components.settings.app_update_card import AppUpdateSettingCard
+from fluentytdl.ui.components.settings.smart_setting_card import SmartSettingCard
+
 from ..core.config_manager import config_manager
 from ..core.dependency_manager import dependency_manager
 from ..core.hardware_manager import hardware_manager
@@ -39,9 +43,6 @@ from ..processing.subtitle_manager import COMMON_SUBTITLE_LANGUAGES
 from ..utils.logger import LOG_DIR
 from ..utils.paths import find_bundled_executable, is_frozen
 from ..youtube.yt_dlp_cli import resolve_yt_dlp_exe, run_version
-from .components.app_update_card import AppUpdateSettingCard
-from .components.custom_info_bar import InfoBar
-from .components.smart_setting_card import SmartSettingCard
 
 # ============================================================================
 # Cookie 刷新 Worker（使用Qt线程，确保打包后正常工作）
@@ -866,6 +867,7 @@ class SettingsPage(QWidget):
 
         # Cookie刷新worker引用（防止垃圾回收）
         self._active_workers = set()
+        self._webview2_login_in_progress: str | None = None  # 记录当前正在登录的平台
 
         # Init Pages
         self.generalInterface, self.generalScroll, self.generalLayout = self._create_page(
@@ -1455,7 +1457,7 @@ class SettingsPage(QWidget):
         self.browserRefreshCard.clicked.connect(self._on_browser_refresh_clicked)
 
         # 多平台 WebView2 账号手风琴
-        from .components.platform_auth_card import PlatformAuthExpandCard
+        from fluentytdl.ui.components.settings.platform_auth_card import PlatformAuthExpandCard
 
         self.youtubeAuthCard = PlatformAuthExpandCard(
             "youtube",
@@ -2159,7 +2161,7 @@ class SettingsPage(QWidget):
 
     def _on_view_log_clicked(self):
         """打开日志查看器"""
-        from .components.log_viewer_dialog import LogViewerDialog
+        from fluentytdl.ui.components.dialogs.log_viewer_dialog import LogViewerDialog
 
         dialog = LogViewerDialog(self.window())
         dialog.exec()
@@ -2743,7 +2745,9 @@ class SettingsPage(QWidget):
 
     def _show_sponsorblock_categories_dialog(self) -> None:
         """显示 SponsorBlock 类别选择对话框"""
-        from .components.sponsorblock_dialog import SponsorBlockCategoriesDialog
+        from fluentytdl.ui.components.dialogs.sponsorblock_dialog import (
+            SponsorBlockCategoriesDialog,
+        )
 
         # 获取当前选中的类别
         current_categories = config_manager.get("sponsorblock_categories", [])
@@ -3037,8 +3041,13 @@ class SettingsPage(QWidget):
             finally:
                 self.browserRefreshCard.button.setEnabled(True)
 
-        # 使用 QTimer 避免阻塞
-        QTimer.singleShot(100, _do_refresh_all_platforms)
+        # 使用后台线程避免阻塞 UI
+        import threading
+
+        thread = threading.Thread(
+            target=_do_refresh_all_platforms, daemon=True, name="BrowserCookieExtract"
+        )
+        thread.start()
 
     def _on_webview2_login_clicked(self, platform: str):
         """WebView2 登录按钮点击 - 启动浏览器登录流程"""
@@ -3046,6 +3055,19 @@ class SettingsPage(QWidget):
 
         # 保证处于 WebView2 模式
         auth_service.set_source(AuthSourceType.WEBVIEW2, auto_refresh=False)
+
+        # 并发登录互斥：防止 YouTube/X 同时启动 WebView2 子进程导致闪退
+        if getattr(self, "_webview2_login_in_progress", None):
+            InfoBar.warning(
+                self.tr("登录进行中"),
+                self.tr("请等待 {} 平台登录完成后再操作").format(
+                    "YouTube" if self._webview2_login_in_progress == "youtube" else "X"
+                ),
+                duration=4000,
+                parent=self,
+            )
+            return
+        self._webview2_login_in_progress = platform
 
         if platform == "twitter":
             InfoBar.warning(
@@ -3060,8 +3082,11 @@ class SettingsPage(QWidget):
         account = auth_service.get_current_webview2_account(platform=platform)
         account_name = account.localized_name if account else self.tr("默认账号")
 
+        # 同时禁用两个平台的登录按钮
+        self.youtubeAuthCard.set_login_button_enabled(False)
+        self.twitterAuthCard.set_login_button_enabled(False)
+
         card = self.youtubeAuthCard if platform == "youtube" else self.twitterAuthCard
-        card.set_login_button_enabled(False)
         card.set_content(
             self.tr("正在后台提取登录态（{}），必要时会自动显示登录窗口...").format(account_name)
         )
@@ -3073,8 +3098,10 @@ class SettingsPage(QWidget):
         if worker:
 
             def _on_webview2_finished(success: bool, message: str, need_admin: bool = False):
-                # 恢复按钮状态
-                card.set_login_button_enabled(True)
+                self._webview2_login_in_progress = None
+                # 恢复两个平台的按钮状态
+                self.youtubeAuthCard.set_login_button_enabled(True)
+                self.twitterAuthCard.set_login_button_enabled(True)
 
                 if success:
                     card.set_content(self.tr("✔ 登录成功，Cookie 已提取"))
@@ -3344,7 +3371,9 @@ class SettingsPage(QWidget):
                 self.cookieFileCard.setContent(f"已导入: {status.cookie_count} 个 Cookie")
                 InfoBar.info(
                     self.tr("导入成功"),
-                    f"已导入 {status.cookie_count} 个 Cookie 到 bin/cookies.txt",
+                    self.tr("已导入 {} 个 Cookie 到 {} 平台").format(
+                        status.cookie_count, platform.capitalize()
+                    ),
                     duration=3000,
                     parent=self,
                 )

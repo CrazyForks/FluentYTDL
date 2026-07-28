@@ -294,8 +294,6 @@ class QuickAddPanel(QWidget):
 
         from PySide6.QtWidgets import QApplication
 
-        from ..utils.url_router import UrlRouter
-
         self.startBtn.setEnabled(False)
         self.startBtn.setText(self.tr("处理中..."))
         QApplication.processEvents()
@@ -313,9 +311,11 @@ class QuickAddPanel(QWidget):
                 continue
 
             if line.startswith("http://") or line.startswith("https://"):
-                result = UrlRouter.route(line)
-                if result.is_supported:
-                    urls.append(result.final_url)
+                from ..utils.url_router import url_router
+
+                result = url_router.process(line)
+                if result.accepted:
+                    urls.append(result.normalized_url)
                 else:
                     unsupported.append(line)
 
