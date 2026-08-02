@@ -1,19 +1,31 @@
-# TRADEMARK AND BRANDING POLICY
+# FluentYTDL Trademark and Branding Policy
 
-While the source code of **FluentYTDL** is licensed under the GNU General Public License v3.0 (GPLv3), the brand name, logo, iconography, and specific UI design characteristics of **FluentYTDL** are protected by trademark and copyright laws.
+The FluentYTDL source code is licensed under the [GNU General Public License v3.0](LICENSE). This policy applies only to the FluentYTDL name, logo, icons, and other source-identifying brand assets. It does not reduce or replace the permissions granted by GPL-3.0 to use, study, modify, and redistribute the source code.
 
-## Rationale
-This policy is established to protect users from downloading malicious, modified, or paid versions of this free software from unauthorized third parties pretending to be the original author, and to prevent unauthorized capitalization on the creator's reputation.
+## Permitted use
 
-## Rules for Redistribution
+You may:
 
-If you wish to redistribute a modified or unmodified version of this software (including pre-compiled binaries) outside of testing purposes:
+- refer to the project truthfully as FluentYTDL
+- link to the official repository and releases
+- state that a modified project is based on or derived from FluentYTDL
+- use the name in reviews, tutorials, compatibility statements, and academic discussion
+- use unmodified official assets when contributing to this repository
 
-1. **You MUST change the name**: You may not use "FluentYTDL", "Fluent YT Downloader", or any confusingly similar names.
-2. **You MUST replace all brand assets**: You must replace the application icon, splash screen, and any images in the `assets/` directory with your own original creations.
-3. **You MAY NOT imply endorsement**: Your redistributed version must not claim or imply any affiliation with, or endorsement by, the original creator of FluentYTDL.
+## Redistributed builds and forks
 
-## Enforcement
-Violations of this trademark policy by individuals or organizations attempting to monetize or illegitimately distribute this software under the original brand identity will be met with immediate Digital Millennium Copyright Act (DMCA) and Trademark Infringement takedown notices sent to respective hosting providers (e.g., GitHub, Cloudflare, payment gateways, online marketplaces).
+If you distribute a modified build or maintain an independent fork:
 
-For questions regarding this policy, please refer to the original repository maintainer.
+1. Choose a name that is not confusingly similar to FluentYTDL.
+2. Replace the application logo, icons, splash assets, and other FluentYTDL branding.
+3. State clearly that the build is unofficial and identify the party responsible for it.
+4. Do not imply endorsement, affiliation, security review, or update support from the FluentYTDL maintainer.
+5. Continue to satisfy GPL-3.0 and all applicable third-party licenses.
+
+Unmodified redistribution may accurately identify the software and version, but it must not imply that the distributor is the official project or maintainer.
+
+## Rationale and enforcement
+
+These rules help users distinguish official releases from third-party builds, especially when software handles cookies, downloaded media, external executables, and automatic updates. Misleading use of the project identity may be addressed through the applicable hosting platform's impersonation, trademark, or copyright processes.
+
+Questions about a planned use can be directed to the maintainer listed in [MAINTAINERS.md](MAINTAINERS.md).
