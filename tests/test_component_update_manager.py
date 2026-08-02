@@ -82,25 +82,24 @@ class TestParseVersionPrefix:
 class TestGetUpdateChannel:
     """Test channel detection from version prefix."""
 
-    @staticmethod
-    def _channel(ver: str) -> str:
-        if ver.startswith("beta-"):
-            return "beta"
-        elif ver.startswith("pre-"):
-            return "pre"
-        return "stable"
-
     def test_stable_channel(self):
-        assert self._channel("v-3.0.16") == "stable"
+        from fluentytdl.core.component_update_manager import _get_update_channel
 
-    def test_pre_channel(self):
-        assert self._channel("pre-3.0.18") == "pre"
+        with patch("fluentytdl.__version__", "v-3.0.16"):
+            assert _get_update_channel() == "stable"
 
-    def test_beta_channel(self):
-        assert self._channel("beta-0.0.5") == "beta"
+    @pytest.mark.parametrize("version", ["pre-3.0.18", "beta-0.0.5"])
+    def test_non_stable_channel_is_locked(self, version):
+        from fluentytdl.core.component_update_manager import _get_update_channel
 
-    def test_no_prefix_is_stable(self):
-        assert self._channel("3.0.16") == "stable"
+        with patch("fluentytdl.__version__", version):
+            assert _get_update_channel() == "locked"
+
+    def test_no_prefix_is_locked(self):
+        from fluentytdl.core.component_update_manager import _get_update_channel
+
+        with patch("fluentytdl.__version__", "3.0.16"):
+            assert _get_update_channel() == "locked"
 
 
 class TestGetMirrorUrl:
@@ -137,7 +136,7 @@ try:
 except ImportError:
     HAS_PYSIDE6 = False
 
-pytestmark = pytest.mark.skipif(
+requires_windows_qt = pytest.mark.skipif(
     not HAS_PYSIDE6 or not sys.platform == "win32",
     reason="PySide6 and Windows required for signal tests",
 )
@@ -158,24 +157,28 @@ def manager(qapp):
     return ComponentUpdateManager()
 
 
-class TestBetaChannelLock:
-    """Beta versions should not perform update checks."""
+@requires_windows_qt
+class TestLockedChannel:
+    """Pre-release versions should not perform update checks."""
 
-    def test_is_beta_true_for_beta_version(self, manager):
+    def test_is_locked_true_for_prerelease(self, manager):
         with patch(
             "fluentytdl.core.component_update_manager._get_update_channel",
-            return_value="beta",
+            return_value="locked",
         ):
+            assert manager.is_locked() is True
             assert manager.is_beta() is True
 
-    def test_is_beta_false_for_stable(self, manager):
+    def test_is_locked_false_for_stable(self, manager):
         with patch(
             "fluentytdl.core.component_update_manager._get_update_channel",
             return_value="stable",
         ):
+            assert manager.is_locked() is False
             assert manager.is_beta() is False
 
 
+@requires_windows_qt
 class TestCompareAppVersion:
     """Test _compare_app_version with mocked manifest."""
 
