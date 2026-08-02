@@ -6,46 +6,57 @@
 
 ## 0. 全局数据流
 
-下图展示了从用户粘贴 URL 到最终输出文件的完整链路：
+下列流程图展示了从用户粘贴 URL 到最终输出文件的完整链路。分阶段显示是为了让 GitHub 页面保持清晰、可读的字号。
 
 ```mermaid
-flowchart TD
-    A["用户粘贴链接"] --> B["解析页发送解析请求信号"]
-    B --> C["主窗口打开选择对话框"]
-    C --> D["下载配置窗口启动提取"]
-    D --> E["信息提取工作线程 (QThread)"]
-    E --> F["YouTube 服务提取视频信息 (对话框模式)"]
-    F --> G["构建 yt-dlp 选项<br/>读取配置管理器 + Cookie 哨兵"]
-    G --> H["执行 yt-dlp -J 提取元数据"]
-    H --> I["原始字典 (JSON)"]
-    I --> J["媒体 DTO 转换<br/>防腐层"]
-    J --> K{"播放列表?"}
-    K -- "是" --> L["设置播放列表界面<br/>→ 扁平条目 → 播放列表调度器"]
-    K -- "否" --> M["设置内容界面<br/>→ 格式选择器"]
+flowchart LR
+    subgraph parse["① 解析与选择"]
+        direction TB
+        A["用户粘贴链接"] --> B["MainWindow 打开<br/>DownloadConfigWindow"]
+        B --> C["InfoExtractWorker<br/>调用 yt-dlp -J"]
+        C --> D["YtMediaDTO.from_dict()<br/>防腐层转换"]
+        D --> E{"播放列表?"}
+        E -- "是" --> F["播放列表调度器"]
+        E -- "否" --> G["格式选择器"]
+        F --> H["用户选择条目并下载"]
+        G --> H
+    end
 
-    L --> N["用户选择条目 + 点击下载"]
-    M --> N
+    subgraph schedule["② 建立任务与调度"]
+        direction TB
+        I["MainWindow.add_tasks()"] --> J["DownloadManager.create_worker()"]
+        J --> K["task_db.insert_task()<br/>写入 SQLite"]
+        J --> L["创建 DownloadWorker<br/>(QThread)"]
+        L --> M["DownloadManager.pump()<br/>启动工作线程"]
+    end
 
-    N --> O["主窗口添加任务"]
-    O --> P["下载管理器创建工作线程"]
-    P --> Q["任务数据库插入任务 (SQLite)"]
-    P --> R["创建下载工作线程 (QThread)"]
-    R --> S["下载管理器调度 → 启动工作线程"]
+    H --> I
+```
 
-    S --> T["下载工作线程运行"]
-    T --> U["YouTube 服务构建 yt-dlp 选项"]
-    U --> V["创建沙箱目录 (.fluent_temp/task_id/)"]
-    V --> W["功能管线: 配置 + 下载开始回调"]
-    W --> X["下载执行器执行<br/>启动 yt-dlp 子进程"]
-    X --> Y["进度解析循环"]
-    Y --> Z{"退出码正常?"}
-    Z -- "非零" --> AA["门槛 1: 文件 ≥ 10KB?<br/>门槛 2: 文件 ≥ 50% 预期大小?"]
-    AA -- "均通过" --> AB["功能管线: 后处理回调"]
-    AA -- "失败" --> AC["错误诊断 → 错误信号"]
-    Z -- "零" --> AB
-    AB --> AD["沙箱 → 最终目录移动"]
-    AD --> AE["发送完成信号"]
-    AE --> AF["下载管理器处理工作线程完成 → 调度下一个<br/>排队中的工作线程启动"]
+任务进入下载工作线程后：
+
+```mermaid
+flowchart TB
+    subgraph download["③ 下载与验证"]
+        direction TB
+        N["youtube_service<br/>构建 yt-dlp 选项"] --> O["创建 .fluent_temp/task_id/<br/>任务沙箱"]
+        O --> P["功能管线<br/>configure() + on_download_start()"]
+        P --> Q["DownloadExecutor.execute()<br/>启动 yt-dlp 并解析进度"]
+        Q --> R{"退出码正常?"}
+        R -- "是" --> T["进入后处理"]
+        R -- "否" --> S{"文件 ≥ 10KB<br/>且 ≥ 50% 预期大小?"}
+        S -- "是" --> T
+        S -- "否" --> U["diagnose_error()<br/>发送错误信号"]
+    end
+```
+
+验证通过后完成收尾并继续处理队列：
+
+```mermaid
+flowchart LR
+    V["④ 功能管线<br/>on_post_process()"] --> W["沙箱文件移动到最终目录"]
+    W --> X["发送 completed() 信号"]
+    X --> Y["_on_worker_finished() → pump()<br/>调度下一个排队任务"]
 ```
 
 ---

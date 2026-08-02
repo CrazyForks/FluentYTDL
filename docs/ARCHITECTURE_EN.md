@@ -1,51 +1,62 @@
 # FluentYTDL Architecture Document
 
-> [中文版](ARCHITECTURE.md)
+> [中文版](ARCHITECTURE_CN.md)
 >
 > This document describes the current architecture based on direct code analysis. For development rules, see `docs/RULES_EN.md`. For yt-dlp troubleshooting knowledge, see `docs/YTDLP_KNOWLEDGE_EN.md`.
 
 ## 0. System-Wide Data Flow
 
-The following diagram traces the complete journey from a user pasting a URL to the final output file:
+The following diagrams trace the complete journey from a user pasting a URL to the final output file. The flow is split into stages to keep labels clear and readable on GitHub.
 
 ```mermaid
-flowchart TD
-    A["User pastes URL"] --> B["ParsePage.parse_requested signal"]
-    B --> C["MainWindow.show_selection_dialog()"]
-    C --> D["DownloadConfigWindow.start_extraction()"]
-    D --> E["InfoExtractWorker (QThread)"]
-    E --> F["youtube_service.extract_info_for_dialog_sync()"]
-    F --> G["build_ydl_options()<br/>reads config_manager + cookie_sentinel"]
-    G --> H["run_dump_single_json()<br/>subprocess: yt-dlp -J"]
-    H --> I["Raw dict (JSON)"]
-    I --> J["YtMediaDTO.from_dict()<br/>anti-corruption layer"]
-    J --> K{"Playlist?"}
-    K -- "Yes" --> L["setup_playlist_ui()<br/>→ flat entries → PlaylistScheduler"]
-    K -- "No" --> M["setup_content_ui()<br/>→ format selector"]
+flowchart LR
+    subgraph parse["① Parse and select"]
+        direction TB
+        A["User pastes a URL"] --> B["MainWindow opens<br/>DownloadConfigWindow"]
+        B --> C["InfoExtractWorker<br/>runs yt-dlp -J"]
+        C --> D["YtMediaDTO.from_dict()<br/>anti-corruption layer"]
+        D --> E{"Playlist?"}
+        E -- "Yes" --> F["Playlist scheduler"]
+        E -- "No" --> G["Format selector"]
+        F --> H["User selects entries and downloads"]
+        G --> H
+    end
 
-    L --> N["User selects entries + clicks Download"]
-    M --> N
+    subgraph schedule["② Create and schedule tasks"]
+        direction TB
+        I["MainWindow.add_tasks()"] --> J["DownloadManager.create_worker()"]
+        J --> K["task_db.insert_task()<br/>writes to SQLite"]
+        J --> L["Create DownloadWorker<br/>(QThread)"]
+        L --> M["DownloadManager.pump()<br/>starts the worker"]
+    end
 
-    N --> O["MainWindow.add_tasks()"]
-    O --> P["DownloadManager.create_worker()"]
-    P --> Q["task_db.insert_task() (SQLite)"]
-    P --> R["DownloadWorker (QThread) created"]
-    R --> S["DownloadManager.pump() → worker.start()"]
+    H --> I
+```
 
-    S --> T["DownloadWorker.run()"]
-    T --> U["youtube_service.build_ydl_options()"]
-    U --> V["Sandbox created (.fluent_temp/task_id/)"]
-    V --> W["Feature pipeline: configure() + on_download_start()"]
-    W --> X["DownloadExecutor.execute()<br/>subprocess.Popen(yt-dlp)"]
-    X --> Y["FLUENTYTDL progress parsing loop"]
-    Y --> Z{"Exit code OK?"}
-    Z -- "Non-zero" --> AA["Gate 1: file ≥ 10KB?<br/>Gate 2: file ≥ 50% expected?"]
-    AA -- "Both pass" --> AB["Feature pipeline: on_post_process()"]
-    AA -- "Fail" --> AC["diagnose_error() → error signal"]
-    Z -- "Zero" --> AB
-    AB --> AD["Sandbox → final dir move"]
-    AD --> AE["completed() signal"]
-    AE --> AF["DownloadManager._on_worker_finished() → pump()<br/>next queued worker starts"]
+After the task enters its download worker:
+
+```mermaid
+flowchart TB
+    subgraph download["③ Download and validate"]
+        direction TB
+        N["youtube_service<br/>builds yt-dlp options"] --> O["Create .fluent_temp/task_id/<br/>task sandbox"]
+        O --> P["Feature pipeline<br/>configure() + on_download_start()"]
+        P --> Q["DownloadExecutor.execute()<br/>starts yt-dlp and parses progress"]
+        Q --> R{"Exit code OK?"}
+        R -- "Yes" --> T["Continue to post-processing"]
+        R -- "No" --> S{"File ≥ 10KB<br/>and ≥ 50% expected size?"}
+        S -- "Yes" --> T
+        S -- "No" --> U["diagnose_error()<br/>emits an error signal"]
+    end
+```
+
+After validation succeeds, the application finishes the task and continues the queue:
+
+```mermaid
+flowchart LR
+    V["④ Feature pipeline<br/>on_post_process()"] --> W["Move sandbox files to final directory"]
+    W --> X["Emit completed()"]
+    X --> Y["_on_worker_finished() → pump()<br/>schedule the next queued task"]
 ```
 
 ---
