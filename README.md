@@ -119,6 +119,21 @@ Bug reports, focused pull requests, documentation improvements, and reproducible
 
 The source code is licensed under the [GNU General Public License v3.0](LICENSE). The separate [trademark policy](TRADEMARK.md) governs use of the FluentYTDL name and branding without reducing the permissions granted by GPL-3.0. The [academic integrity notice](ACADEMIC_HONESTY.md) explains attribution expectations and does not add license restrictions.
 
-## Acknowledgements
+## 💛 Acknowledgements
 
-FluentYTDL builds on open-source projects including [yt-dlp](https://github.com/yt-dlp/yt-dlp), [FFmpeg](https://ffmpeg.org/), [PySide6](https://doc.qt.io/qtforpython-6/), [PySide6-Fluent-Widgets](https://github.com/zhiyiYo/PyQt-Fluent-Widgets), [SponsorBlock](https://sponsor.ajay.app/), and [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider). Third-party notices are collected in [`licenses/`](licenses/).
+FluentYTDL stands on the shoulders of an outstanding open-source ecosystem. Special thanks to the projects and people who make its core experience possible:
+
+| | Project | What it brings to FluentYTDL |
+| --- | --- | --- |
+| 🎬 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Media extraction, format discovery, and download orchestration. |
+| 🎞️ | [FFmpeg](https://ffmpeg.org/) | Stream merging, conversion, metadata processing, and VR projection support. |
+| 🖥️ | [PySide6](https://doc.qt.io/qtforpython-6/) and [PySide6-Fluent-Widgets](https://github.com/zhiyiYo/PyQt-Fluent-Widgets) | The Qt desktop foundation and Fluent-style interface. |
+| 🔐 | [rookiepy](https://github.com/thewh1teagle/rookiepy) and [pywebview](https://github.com/r0x0r/pywebview) | Browser-session integration and the isolated WebView2 login experience. |
+| 🧩 | [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) and [Deno](https://github.com/denoland/deno) | YouTube player compatibility and JavaScript challenge support. |
+| ✨ | [SponsorBlock](https://sponsor.ajay.app/) and [AtomicParsley](https://github.com/wez/atomicparsley) | Sponsor-segment processing and media metadata enrichment. |
+
+### 🌱 Community
+
+Thank you to every upstream maintainer, [code contributor](https://github.com/SakuraForgot/FluentYTDL/graphs/contributors), issue reporter, documentation contributor, and tester. Every reproducible report and thoughtful improvement helps FluentYTDL become more dependable and accessible.
+
+📜 License texts and third-party notices are collected in [`licenses/`](licenses/). If this project helps you, consider supporting the upstream projects that make it possible.

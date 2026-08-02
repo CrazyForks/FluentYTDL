@@ -119,6 +119,21 @@ Cookie、日志、下载内容和本地配置可能包含敏感信息。请勿�
 
 源代码使用 [GNU General Public License v3.0](LICENSE)。单独的[商标政策](TRADEMARK.md)管理 FluentYTDL 名称和品牌的使用，但不会减少 GPL-3.0 授予的代码权利。[学术诚信说明](ACADEMIC_HONESTY.md)解释署名与诚信要求，不附加许可证限制。
 
-## 致谢
+## 💛 致谢
 
-FluentYTDL 建立在 [yt-dlp](https://github.com/yt-dlp/yt-dlp)、[FFmpeg](https://ffmpeg.org/)、[PySide6](https://doc.qt.io/qtforpython-6/)、[PySide6-Fluent-Widgets](https://github.com/zhiyiYo/PyQt-Fluent-Widgets)、[SponsorBlock](https://sponsor.ajay.app/) 和 [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) 等开源项目之上。第三方声明收录于 [`licenses/`](licenses/)。
+FluentYTDL 受益于出色的开源生态。特别感谢以下项目，以及让核心体验成为可能的每一位维护者：
+
+| | 项目 | 为 FluentYTDL 提供的能力 |
+| --- | --- | --- |
+| 🎬 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | 媒体解析、格式发现与下载编排。 |
+| 🎞️ | [FFmpeg](https://ffmpeg.org/) | 音视频流合并、格式转换、元数据处理与 VR 投影支持。 |
+| 🖥️ | [PySide6](https://doc.qt.io/qtforpython-6/) 与 [PySide6-Fluent-Widgets](https://github.com/zhiyiYo/PyQt-Fluent-Widgets) | Qt 桌面基础与 Fluent 风格界面。 |
+| 🔐 | [rookiepy](https://github.com/thewh1teagle/rookiepy) 与 [pywebview](https://github.com/r0x0r/pywebview) | 浏览器会话集成与隔离的 WebView2 登录体验。 |
+| 🧩 | [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) 与 [Deno](https://github.com/denoland/deno) | YouTube 播放器兼容与 JavaScript 挑战支持。 |
+| ✨ | [SponsorBlock](https://sponsor.ajay.app/) 与 [AtomicParsley](https://github.com/wez/atomicparsley) | 赞助片段处理与媒体元数据增强。 |
+
+### 🌱 社区
+
+感谢每一位上游维护者、[代码贡献者](https://github.com/SakuraForgot/FluentYTDL/graphs/contributors)、问题反馈者、文档贡献者和测试者。每一份可复现的报告与用心的改进，都在帮助 FluentYTDL 变得更加可靠、易用。
+
+📜 许可证文本与第三方声明统一收录于 [`licenses/`](licenses/)。如果这个项目对你有所帮助，也欢迎关注并支持让它成为可能的上游项目。
