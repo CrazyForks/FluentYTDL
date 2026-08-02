@@ -25,10 +25,20 @@
   <a href="https://github.com/SakuraForgot/FluentYTDL/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/SakuraForgot/FluentYTDL/ci.yml?branch=main&style=flat-square&label=CI" alt="CI 状态"></a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/SakuraForgot/FluentYTDL/stargazers"><img src="https://img.shields.io/github/stars/SakuraForgot/FluentYTDL?style=flat-square&logo=github&color=f59e0b&label=stars" alt="GitHub Stars"></a>
+  <a href="https://github.com/SakuraForgot/FluentYTDL/releases"><img src="https://img.shields.io/github/downloads/SakuraForgot/FluentYTDL/total?style=flat-square&logo=github&color=0ea5e9&label=downloads" alt="Release 总下载量"></a>
+  <a href="https://github.com/SakuraForgot/FluentYTDL/releases/latest"><img src="https://img.shields.io/github/downloads/SakuraForgot/FluentYTDL/latest/total?style=flat-square&logo=github&color=8b5cf6&label=latest%20downloads" alt="最新版下载量"></a>
+</p>
+
 FluentYTDL 将 yt-dlp 与 FFmpeg 整合为有引导的桌面工作流：解析链接、精确选择所需内容、在一个队列中跟踪所有任务，并由应用协调下载、恢复与后处理，无需手工拼接命令行参数。
 
 > [!NOTE]
 > FluentYTDL 面向 **64 位 Windows 10 和 Windows 11** 开发。YouTube 拥有最完整的功能覆盖；X 目前支持单条帖子链接，个人主页和时间线下载不在正式支持范围内。
+
+## 🌟 项目影响力
+
+FluentYTDL 让偏好图形界面的 Windows 用户也能轻松使用 yt-dlp 与 FFmpeg 的进阶工作流。官方 Release 资产累计下载量已超过 **20,000 次**，项目持续根据真实 Issue 推进版本发布，并跟进上游平台与工具变化。
 
 ---
 

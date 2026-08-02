@@ -25,10 +25,20 @@
   <a href="https://github.com/SakuraForgot/FluentYTDL/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/SakuraForgot/FluentYTDL/ci.yml?branch=main&style=flat-square&label=CI" alt="CI status"></a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/SakuraForgot/FluentYTDL/stargazers"><img src="https://img.shields.io/github/stars/SakuraForgot/FluentYTDL?style=flat-square&logo=github&color=f59e0b&label=stars" alt="GitHub stars"></a>
+  <a href="https://github.com/SakuraForgot/FluentYTDL/releases"><img src="https://img.shields.io/github/downloads/SakuraForgot/FluentYTDL/total?style=flat-square&logo=github&color=0ea5e9&label=downloads" alt="Total release downloads"></a>
+  <a href="https://github.com/SakuraForgot/FluentYTDL/releases/latest"><img src="https://img.shields.io/github/downloads/SakuraForgot/FluentYTDL/latest/total?style=flat-square&logo=github&color=8b5cf6&label=latest%20downloads" alt="Latest release downloads"></a>
+</p>
+
 FluentYTDL turns yt-dlp and FFmpeg into a guided desktop workflow. Parse a link, choose exactly what you need, follow every task from one queue, and let the application coordinate downloads, recovery, and post-processing without manually assembling command-line options.
 
 > [!NOTE]
 > FluentYTDL is developed for **64-bit Windows 10 and Windows 11**. YouTube has the broadest feature coverage. X support currently targets individual post URLs; profile and timeline downloads are outside the supported scope.
+
+## 🌟 Project impact
+
+FluentYTDL makes advanced yt-dlp and FFmpeg workflows accessible to Windows users who prefer a guided desktop experience. Official release assets have surpassed **20,000 downloads**, while active, issue-driven releases continue to adapt the application to upstream platform and tool changes.
 
 ---
 
