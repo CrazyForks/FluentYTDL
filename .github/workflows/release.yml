@@ -231,9 +231,16 @@ jobs:
           uv run pytest tests -q --tb=short
           if ($LASTEXITCODE -ne 0) { throw '测试未通过，发布中止' }
 
+          # pyright 是 advisory —— 但 pwsh 步骤的退出码取最后一个原生命令的
+          # $LASTEXITCODE，Write-Host 不会重置它。不显式清零的话 pyright 的 1
+          # 会成为整个步骤的退出码，"不阻塞"的注释旁边照样中止发布。
           Write-Host '--- pyright (advisory) ---'
           uv run pyright src
-          if ($LASTEXITCODE -ne 0) { Write-Host '⚠ pyright 报告问题（不阻塞发布，与 ci.yml 保持一致）' }
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::pyright 报告 $LASTEXITCODE 号退出码（advisory，不阻塞发布，与 ci.yml 保持一致）"
+          }
+          $global:LASTEXITCODE = 0
+          exit 0
 
       - name: "🧾 校验版本一致性"
         shell: pwsh
@@ -247,7 +254,9 @@ jobs:
           uv run python scripts/version_manager.py check
           if ($LASTEXITCODE -ne 0) {
             if ($strict -eq 'true') { throw 'version_manager.py check 未通过：仓库内版本号不一致' }
-            Write-Host '⚠ version_manager.py check 未通过，strict=false，继续'
+            Write-Host '::warning::version_manager.py check 未通过，strict=false，继续'
+            # 同上：非零 $LASTEXITCODE 会一路传到步骤退出码，把"继续"变成失败
+            $global:LASTEXITCODE = 0
           }
 
           if ($publish -ne 'true') {
@@ -266,7 +275,8 @@ jobs:
 
           $msg = "版本不一致: VERSION 文件为 '$fileVersion'，但发布目标为 '$expected' (tag $tag)"
           if ($strict -eq 'true') { throw $msg }
-          Write-Host "⚠ $msg"
+          Write-Host "::warning::$msg"
+          exit 0
 
       # ========================================
       # 4. 外部工具与打包器
@@ -291,6 +301,8 @@ jobs:
           } else {
             Write-Host '✓ 外部工具与 TOOLS.lock.json 完全一致'
           }
+          # 这一步纯属记录，任何 git 退出码都不该影响发布
+          exit 0
 
       - name: "📦 安装 Inno Setup ${{ env.INNOSETUP_VERSION }}"
         if: steps.version.outputs.TARGETS == 'all' || steps.version.outputs.TARGETS == 'setup'
