@@ -3,22 +3,28 @@
 __all__ = ["__version__"]
 
 
-def _ensure_prefix(ver: str) -> str:
-    """Ensure version string has a prefix (v-, pre-, beta-).
+def _normalize(ver: str) -> str:
+    """Strip legacy prefixes so old on-disk VERSION files still parse.
 
-    Bare numeric versions like "3.1.4" default to "v-3.1.4".
+    Releases before 3.5.5 wrote "v-3.0.18" / "pre-3.0.18" / "beta-0.0.5". The
+    current format is bare PEP 440 ("3.5.5", "3.5.6-rc.1"); the "v" only ever
+    appears on the Git tag. An in-place upgrade can leave an old VERSION file
+    next to a new binary, so tolerate both rather than surfacing "v-3.5.5" to
+    the update channel logic.
     """
     ver = ver.strip()
     for pfx in ("v-", "pre-", "beta-"):
         if ver.startswith(pfx):
-            return ver
-    return f"v-{ver}"
+            return ver[len(pfx) :]
+    if ver.startswith("v") and ver[1:2].isdigit():
+        return ver[1:]
+    return ver
 
 
 def _read_version() -> str:
     """Read version from VERSION file, falling back to importlib.metadata.
 
-    VERSION file stores the full prefixed format like "v-3.0.18" / "pre-3.0.18" / "beta-0.0.5".
+    VERSION file stores the bare version like "3.5.5" / "3.5.6-rc.1".
     Priority: VERSION file > importlib.metadata > default.
     """
     import sys
@@ -41,17 +47,17 @@ def _read_version() -> str:
         if p.is_file():
             v = p.read_text(encoding="utf-8").strip()
             if v and v != "0.0.0-dev":
-                return _ensure_prefix(v)
+                return _normalize(v)
 
     # Fallback: pip install -e . reads from pyproject.toml metadata
     try:
         from importlib.metadata import version
 
-        return _ensure_prefix(version("FluentYTDL"))
+        return _normalize(version("FluentYTDL"))
     except Exception:
         pass
 
-    return "v-0.0.0-dev"
+    return "0.0.0-dev"
 
 
 __version__ = _read_version()

@@ -93,6 +93,9 @@ pythonVersion = "3.10"
 - **Routing & Pages**: Complex sub-interfaces must inherit from core page components (like `ScrollArea` or `QWidget` styled appropriately) and be registered via the main window's navigation/router interface.
 - **Delegates**: Use QPainter delegates for list items (avoids QWidget overhead for large lists).
 - **Dark mode support**: use `CustomInfoBar`, not raw InfoBar.
+- **Typography & Font Weight**: NEVER use plain `BodyLabel` for titles, instructions, or prominent text (causes text to appear thin and blurry). MUST use `StrongBodyLabel` or `SubtitleLabel`.
+- **Text Color Contrast**: NEVER hardcode `Qt.GlobalColor.darkGray` or `QColor(160, 160, 160)`. Secondary descriptive text (e.g., `CaptionLabel`) MUST manually receive high contrast colors via `setTextColor(QColor(96, 96, 96), QColor(210, 210, 210))` to ensure sharpness in dark mode.
+- **SettingCard Safety**: NEVER globally monkey patch `SettingCard` behavior. Custom components (like `InlineComboBoxCard`) may replace `contentLabel` with a standard `QLabel` lacking the `setTextColor` method, causing `AttributeError` during global initialization. Use explicit `findChildren` iterations within the page's `__init__` and perform `hasattr` checks instead.
 
 ### File Naming
 
@@ -172,51 +175,64 @@ See `docs/YTDLP_KNOWLEDGE_EN.md` for the full empirical knowledge base.
 
 ### Version Management
 
-- **Source of truth**: `VERSION` file (project root)
-- **Do not manually edit** version numbers in `__init__.py` or `pyproject.toml`
-- `build.py` auto-syncs version to all files before building
+- **Source of truth**: `VERSION` file (project root), holding a **bare** version with **no `v` prefix**
+- **Do not manually edit** version numbers in `__init__.py`, `pyproject.toml`, or `FluentYTDL.iss` — use `scripts/version_manager.py`
+- The Git tag is always `"v" + VERSION` — the `v` lives in the tag, never in the file
 
-### Version Prefixes
+### Version Format (PEP 440 / SemVer)
 
-| Prefix | Meaning | Distribution | GitHub Release |
-|--------|---------|-------------|---------------|
-| `v-` | Stable release | GitHub Release | Latest |
-| `pre-` | Pre-release candidate | GitHub Release | Pre-release |
-| `beta-` | Test/beta build | Project lead distributes in groups/channels | Not published |
+```text
+MAJOR.MINOR.PATCH[-(rc|beta).N]
+```
 
-Format: `{prefix}-{major}.{minor}.{patch}` — e.g., `v-3.0.18`, `pre-3.0.18`, `beta-0.0.5`
+| VERSION file | Git tag | Channel | Distribution |
+| --- | --- | --- | --- |
+| `3.5.5` | `v3.5.5` | stable | GitHub Release (Latest) — receives in-app auto-update |
+| `3.5.6-rc.1` | `v3.5.6-rc.1` | rc | GitHub Release (Pre-release) — auto-update **locked** |
+| `3.6.0-beta.1` | `v3.6.0-beta.1` | beta | Artifacts only, distributed in groups/channels — auto-update **locked** |
 
-**PEP 440 / Inno Setup / PE resources only accept numeric versions** (e.g., `3.0.18`). The build script automatically extracts the numeric part from `v-3.0.18`.
+- **No prefixes.** The legacy `v-` / `pre-` / `beta-` prefix scheme is retired. Runtime code still *reads* those formats for backward compatibility with installs predating 3.5.5, but nothing writes them.
+- `3.5.6-rc.1` is valid PEP 440 (normalizes to `3.5.6rc1`), so `pyproject.toml` stores the full version.
+- **Inno Setup / PE resources accept only numeric versions.** `FluentYTDL.iss` stores the numeric part (`3.5.6`); its `MyAppVersionNumeric` macro truncates at the first hyphen.
+- Only `rc` and `beta` are accepted as pre-release channels. `alpha`, bare `-rc`, and `3.5.5rc1` are rejected.
 
 ### AI Agent: Release Workflow
 
-**Stable release (v-)**:
-1. `python scripts/version_manager.py set v-3.0.18`
-2. `python scripts/version_manager.py check` (verify consistency)
-3. `git add -A && git commit -m "release: v-3.0.18"`
-4. `git tag v-3.0.18`
+**Stable release**:
+
+1. `python scripts/version_manager.py set 3.5.6`
+2. `python scripts/version_manager.py check` (verify consistency across all 4 files)
+3. `git add -A && git commit -m "release: v3.5.6"`
+4. `git tag v3.5.6`
 5. `git push && git push --tags`
 6. CI auto-triggers `release.yml` → build → GitHub Release (Latest)
 
-**Pre-release (pre-)**:
-1. `python scripts/version_manager.py set pre-3.0.18`
-2. Same steps 2-5 above
-3. CI auto-triggers → GitHub Release (Pre-release)
+**Release candidate**: `python scripts/version_manager.py set 3.5.6-rc.1` (or `bump patch --pre rc`), then steps 2-5 with tag `v3.5.6-rc.1` → GitHub Release marked Pre-release.
 
-**Beta (beta-)**:
-1. `python scripts/version_manager.py set beta-0.0.5`
-2. Same steps 2-5 above
-3. CI auto-triggers → Artifacts only (no GitHub Release)
-4. Project lead downloads from GitHub Actions Artifacts
+**Beta**: `python scripts/version_manager.py set 3.6.0-beta.1`, then steps 2-5 → Artifacts only, no GitHub Release. Project lead downloads from GitHub Actions Artifacts.
 
 ### Local Build
 
-- GUI: `python scripts/build_gui.py` → enter version → click Build
-- CLI: `python scripts/build.py --target all --version v-3.0.18`
+- GUI: `python scripts/build_gui.py` → leave the version field blank to use `VERSION` → click Build
+- CLI: `python scripts/build.py --target all` (version read from `VERSION`)
 - `--target` options: `all`, `7z` (or `full`), `setup`
+- **`build.py` only writes back to `VERSION` when `--version` is passed explicitly.** Building without `--version` never mutates the source of truth.
+- Passing a `v`-prefixed version to `build.py` / `version_manager.py set` is rejected with a corrective hint.
+
+### Release Artifacts
+
+| Artifact | Audience |
+| --- | --- |
+| `FluentYTDL-{VERSION}-win64-full.7z` | **Primary recommendation** — portable, extract and run, bundles all `bin/` tools |
+| `FluentYTDL-{VERSION}-win64-setup.exe` | Inno Setup installer — registry entries, shortcuts, requires admin |
+| `FluentYTDL-{VERSION}-win64-app-core.7z` | **Internal** — incremental payload for in-app auto-update. Excludes `bin/` and `updater.exe`. Not standalone-runnable; never present it as a user download. |
+| `update-manifest.json` | Consumed by the in-app updater via the `releases/latest/download/` RAW redirect |
+| `SHA256SUMS.txt` | Integrity verification for all of the above |
+
+Asset download URLs are keyed by **tag**, not version — `generate_manifest.py` takes `--tag` for exactly this reason (`/releases/download/v3.5.5/FluentYTDL-3.5.5-win64-full.7z`).
 
 ### Notes
 
-- `build.py` syncs version to all files (VERSION, pyproject.toml, __init__.py, .iss) before building
-- beta builds only produce Artifacts, not GitHub Releases
-- Output filenames include full prefix: `FluentYTDL-v-3.0.18-win64-full.7z`
+- `build.py` syncs the version to `pyproject.toml`, `__init__.py`, and `.iss` before building; `__init__.py` is skipped when it reads `VERSION` dynamically
+- Output filenames carry the bare version, never the tag: `FluentYTDL-3.5.5-win64-full.7z`
+- Missing ISCC or a missing `.iss` is a **hard failure** — the build never reports success with zero artifacts

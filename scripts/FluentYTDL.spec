@@ -32,6 +32,13 @@ datas = [
     ('../docs', 'docs'),
     ('../assets/FluentYTDL_v2.ico', 'assets'),
     ('../assets/logo.png', 'assets'),
+    # 托盘 / 窗口图标的多尺寸位图，由 utils/icons.py 组装成 QIcon。
+    # 漏掉任何一张都会让对应 DPI 下的托盘图标退化为缩放糊图。
+    ('../assets/logo_tight.png', 'assets'),
+    ('../assets/logo_16.png', 'assets'),
+    ('../assets/logo_32.png', 'assets'),
+    ('../assets/logo_64.png', 'assets'),
+    ('../assets/logo_128.png', 'assets'),
     ('../assets/locales', 'assets/locales'),
     ('../src/fluentytdl/yt_dlp_plugins_ext', 'fluentytdl/yt_dlp_plugins_ext'),
     ('../VERSION', '.'),  # 版本文件，运行时 __init__.py 读取

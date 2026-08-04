@@ -160,3 +160,69 @@ pythonVersion = "3.10"
 | `docs/RULES_EN.md` | 本文档的英文版 |
 | `CONTRIBUTING.md` | 贡献指南 |
 | `SECURITY.md` | 安全策略 |
+
+## 10. 打包与发布规则
+
+### 版本管理
+
+- **唯一真相源**：项目根目录的 `VERSION` 文件，存**裸版本号**，**不带 `v` 前缀**
+- **不要手改** `__init__.py`、`pyproject.toml`、`FluentYTDL.iss` 里的版本号 —— 一律走 `scripts/version_manager.py`
+- Git tag 恒为 `"v" + VERSION` —— `v` 只存在于 tag，不存在于文件里
+
+### 版本格式（PEP 440 / SemVer）
+
+```text
+MAJOR.MINOR.PATCH[-(rc|beta).N]
+```
+
+| VERSION 文件 | Git tag | 通道 | 分发方式 |
+| --- | --- | --- | --- |
+| `3.5.5` | `v3.5.5` | stable | GitHub Release (Latest) —— 接收程序内自动更新 |
+| `3.5.6-rc.1` | `v3.5.6-rc.1` | rc | GitHub Release (Pre-release) —— 自动更新 **locked** |
+| `3.6.0-beta.1` | `v3.6.0-beta.1` | beta | 仅 Artifacts，群/频道分发 —— 自动更新 **locked** |
+
+- **不再使用前缀。** 旧的 `v-` / `pre-` / `beta-` 前缀体系已废弃。运行时代码仍能*读取*这些格式，用于兼容 3.5.5 之前的安装，但不会再写出。
+- `3.5.6-rc.1` 是合法 PEP 440（规范化为 `3.5.6rc1`），因此 `pyproject.toml` 存完整版本号。
+- **Inno Setup / PE 资源只接受纯数字版本。** `FluentYTDL.iss` 存数字段（`3.5.6`），其 `MyAppVersionNumeric` 宏会在第一个连字符处截断。
+- 预发布通道只认 `rc` 和 `beta`。`alpha`、裸 `-rc`、`3.5.5rc1` 一律拒绝。
+
+### AI Agent：发布流程
+
+**正式版**：
+
+1. `python scripts/version_manager.py set 3.5.6`
+2. `python scripts/version_manager.py check`（校验 4 个文件一致）
+3. `git add -A && git commit -m "release: v3.5.6"`
+4. `git tag v3.5.6`
+5. `git push && git push --tags`
+6. CI 自动触发 `release.yml` → 构建 → GitHub Release (Latest)
+
+**预发布 (rc)**：`python scripts/version_manager.py set 3.5.6-rc.1`（或 `bump patch --pre rc`），之后同上 2-5 步，tag 为 `v3.5.6-rc.1` → GitHub Release 标记为 Pre-release。
+
+**测试版 (beta)**：`python scripts/version_manager.py set 3.6.0-beta.1`，之后同上 2-5 步 → 仅产出 Artifacts，不创建 GitHub Release，由项目负责人从 GitHub Actions Artifacts 下载分发。
+
+### 本地构建
+
+- GUI：`python scripts/build_gui.py` → 版本框**留空**即使用 `VERSION` → 点击构建
+- CLI：`python scripts/build.py --target all`（版本从 `VERSION` 读取）
+- `--target` 可选值：`all`、`7z`（或 `full`）、`setup`
+- **`build.py` 仅在显式传入 `--version` 时才回写 `VERSION`。** 不传 `--version` 的构建绝不会篡改真相源。
+- 向 `build.py` / `version_manager.py set` 传入带 `v` 前缀的版本会被拒绝并给出纠正提示。
+
+### 发布产物
+
+| 产物 | 面向对象 |
+| --- | --- |
+| `FluentYTDL-{VERSION}-win64-full.7z` | **首要推荐** —— 便携免安装，解压即用，内置全部 `bin/` 工具 |
+| `FluentYTDL-{VERSION}-win64-setup.exe` | Inno Setup 安装向导 —— 写注册表、建快捷方式，需要管理员权限 |
+| `FluentYTDL-{VERSION}-win64-app-core.7z` | **内部包** —— 供程序内自动更新使用的增量载荷，不含 `bin/` 与 `updater.exe`，单独解压无法运行；**绝不可**作为用户下载项展示 |
+| `update-manifest.json` | 程序内更新器通过 `releases/latest/download/` RAW 直链消费 |
+| `SHA256SUMS.txt` | 上述全部产物的完整性校验 |
+
+资产下载 URL 以 **tag** 而非版本号为键 —— `generate_manifest.py` 的 `--tag` 参数正是为此存在（`/releases/download/v3.5.5/FluentYTDL-3.5.5-win64-full.7z`）。
+
+### 注意事项
+
+- `build.py` 构建前会把版本同步到 `pyproject.toml`、`__init__.py`、`.iss`；当 `__init__.py` 动态读取 `VERSION` 时跳过同步
+- 产物文件名带的是裸版本号，不是 tag：`FluentYTDL-3.5.5-win64-full.7z`
+- 缺失 ISCC 或 `.iss` 属于**硬失败** —— 构建绝不会在零产物的情况下报成功

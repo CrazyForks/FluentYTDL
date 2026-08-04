@@ -2,19 +2,21 @@
 """
 FluentYTDL 版本管理工具
 
-统一管理所有文件中的版本号，支持三种版本前缀：
-  v-X.Y.Z    — 正式发布（稳定版），GitHub Release Latest
-  pre-X.Y.Z  — 预发布（候选版），GitHub Release Pre-release
-  beta-X.Y.Z — 测试版，仅项目负责人在群/频道分发
+版本号采用标准 PEP 440 / SemVer 格式，不带任何前缀：
+  X.Y.Z         — 正式发布（稳定版），GitHub Release Latest
+  X.Y.Z-rc.N    — 预发布（候选版），GitHub Release Pre-release
+  X.Y.Z-beta.N  — 测试版，仅 Artifacts + 项目负责人在群/频道分发
 
-VERSION 文件（根目录）是唯一的 source of truth。
-pyproject.toml 和 Inno Setup 只存储纯数字版本（PEP 440 / Inno Setup 兼容）。
+Git tag = "v" + 版本号，例如 v3.5.5 / v3.5.6-rc.1。
+
+VERSION 文件（根目录）是唯一的 source of truth，存储不带 "v" 的完整版本。
+Inno Setup 只接受纯数字版本，因此 .iss 只写 X.Y.Z 部分。
 
 用法:
-    python scripts/version_manager.py check              # 检查版本一致性
-    python scripts/version_manager.py set v-3.0.18       # 设置新版本
-    python scripts/version_manager.py set pre-3.0.18     # 设置预发布版本
-    python scripts/version_manager.py set beta-0.0.5     # 设置测试版本
+    python scripts/version_manager.py check                # 检查版本一致性
+    python scripts/version_manager.py set 3.5.6            # 设置正式版
+    python scripts/version_manager.py set 3.5.6-rc.1       # 设置预发布版本
+    python scripts/version_manager.py set 3.6.0-beta.1     # 设置测试版本
     python scripts/version_manager.py bump major|minor|patch  # 自动递增版本
 """
 
@@ -29,6 +31,16 @@ from typing import Literal
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# 标准版本号: X.Y.Z 可选带 -rc.N / -beta.N 预发布后缀
+VERSION_RE = re.compile(r"^(?P<numeric>\d+\.\d+\.\d+)(?:-(?P<channel>rc|beta)\.(?P<serial>\d+))?$")
+
+# 各通道的中文名与发布行为
+CHANNEL_INFO = {
+    "stable": ("正式版", "GitHub Release (Latest)"),
+    "rc": ("预发布", "GitHub Release (Pre-release)"),
+    "beta": ("测试版", "仅 Artifacts + 群/频道分发"),
+}
+
 
 @dataclass
 class VersionFile:
@@ -38,21 +50,44 @@ class VersionFile:
     pattern: str  # 正则表达式模式，必须包含一个捕获组
     template: str  # 替换模板，使用 {version} 占位符
     description: str
-    writes_full: bool = False  # True: 写入完整带前缀版本; False: 只写纯数字
+    writes_full: bool = False  # True: 写完整版本（含预发布后缀）; False: 只写 X.Y.Z
 
 
-def _parse_prefix(version_str: str) -> tuple[str, str]:
-    """解析版本前缀和数字部分。
+def strip_v_prefix(version_str: str) -> str:
+    """去掉 Git tag 风格的 "v" 前缀。"v3.5.5" → "3.5.5"，"3.5.5" 原样返回。"""
+    version_str = version_str.strip()
+    if re.match(r"^v\d", version_str):
+        return version_str[1:]
+    return version_str
 
-    "v-3.0.18"    → ("v-", "3.0.18")
-    "pre-3.0.18"  → ("pre-", "3.0.18")
-    "beta-0.0.5"  → ("beta-", "0.0.5")
-    "3.0.18"      → ("v-", "3.0.18")  # 无前缀默认 v-
+
+def parse_version(version_str: str) -> tuple[str, str]:
+    """解析版本号 → (数字部分, 通道)。
+
+    "3.5.5"        → ("3.5.5", "stable")
+    "3.5.6-rc.1"   → ("3.5.6", "rc")
+    "3.6.0-beta.2" → ("3.6.0", "beta")
+
+    容忍 "v" 前缀（tag 名可直接传入）。格式非法时抛 ValueError。
     """
-    for pfx in ("v-", "pre-", "beta-"):
-        if version_str.startswith(pfx):
-            return pfx, version_str[len(pfx) :]
-    return "v-", version_str
+    cleaned = strip_v_prefix(version_str)
+    match = VERSION_RE.match(cleaned)
+    if not match:
+        raise ValueError(
+            f"无效的版本号: {version_str!r}\n"
+            f"  期望格式: X.Y.Z / X.Y.Z-rc.N / X.Y.Z-beta.N（如 3.5.5、3.5.6-rc.1）"
+        )
+    return match.group("numeric"), match.group("channel") or "stable"
+
+
+def is_valid_version(version_str: str) -> bool:
+    """判断版本号是否符合规范（不接受 "v" 前缀）。"""
+    return VERSION_RE.match(version_str.strip()) is not None
+
+
+def tag_for(version_str: str) -> str:
+    """由版本号推导 Git tag。"3.5.5" → "v3.5.5"。"""
+    return f"v{strip_v_prefix(version_str)}"
 
 
 class VersionManager:
@@ -71,7 +106,8 @@ class VersionManager:
             pattern=r'^version\s*=\s*["\']([^"\']+)["\']',
             template='version = "{version}"',
             description="项目配置文件",
-            writes_full=False,
+            # "3.5.6-rc.1" 是合法 PEP 440（规范化为 3.5.6rc1），可以写完整版本
+            writes_full=True,
         ),
         VersionFile(
             path=ROOT / "src" / "fluentytdl" / "__init__.py",
@@ -85,6 +121,7 @@ class VersionManager:
             pattern=r'#define\s+MyAppVersion\s+"([^"]+)"',
             template='#define MyAppVersion "{version}"',
             description="Inno Setup 默认版本",
+            # Inno Setup 的 VersionInfoVersion 只接受纯数字，故只写 X.Y.Z
             writes_full=False,
         ),
     ]
@@ -114,8 +151,8 @@ class VersionManager:
     def check_consistency(self) -> bool:
         """检查版本一致性。
 
-        VERSION 和 __init__.py 应存储完整版本（含前缀），
-        pyproject.toml 和 .iss 应存储纯数字版本。
+        VERSION / pyproject.toml / __init__.py 存储完整版本（含预发布后缀），
+        .iss 只存储 X.Y.Z 数字部分。
         """
         print("🔍 检查版本号一致性...\n")
 
@@ -128,8 +165,20 @@ class VersionManager:
             print("  ❌ VERSION 文件不存在或为空")
             return False
 
-        prefix, numeric = _parse_prefix(full_version)
-        print(f"  📌 VERSION 源文件: {full_version} (前缀: {prefix}, 数字: {numeric})\n")
+        try:
+            numeric, channel = parse_version(full_version)
+        except ValueError as e:
+            print(f"  ❌ {e}")
+            return False
+
+        if full_version != strip_v_prefix(full_version):
+            print(f'  ❌ VERSION 文件不应包含 "v" 前缀: {full_version}')
+            print(f"     应写作 {strip_v_prefix(full_version)}，Git tag 才是 {full_version}")
+            return False
+
+        channel_name = CHANNEL_INFO[channel][0]
+        print(f"  📌 VERSION 源文件: {full_version} ({channel_name}, 数字: {numeric})")
+        print(f"  🏷️  对应 Git tag: {tag_for(full_version)}\n")
 
         all_ok = True
         for vf in self.VERSION_FILES:
@@ -163,22 +212,26 @@ class VersionManager:
     def set_version(self, new_version: str) -> bool:
         """设置新版本号到所有文件。
 
-        new_version 格式: "v-3.0.18" / "pre-3.0.18" / "beta-0.0.5"
-        无前缀时默认添加 "v-" 前缀。
+        new_version 格式: "3.5.6" / "3.5.6-rc.1" / "3.6.0-beta.1"
+        不接受 "v" 前缀 —— 那是 Git tag 的格式，不是 VERSION 文件的内容。
         """
-        # 确保有前缀
-        if not any(new_version.startswith(p) for p in ("v-", "pre-", "beta-")):
-            new_version = f"v-{new_version}"
+        new_version = new_version.strip()
 
-        # 验证数字部分格式
-        prefix, numeric = _parse_prefix(new_version)
-        if not self._is_valid_numeric_version(numeric):
-            print(f"❌ 无效的版本号格式: {new_version}")
-            print("   数字部分应符合语义化版本规范，如: 1.0.0, 1.2.3, 2.0.0")
+        if re.match(r"^v\d", new_version):
+            print(f'❌ 版本号不应带 "v" 前缀: {new_version}')
+            print(f"   请改用: python scripts/version_manager.py set {new_version[1:]}")
+            print(f'   "v" 只用于 Git tag（发布时执行 git tag {new_version}）')
             return False
 
+        try:
+            numeric, channel = parse_version(new_version)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return False
+
+        channel_name = CHANNEL_INFO[channel][0]
         print(f"📝 设置版本号为: {new_version}")
-        print(f"   前缀: {prefix}, 数字: {numeric}\n")
+        print(f"   类型: {channel_name}, 数字: {numeric}, Git tag: {tag_for(new_version)}\n")
 
         success_count = 0
         for vf in self.VERSION_FILES:
@@ -222,27 +275,29 @@ class VersionManager:
         print(f"\n✅ 已更新 {success_count}/{len(self.VERSION_FILES)} 个文件")
         return success_count == len([vf for vf in self.VERSION_FILES if vf.path.exists()])
 
-    def bump_version(self, bump_type: Literal["major", "minor", "patch"]) -> bool:
-        """自动递增版本号（保留当前前缀）"""
+    def bump_version(
+        self,
+        bump_type: Literal["major", "minor", "patch"],
+        pre: Literal["rc", "beta"] | None = None,
+    ) -> bool:
+        """递增版本号。
+
+        默认产出正式版（丢弃当前的预发布后缀）；传 pre 则产出该通道的 .1 预发布。
+        例: 3.5.5 --bump patch          → 3.5.6
+            3.5.5 --bump minor --pre rc → 3.6.0-rc.1
+        """
         current = self.get_current_version()
         if not current:
             print("❌ 无法获取当前版本号")
             return False
 
-        prefix, numeric = _parse_prefix(current)
-        parts = numeric.split(".")
-        if len(parts) < 3:
-            print(f"❌ 版本号格式不正确: {numeric}")
+        try:
+            numeric, _channel = parse_version(current)
+        except ValueError as e:
+            print(f"❌ {e}")
             return False
 
-        try:
-            major = int(parts[0])
-            minor = int(parts[1])
-            patch_str = parts[2].split("-")[0]
-            patch = int(patch_str)
-        except ValueError:
-            print(f"❌ 无法解析版本号: {numeric}")
-            return False
+        major, minor, patch = (int(p) for p in numeric.split("."))
 
         if bump_type == "major":
             major += 1
@@ -254,17 +309,17 @@ class VersionManager:
         elif bump_type == "patch":
             patch += 1
 
-        new_numeric = f"{major}.{minor}.{patch}"
-        new_version = f"{prefix}{new_numeric}"
+        new_version = f"{major}.{minor}.{patch}"
+        if pre:
+            new_version += f"-{pre}.1"
 
         print(f"🔼 版本递增: {current} → {new_version} ({bump_type})\n")
         return self.set_version(new_version)
 
     @staticmethod
     def _is_valid_numeric_version(version: str) -> bool:
-        """验证纯数字版本号格式（语义化版本）"""
-        pattern = r"^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?(?:\+([a-zA-Z0-9.-]+))?$"
-        return re.match(pattern, version) is not None
+        """验证版本号格式（X.Y.Z 可带 -rc.N / -beta.N）"""
+        return is_valid_version(version)
 
     def generate_summary(self) -> None:
         """生成版本信息摘要"""
@@ -273,26 +328,33 @@ class VersionManager:
             print("❌ 无法获取当前版本号")
             return
 
-        prefix, numeric = _parse_prefix(current)
-        prefix_name = {"v-": "正式版", "pre-": "预发布", "beta-": "测试版"}.get(prefix, "未知")
+        try:
+            numeric, channel = parse_version(current)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return
+
+        channel_name, distribution = CHANNEL_INFO[channel]
 
         print("=" * 60)
         print("FluentYTDL 版本信息")
         print("=" * 60)
         print(f"当前版本: {current}")
-        print(f"  类型: {prefix_name} (前缀: {prefix})")
+        print(f"  类型: {channel_name} ({channel})")
         print(f"  数字: {numeric}")
+        print(f"  Git tag: {tag_for(current)}")
+        print(f"  发布去向: {distribution}")
         print()
         print("版本文件:")
         for vf in self.VERSION_FILES:
             status = "✓" if vf.path.exists() else "✗"
-            kind = "完整" if vf.writes_full else "纯数字"
+            kind = "完整" if vf.writes_full else "数字"
             print(f"  [{status}] {vf.description:20s}: {kind:4s} ({vf.path.relative_to(ROOT)})")
         print()
-        print("版本前缀规范:")
-        print("  v-    正式发布 → GitHub Release (Latest)")
-        print("  pre-  预发布   → GitHub Release (Pre-release)")
-        print("  beta- 测试版   → 仅 Artifacts + 群/频道分发")
+        print('版本规范 (Git tag = "v" + 版本号):')
+        for key, (name, dest) in CHANNEL_INFO.items():
+            sample = {"stable": "3.5.6", "rc": "3.5.6-rc.1", "beta": "3.6.0-beta.1"}[key]
+            print(f"  {sample:16s} {name} → {dest}")
         print("=" * 60)
 
 
@@ -302,14 +364,15 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python scripts/version_manager.py check              # 检查版本一致性
-  python scripts/version_manager.py set v-3.0.18       # 设置正式版
-  python scripts/version_manager.py set pre-3.0.18     # 设置预发布版
-  python scripts/version_manager.py set beta-0.0.5     # 设置测试版
-  python scripts/version_manager.py bump patch         # 递增补丁版本 (保留前缀)
-  python scripts/version_manager.py bump minor         # 递增次版本
-  python scripts/version_manager.py bump major         # 递增主版本
-  python scripts/version_manager.py summary            # 显示版本摘要
+  python scripts/version_manager.py check                # 检查版本一致性
+  python scripts/version_manager.py set 3.5.6            # 设置正式版
+  python scripts/version_manager.py set 3.5.6-rc.1       # 设置预发布版
+  python scripts/version_manager.py set 3.6.0-beta.1     # 设置测试版
+  python scripts/version_manager.py bump patch           # 递增补丁版本 → 正式版
+  python scripts/version_manager.py bump minor --pre rc  # 递增次版本 → rc.1
+  python scripts/version_manager.py summary              # 显示版本摘要
+
+注意: 版本号不带 "v" 前缀，Git tag 才带（VERSION=3.5.6 → tag=v3.5.6）。
         """,
     )
 
@@ -320,7 +383,7 @@ def main():
     set_parser = subparsers.add_parser("set", help="设置新版本号")
     set_parser.add_argument(
         "version",
-        help="新版本号，如: v-3.0.18, pre-3.0.18, beta-0.0.5 (无前缀默认 v-)",
+        help="新版本号，如: 3.5.6, 3.5.6-rc.1, 3.6.0-beta.1 (不带 v 前缀)",
     )
 
     bump_parser = subparsers.add_parser("bump", help="自动递增版本号")
@@ -328,6 +391,12 @@ def main():
         "type",
         choices=["major", "minor", "patch"],
         help="递增类型: major (主版本), minor (次版本), patch (补丁版本)",
+    )
+    bump_parser.add_argument(
+        "--pre",
+        choices=["rc", "beta"],
+        default=None,
+        help="产出该通道的预发布版本（如 --pre rc → X.Y.Z-rc.1），默认产出正式版",
     )
 
     subparsers.add_parser("summary", help="显示版本信息摘要")
@@ -347,20 +416,13 @@ def main():
     elif args.command == "set":
         success = manager.set_version(args.version)
         if success:
-            print("\n💡 提示: 记得提交版本更改到 Git:")
-            print("   git add -A")
-            print(f'   git commit -m "release: {args.version}"')
-            print(f"   git tag {args.version}")
+            _print_git_hint(manager.get_current_version())
         return 0 if success else 1
 
     elif args.command == "bump":
-        success = manager.bump_version(args.type)
+        success = manager.bump_version(args.type, args.pre)
         if success:
-            new_version = manager.get_current_version()
-            print("\n💡 提示: 记得提交版本更改到 Git:")
-            print("   git add -A")
-            print(f'   git commit -m "release: {new_version}"')
-            print(f"   git tag {new_version}")
+            _print_git_hint(manager.get_current_version())
         return 0 if success else 1
 
     elif args.command == "summary":
@@ -368,6 +430,18 @@ def main():
         return 0
 
     return 0
+
+
+def _print_git_hint(version: str | None) -> None:
+    """打印发布用的 Git 命令提示"""
+    if not version:
+        return
+    tag = tag_for(version)
+    print("\n💡 提示: 记得提交版本更改到 Git:")
+    print("   git add -A")
+    print(f'   git commit -m "release: {tag}"')
+    print(f"   git tag {tag}")
+    print("   git push && git push --tags")
 
 
 if __name__ == "__main__":

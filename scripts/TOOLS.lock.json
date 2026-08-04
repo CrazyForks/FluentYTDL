@@ -1,0 +1,54 @@
+{
+  "lock_version": 1,
+  "tools": {
+    "atomicparsley": {
+      "version": "20240608.083822.0",
+      "files": {
+        "AtomicParsley.exe": {
+          "sha256": "f571d68e448b80607081f6742a34ab00ba10abd21d4b894b400b6415d8413db1",
+          "size": 287232
+        }
+      }
+    },
+    "deno": {
+      "version": "2.9.3",
+      "files": {
+        "deno.exe": {
+          "sha256": "bc925c8729f8764f750597f3a5a365f2a2dedc0c64d21a2997bc5f2255658fc9",
+          "size": 99143968
+        }
+      }
+    },
+    "ffmpeg": {
+      "version": "N-125551-ga09be9b91e-20260712",
+      "files": {
+        "ffmpeg.exe": {
+          "sha256": "ab318cb33c529cca2f11797fdbfd2061e115184dc63f2dda61bbd58a427335c1",
+          "size": 144506368
+        },
+        "ffprobe.exe": {
+          "sha256": "f1ec22ea38d9aca5c66160003cd593e148a5915af0da8f14db2b430fd654880a",
+          "size": 144296448
+        }
+      }
+    },
+    "pot-provider": {
+      "version": "0.8.1",
+      "files": {
+        "bgutil-pot-provider.exe": {
+          "sha256": "25d6b05c79176aa792454c3d1727922ca47e56cf11cb1e866615d751819b14a0",
+          "size": 45795328
+        }
+      }
+    },
+    "yt-dlp": {
+      "version": "2026.07.04",
+      "files": {
+        "yt-dlp.exe": {
+          "sha256": "52fe3c26dcf71fbdc85b528589020bb0b8e383155cfa81b64dd447bbe35e24b8",
+          "size": 18226085
+        }
+      }
+    }
+  }
+}

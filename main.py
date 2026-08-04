@@ -161,6 +161,16 @@ def main() -> None:
             Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
         )
 
+    # 显式声明 AppUserModelID：让 Windows 把窗口、任务栏图标和通知归到同一个应用身份下。
+    # 不设置时 Windows 会按 EXE 路径隐式归组，覆盖安装后容易命中陈旧的图标缓存。
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("FluentYTDL")
+        except Exception:
+            pass
+
     # 1. 创建应用
     app = QApplication(sys.argv)
 
@@ -204,14 +214,14 @@ def main() -> None:
     else:
         qfluentwidgets.setTheme(qfluentwidgets.Theme.AUTO)
 
-    # Set application icon from assets/logo_tight.png (cropped variant) to fix Qt internal scaling bugs
+    # 应用图标：多尺寸 QIcon，供窗口 / 任务栏 / 托盘共用。
+    # 必须走 resource_path()（它处理了 sys._MEIPASS），用 __file__ 推导的路径在打包后指不到资源。
     try:
-        root_dir = Path(__file__).resolve().parent
-        icon_path = root_dir / "assets" / "logo_tight.png"
-        if icon_path.exists():
-            from PySide6.QtGui import QIcon
+        from fluentytdl.utils.icons import load_app_icon
 
-            app.setWindowIcon(QIcon(str(icon_path)))
+        app_icon = load_app_icon()
+        if not app_icon.isNull():
+            app.setWindowIcon(app_icon)
     except Exception:
         pass
 

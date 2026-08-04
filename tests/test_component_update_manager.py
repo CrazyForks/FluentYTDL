@@ -18,18 +18,9 @@ class TestParseVersion:
 
     @staticmethod
     def _parse(ver: str) -> tuple[int, ...]:
-        """Reproduce the _parse_version logic for testing."""
-        import re
+        from fluentytdl.core.component_update_manager import _parse_version
 
-        clean = re.sub(r"^(v-?|pre-|beta-)", "", str(ver).strip())
-        clean = clean.split("-")[0]
-        parts = []
-        for p in clean.split("."):
-            try:
-                parts.append(int(p))
-            except ValueError:
-                parts.append(0)
-        return tuple(parts)
+        return _parse_version(ver)
 
     def test_newer_is_greater(self):
         assert self._parse("3.0.18") > self._parse("3.0.16")
@@ -43,63 +34,65 @@ class TestParseVersion:
     def test_strips_v_prefix(self):
         assert self._parse("v3.0.18") == (3, 0, 18)
 
-    def test_strips_v_dash_prefix(self):
+    def test_strips_prerelease_suffix(self):
+        assert self._parse("3.5.6-rc.1") == (3, 5, 6)
+        assert self._parse("3.6.0-beta.2") == (3, 6, 0)
+
+    def test_prerelease_compares_equal_to_its_release(self):
+        # 数值相同 → 不会把 rc 误判为比正式版新
+        assert self._parse("3.5.6-rc.1") == self._parse("3.5.6")
+
+    # ── 3.5.5 之前的旧前缀格式，升级路径上仍会遇到 ──
+    def test_strips_legacy_v_dash_prefix(self):
         assert self._parse("v-3.0.19") == (3, 0, 19)
 
-    def test_v_dash_newer_than_v_dash(self):
+    def test_legacy_v_dash_ordering(self):
         assert self._parse("v-3.0.19") > self._parse("v-3.0.18")
 
-    def test_strips_pre_prefix(self):
+    def test_strips_legacy_pre_prefix(self):
         assert self._parse("pre-3.0.18") == (3, 0, 18)
 
-    def test_strips_beta_prefix(self):
+    def test_strips_legacy_beta_prefix(self):
         assert self._parse("beta-0.0.5") == (0, 0, 5)
 
-
-class TestParseVersionPrefix:
-    """Test _parse_version_prefix."""
-
-    @staticmethod
-    def _parse(full: str) -> tuple[str, str]:
-        for pfx in ("v-", "pre-", "beta-"):
-            if full.startswith(pfx):
-                return pfx, full[len(pfx) :]
-        return "v-", full
-
-    def test_v_prefix(self):
-        assert self._parse("v-3.0.18") == ("v-", "3.0.18")
-
-    def test_pre_prefix(self):
-        assert self._parse("pre-3.0.18") == ("pre-", "3.0.18")
-
-    def test_beta_prefix(self):
-        assert self._parse("beta-0.0.5") == ("beta-", "0.0.5")
-
-    def test_no_prefix_defaults_to_v(self):
-        assert self._parse("3.0.18") == ("v-", "3.0.18")
+    def test_legacy_and_new_format_compare(self):
+        """老客户端的 v-3.5.5 与新清单的 3.5.6 必须能正确比较。"""
+        assert self._parse("3.5.6") > self._parse("v-3.5.5")
 
 
 class TestGetUpdateChannel:
-    """Test channel detection from version prefix."""
+    """Test channel detection from the version string."""
 
-    def test_stable_channel(self):
-        from fluentytdl.core.component_update_manager import _get_update_channel
-
-        with patch("fluentytdl.__version__", "v-3.0.16"):
-            assert _get_update_channel() == "stable"
-
-    @pytest.mark.parametrize("version", ["pre-3.0.18", "beta-0.0.5"])
-    def test_non_stable_channel_is_locked(self, version):
+    @staticmethod
+    def _channel(version: str) -> str:
         from fluentytdl.core.component_update_manager import _get_update_channel
 
         with patch("fluentytdl.__version__", version):
-            assert _get_update_channel() == "locked"
+            return _get_update_channel()
 
-    def test_no_prefix_is_locked(self):
-        from fluentytdl.core.component_update_manager import _get_update_channel
+    @pytest.mark.parametrize("version", ["3.5.5", "3.0.16", "4.0.0"])
+    def test_bare_version_is_stable(self, version):
+        assert self._channel(version) == "stable"
 
-        with patch("fluentytdl.__version__", "3.0.16"):
-            assert _get_update_channel() == "locked"
+    @pytest.mark.parametrize("version", ["3.5.6-rc.1", "3.6.0-beta.1"])
+    def test_prerelease_suffix_is_locked(self, version):
+        assert self._channel(version) == "locked"
+
+    def test_v_tag_form_is_stable(self):
+        """容忍误写成 tag 形式的版本号，不应把用户判成 locked。"""
+        assert self._channel("v3.5.5") == "stable"
+
+    # ── 3.5.5 之前的旧前缀格式：原地升级时 VERSION 文件可能残留 ──
+    def test_legacy_v_dash_is_stable(self):
+        assert self._channel("v-3.0.16") == "stable"
+
+    @pytest.mark.parametrize("version", ["pre-3.0.18", "beta-0.0.5"])
+    def test_legacy_prerelease_is_locked(self, version):
+        assert self._channel(version) == "locked"
+
+    def test_garbage_is_locked(self):
+        """无法识别的版本一律 locked，宁可不更新也不要误更新。"""
+        assert self._channel("0.0.0-dev") == "locked"
 
 
 class TestGetMirrorUrl:

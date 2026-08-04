@@ -8,12 +8,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import json
 import os
+import platform
 import re
 import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 # 修复 Windows 控制台 GBK 编码问题
@@ -36,10 +39,54 @@ ASSETS_BIN = ROOT / "assets" / "bin"
 INSTALLER_DIR = ROOT / "installer"
 LICENSES_DIR = ROOT / "licenses"
 
+# 版本解析统一走 version_manager，避免出现第二份规则实现
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fetch_tools import load_tool_versions  # noqa: E402
+from version_manager import parse_version, strip_v_prefix, tag_for  # noqa: E402
 
 # ============================================================================
 # 工具函数
 # ============================================================================
+
+
+def _build_timestamp() -> str:
+    """构建时刻（UTC, ISO 8601）。
+
+    尊重 SOURCE_DATE_EPOCH —— 可复现构建的事实标准，设置后同一份源码
+    两次构建的 BUILD_INFO.json 完全一致。
+    """
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if epoch and epoch.isdigit():
+        dt = datetime.fromtimestamp(int(epoch), tz=timezone.utc)
+    else:
+        dt = datetime.now(timezone.utc)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _git_commit() -> str:
+    """当前 HEAD 的短 commit；非 git 环境（如从 sdist 构建）返回 unknown。"""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    if proc.returncode != 0:
+        return "unknown"
+    return (proc.stdout or "").strip() or "unknown"
+
+
+def _dist_version(name: str) -> str:
+    """已安装发行包的版本；未安装返回 unknown。"""
+    try:
+        import importlib.metadata
+
+        return importlib.metadata.version(name)
+    except Exception:
+        return "unknown"
 
 
 def _terminate_processes(exe_names: list[str]) -> None:
@@ -152,17 +199,46 @@ def generate_version_info(
 
 
 class Builder:
-    def __init__(self, override_version: str | None = None, skip_hygiene: bool = False):
+    def __init__(
+        self,
+        override_version: str | None = None,
+        skip_hygiene: bool = False,
+        strict_tools: bool = False,
+    ):
         self.arch = "win64" if sys.maxsize > 2**32 else "win32"
         self.skip_hygiene = skip_hygiene
+        self.strict_tools = strict_tools
         self.config = self._load_config()
-        # 保留完整版本格式（如 "v-3.0.18" / "pre-3.0.18" / "beta-0.0.5"）
-        self._full_version = override_version or self.config.get("version", "0.0.0")
-        self.version = self._full_version  # _sync_version_to_all 会更新为纯数字
+        # 是否由调用方显式指定版本 —— 决定 VERSION 文件是否可被回写（见 _sync_version_to_all）
+        self._version_overridden = override_version is not None
+        # 完整版本（含 -rc.N / -beta.N 后缀），不带 "v" 前缀
+        raw_version = override_version or self.config.get("version", "0.0.0")
+        try:
+            numeric, channel = parse_version(raw_version)
+        except ValueError as e:
+            print(f"❌ {e}")
+            sys.exit(1)
+        self._full_version = strip_v_prefix(raw_version)
+        self.channel = channel
+        self.version = numeric  # PE 资源 / Inno Setup 用的纯数字版本
+        self.tag = tag_for(self._full_version)
 
     def _load_config(self) -> dict:
+        """读取构建配置。
+
+        版本号来源是 VERSION 文件（唯一 source of truth），而不是 pyproject.toml —
+        后者由 version_manager 派生，一旦回落读它就会在 _sync_version_to_all 里
+        把派生值写回 VERSION，造成 source of truth 被静默改写。
+        """
+        cfg: dict = {}
+
+        version_file = ROOT / "VERSION"
+        if version_file.exists():
+            content = version_file.read_text(encoding="utf-8").strip()
+            if content:
+                cfg["version"] = content
+
         pyproject = ROOT / "pyproject.toml"
-        cfg = {}
         if not pyproject.exists():
             return cfg
 
@@ -171,7 +247,7 @@ class Builder:
 
             with open(pyproject, "rb") as f:
                 data = tomllib.load(f)
-                cfg["version"] = data.get("project", {}).get("version", "0.0.0")
+                cfg.setdefault("version", data.get("project", {}).get("version", "0.0.0"))
                 b_cfg = data.get("tool", {}).get("fluentytdl", {}).get("build", {})
                 cfg.update(b_cfg)
                 return cfg
@@ -182,7 +258,7 @@ class Builder:
             for line in content.splitlines():
                 line = line.strip()
                 if line.startswith("version =") and not in_build:
-                    cfg["version"] = line.split("=", 1)[1].strip(" '\"")
+                    cfg.setdefault("version", line.split("=", 1)[1].strip(" '\""))
                 if line == "[tool.fluentytdl.build]":
                     in_build = True
                     continue
@@ -223,49 +299,45 @@ class Builder:
             sys.exit(1)
         print("  ✓ 环境干净，准许打包")
 
-    @staticmethod
-    def _parse_version_prefix(full_version: str) -> tuple[str, str]:
-        """解析版本前缀和数字部分。
-        "v-3.0.18" → ("v-", "3.0.18")
-        "pre-3.0.18" → ("pre-", "3.0.18")
-        "beta-0.0.5" → ("beta-", "0.0.5")
-        "3.0.18" → ("v-", "3.0.18")  # 无前缀默认 v-
-        """
-        for pfx in ("v-", "pre-", "beta-"):
-            if full_version.startswith(pfx):
-                return pfx, full_version[len(pfx) :]
-        return "v-", full_version
-
     def _sync_version_to_all(self) -> None:
-        """将 self.version 同步到所有需要版本号的文件。
-        VERSION 和 __init__.py 写入完整格式（含前缀），
-        pyproject.toml 和 .iss 只写纯数字（PEP 440 / Inno Setup 兼容）。
+        """将版本号同步到所有需要版本号的文件。
+
+        VERSION / __init__.py / pyproject.toml 写完整版本（含 -rc.N 后缀），
+        .iss 只写 X.Y.Z（Inno Setup 的 VersionInfoVersion 只接受纯数字）。
+
+        VERSION 文件只在调用方显式传了 --version 时才回写。没传版本时版本本来
+        就是从 VERSION 读出来的，回写除了制造 source of truth 被改写的风险外
+        没有任何收益 —— 历史上正是这条路径把 VERSION 里的内容悄悄换掉的。
         """
         full = self._full_version
-        prefix, numeric = self._parse_version_prefix(full)
+        numeric = self.version
 
-        # 1. VERSION 文件 — 完整带前缀版本 (source of truth)
-        (ROOT / "VERSION").write_text(full + "\n", encoding="utf-8")
+        # 1. VERSION 文件 (source of truth) — 仅在显式指定版本时写入
+        if self._version_overridden:
+            (ROOT / "VERSION").write_text(full + "\n", encoding="utf-8")
+        else:
+            print("  ℹ 未指定 --version，保持 VERSION 文件原样")
 
-        # 2. __init__.py — 完整版本（运行时 UI 显示）
+        # 2. __init__.py — 运行时动态读 VERSION 时无需写入
         init_file = ROOT / "src" / "fluentytdl" / "__init__.py"
         if init_file.exists():
             content = init_file.read_text(encoding="utf-8")
-            content = re.sub(
-                r'^__version__\s*=\s*["\'][^"\']+["\']',
-                f'__version__ = "{full}"',
-                content,
-                flags=re.MULTILINE,
-            )
-            init_file.write_text(content, encoding="utf-8")
+            if "_read_version()" not in content:
+                content = re.sub(
+                    r'^__version__\s*=\s*["\'][^"\']+["\']',
+                    f'__version__ = "{full}"',
+                    content,
+                    flags=re.MULTILINE,
+                )
+                init_file.write_text(content, encoding="utf-8")
 
-        # 3. pyproject.toml — 纯数字版本（PEP 440 兼容）
+        # 3. pyproject.toml — 完整版本（"3.5.6-rc.1" 规范化为 PEP 440 的 3.5.6rc1）
         pyproject = ROOT / "pyproject.toml"
         if pyproject.exists():
             content = pyproject.read_text(encoding="utf-8")
             content = re.sub(
                 r'^version\s*=\s*["\'][^"\']+["\']',
-                f'version = "{numeric}"',
+                f'version = "{full}"',
                 content,
                 flags=re.MULTILINE,
             )
@@ -274,7 +346,7 @@ class Builder:
                 content = content.replace('dynamic = ["version"]', "")
                 content = re.sub(
                     r"\[project\]",
-                    f'[project]\nversion = "{numeric}"',
+                    f'[project]\nversion = "{full}"',
                     content,
                     count=1,
                 )
@@ -292,10 +364,7 @@ class Builder:
             )
             iss_file.write_text(content, encoding="utf-8")
 
-        # 更新 self.version 为纯数字（PE 资源用纯数字）
-        self.version = numeric
-
-        print(f"  ✓ 版号已同步至所有位置: {full} (数字: {numeric})")
+        print(f"  ✓ 版号已同步至所有位置: {full} (数字: {numeric}, tag: {self.tag})")
 
     def clean(self) -> None:
         print("🧹 清理历史构建...")
@@ -306,22 +375,41 @@ class Builder:
                 print(f"  ✓ 已删除: {d.name}")
 
     def ensure_tools(self) -> None:
-        required = ["yt-dlp/yt-dlp.exe", "ffmpeg/ffmpeg.exe"]
-        missing = [t for t in required if not (ASSETS_BIN / t).exists()]
-        if missing:
-            print("⚠ 缺少必备工具环境，自动拉取...")
-            fetch_script = ROOT / "scripts" / "fetch_tools.py"
-            if fetch_script.exists():
-                subprocess.run([sys.executable, str(fetch_script)], check=True)
-            else:
-                raise FileNotFoundError(f"工具下载脚本不存在: {fetch_script}")
+        """确保 assets/bin 下的外部工具就位，并校验 TOOLS.lock.json。
+
+        这里无条件调用 fetch_tools —— 它自己判断该下载还是只校验。
+        以前只在文件缺失时才调用，等于工具一旦存在就永远不校验哈希，
+        而"工具已存在但被替换过"正是锁文件要挡的场景。
+
+        --strict-tools 会把"上游版本与锁文件不一致"也升级为硬失败，
+        用于需要完全可复现的正式发布构建。
+        """
+        fetch_script = ROOT / "scripts" / "fetch_tools.py"
+        if not fetch_script.exists():
+            raise FileNotFoundError(f"工具下载脚本不存在: {fetch_script}")
+
+        cmd = [sys.executable, str(fetch_script)]
+        if self.strict_tools:
+            cmd.append("--strict")
+
+        print("\n🔧 校验外部工具与 TOOLS.lock.json...")
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            raise RuntimeError(
+                "外部工具校验失败（见上方输出）。\n"
+                "  确认上游升级无误后运行: python scripts/fetch_tools.py --update-lock"
+            )
 
     def build_spec(self) -> Path:
-        """根据 FluentYTDL.spec 核心蓝图进行构建"""
+        """根据 FluentYTDL.spec 核心蓝图进行构建。
+
+        这里刻意不调用 ensure_tools()：assets/bin 下的外部工具是 bundle_tools()
+        的输入，.spec 蓝图并不引用它们。分开之后 CI 可以只跑 --target spec 验证
+        PyInstaller 配置，不必先下载上百 MB 的 ffmpeg。
+        """
         self._sync_version_to_all()
         self.clean()
         self._check_hygiene()
-        self.ensure_tools()
 
         # 编译翻译文件
         print("🌐 正在编译多语言翻译文件...")
@@ -533,6 +621,36 @@ class Builder:
                 shutil.copy2(src_doc, target_dir / doc)
         print("✓ 捆绑核心说明与法律协议文档")
 
+        self.write_build_info(target_dir)
+
+    def write_build_info(self, target_dir: Path) -> Path:
+        """在产物根目录写 BUILD_INFO.json。
+
+        用户拿到的是一个 7z 包，包里此前没有任何东西能回答"这个包内置的
+        yt-dlp / ffmpeg 是哪个版本、构建自哪个 commit"。排障时只能靠猜。
+        这份清单让 issue 里贴一个文件就能对证。
+
+        构建时间取 SOURCE_DATE_EPOCH（若已设置），使可复现构建能得到一致的输出。
+        """
+        info = {
+            "app_version": self._full_version,
+            "numeric_version": self.version,
+            "channel": self.channel,
+            "release_tag": self.tag,
+            "arch": self.arch,
+            "built_at_utc": _build_timestamp(),
+            "git_commit": _git_commit(),
+            "python_version": platform.python_version(),
+            "pyinstaller_version": _dist_version("pyinstaller"),
+            "pyside6_version": _dist_version("PySide6"),
+            "bundled_tools": load_tool_versions(),
+        }
+
+        out = target_dir / "BUILD_INFO.json"
+        out.write_text(json.dumps(info, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"✓ 生成构建溯源清单: {out.name} (commit={info['git_commit']})")
+        return out
+
     def create_7z(self, source_dir: Path, output_name: str) -> Path:
         RELEASE_DIR.mkdir(exist_ok=True)
         output_path = RELEASE_DIR / f"{output_name}.7z"
@@ -559,7 +677,10 @@ class Builder:
     def build_setup(self, source_dir: Path) -> Path:
         iss_file = INSTALLER_DIR / "FluentYTDL.iss"
         if not iss_file.exists():
-            return Path()
+            raise FileNotFoundError(
+                f"Inno Setup 脚本不存在: {iss_file}\n"
+                "  安装包目标需要该脚本；若只想产出便携包请改用 --target 7z"
+            )
 
         iscc_paths = [
             Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)"))
@@ -569,7 +690,12 @@ class Builder:
         ]
         iscc = next((p for p in iscc_paths if p.exists()), None)
         if not iscc:
-            return Path()
+            raise FileNotFoundError(
+                "未找到 Inno Setup 编译器 ISCC.exe，无法生成安装包。\n"
+                "  已查找: " + "; ".join(str(p) for p in iscc_paths) + "\n"
+                "  请安装 Inno Setup 6 (https://jrsoftware.org/isdl.php)，\n"
+                "  或改用 --target 7z 只产出便携包。"
+            )
 
         RELEASE_DIR.mkdir(exist_ok=True)
         out_name = f"FluentYTDL-{self._full_version}-{self.arch}-setup"
@@ -596,13 +722,21 @@ class Builder:
         # 1. 编译核心依赖
         app_dir = self.build_spec()
 
-        # 2. 构建 updater.exe 并复制到应用目录
+        # "spec" 只验证 PyInstaller 蓝图能否落地（CI 用），不产出发布物
+        if effective_target == "spec":
+            print(f"\n✅ .spec 验证通过: {app_dir}")
+            return
+
+        # 2. 拉取外部工具（bundle_tools 的输入）
+        self.ensure_tools()
+
+        # 3. 构建 updater.exe 并复制到应用目录
         self.build_updater(copy_to=app_dir)
 
-        # 3. 注入二进制工具
+        # 4. 注入二进制工具
         self.bundle_tools(app_dir)
 
-        # 4. 产物分发
+        # 5. 产物分发
         print("\n========== Release 打包 ==========")
         results = []
 
@@ -631,9 +765,37 @@ class Builder:
         # 计算全局指纹
         self.generate_checksums()
 
+        # 校验目标要求的产物是否真的落盘 —— 否则"构建成功"是假的
+        self._assert_expected_artifacts(effective_target)
+
         print("\n✅ 流水线完成！")
         for res in results:
-            print(f"   ► {res.name}")
+            size_mb = res.stat().st_size / 1024 / 1024
+            print(f"   ► {res.name} ({size_mb:.1f} MB)")
+
+    def _assert_expected_artifacts(self, effective_target: str) -> None:
+        """断言目标对应的产物都已生成。
+
+        历史上 build_setup() 在缺少 ISCC 时静默返回空路径，流水线照样打印
+        "✅ 流水线完成"，导致零产物的构建被当成成功。
+        """
+        expected: list[Path] = []
+        base = f"FluentYTDL-{self._full_version}-{self.arch}"
+
+        if effective_target in ("all", "7z"):
+            expected.append(RELEASE_DIR / f"{base}-full.7z")
+            expected.append(RELEASE_DIR / f"{base}-app-core.7z")
+        if effective_target in ("all", "setup"):
+            expected.append(RELEASE_DIR / f"{base}-setup.exe")
+
+        missing = [p for p in expected if not p.exists()]
+        if missing:
+            raise FileNotFoundError(
+                "构建目标 '"
+                + effective_target
+                + "' 要求的产物缺失:\n"
+                + "\n".join(f"  ✗ {p.name}" for p in missing)
+            )
 
     def generate_checksums(self):
         checksums = []
@@ -743,6 +905,9 @@ class Builder:
             str(manifest_script),
             "--version",
             self._full_version,
+            # 下载 URL 用的是 Release 的 tag（v3.5.5），不是版本号（3.5.5）
+            "--tag",
+            self.tag,
             "--release-dir",
             str(RELEASE_DIR),
         ]
@@ -764,16 +929,25 @@ def main():
     parser.add_argument(
         "--target",
         "-t",
-        choices=["all", "7z", "setup", "full"],
+        choices=["all", "7z", "setup", "full", "spec"],
         default="all",
-        help="构建目标 (默认: all, full=7z)",
+        help="构建目标 (默认: all; full=7z; spec=只验证 PyInstaller 蓝图，不产出发布物)",
     )
     parser.add_argument("--version", "-v", help="覆盖打包版本号")
     parser.add_argument("--skip-hygiene", action="store_true", help="强制无视黑名单环境污染告警")
+    parser.add_argument(
+        "--strict-tools",
+        action="store_true",
+        help="外部工具版本与 scripts/TOOLS.lock.json 不一致时直接失败（完全可复现构建）",
+    )
 
     args = parser.parse_args()
 
-    builder = Builder(override_version=args.version, skip_hygiene=args.skip_hygiene)
+    builder = Builder(
+        override_version=args.version,
+        skip_hygiene=args.skip_hygiene,
+        strict_tools=args.strict_tools,
+    )
 
     try:
         builder.run_all(target=args.target)

@@ -5,9 +5,8 @@ FluentYTDL 统一组件更新协调器
 通过 GitHub Release 的 update-manifest.json 统一管理所有组件版本。
 
 版本通道:
-  - v- (stable): 检查 /releases/latest，只接收稳定版
-  - pre- (pre-release): 检查 /releases，可接收 pre 和 v 更新
-  - beta-: 锁定更新，弹窗提示
+  - X.Y.Z (stable): 检查 /releases/latest，接收稳定版自动更新
+  - X.Y.Z-rc.N / X.Y.Z-beta.N: 锁定更新，弹窗提示去 GitHub 手动下载
 """
 
 from __future__ import annotations
@@ -42,7 +41,11 @@ MANIFEST_RAW_URL = (
 
 
 def _parse_version(ver: str) -> tuple[int, ...]:
-    """将 '3.0.0' 或 'v3.0.0' 解析为可比较的整数元组"""
+    """将 '3.0.0' 或 'v3.0.0' 解析为可比较的整数元组。
+
+    `^(v-?|pre-|beta-)` 分支保留是为了兼容 3.5.5 之前的前缀格式 —— 旧客户端会
+    读到新 manifest，新客户端也可能读到升级前遗留的旧 VERSION 文件。
+    """
     clean = re.sub(r"^(v-?|pre-|beta-)", "", str(ver).strip())
     clean = clean.split("-")[0]
     parts: list[int] = []
@@ -54,29 +57,29 @@ def _parse_version(ver: str) -> tuple[int, ...]:
     return tuple(parts)
 
 
-def _parse_version_prefix(full_version: str) -> tuple[str, str]:
-    """解析版本前缀和数字部分。
-    "v-3.0.18" → ("v-", "3.0.18")
-    "pre-3.0.18" → ("pre-", "3.0.18")
-    "beta-0.0.5" → ("beta-", "0.0.5")
-    """
-    for pfx in ("v-", "pre-", "beta-"):
-        if full_version.startswith(pfx):
-            return pfx, full_version[len(pfx) :]
-    return "v-", full_version
-
-
 def _get_update_channel() -> str:
-    """根据当前版本前缀确定更新通道。
+    """根据当前版本号确定更新通道。
 
-    仅 stable（v- 前缀）支持自动更新。
-    beta 和 pre 统一为 locked，提示用户去 GitHub 手动下载。
+    正式版（无预发布后缀）支持自动更新；rc / beta 一律 locked，
+    提示用户去 GitHub 手动下载。
+
+    同时容忍 3.5.5 之前的 `v-` / `pre-` / `beta-` 前缀格式：升级安装时
+    旧 VERSION 文件可能残留，不能因此把老用户判成 locked。
     """
     from fluentytdl import __version__
 
-    if __version__.startswith("v-"):
+    ver = str(__version__).strip()
+
+    # 旧格式兼容：v- 视为 stable，pre-/beta- 视为 locked
+    if ver.startswith("v-"):
         return "stable"
-    return "locked"  # beta- 和 pre- 统一为 locked
+    if ver.startswith(("pre-", "beta-")):
+        return "locked"
+
+    # 新格式：X.Y.Z 为 stable，带 -rc.N / -beta.N 后缀为 locked
+    if re.match(r"^v?\d+\.\d+\.\d+$", ver):
+        return "stable"
+    return "locked"
 
 
 def _get_proxies() -> dict[str, str]:
@@ -356,12 +359,8 @@ class ComponentUpdateManager(QObject):
             self.app_check_error.emit("无法获取当前版本")
             return
 
-        manifest_version = self._manifest.get("app_version", "")
-        manifest_tag = self._manifest.get("release_tag", manifest_version)
-
-        # 确保版本号带前缀（v-3.1.4 格式），防止清单中缺少前缀
-        prefix, numeric = _parse_version_prefix(manifest_version)
-        manifest_version = f"{prefix}{numeric}"
+        manifest_version = str(self._manifest.get("app_version", "")).strip()
+        manifest_tag = self._manifest.get("release_tag", "") or f"v{manifest_version}"
 
         current = _parse_version(__version__)
         latest = _parse_version(manifest_version)

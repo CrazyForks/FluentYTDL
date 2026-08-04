@@ -5,8 +5,8 @@ FluentYTDL 更新清单生成器
 在构建流程中调用，生成 update-manifest.json 供运行时更新检查使用。
 
 用法:
-    python scripts/generate_manifest.py --version v-3.0.18 --release-dir release/
-    python scripts/generate_manifest.py --version v-3.0.18  # 默认 release/ 目录
+    python scripts/generate_manifest.py --version 3.5.5 --release-dir release/
+    python scripts/generate_manifest.py --version 3.5.6-rc.1 --tag v3.5.6-rc.1
 
 输出:
     release/update-manifest.json
@@ -34,6 +34,9 @@ if sys.platform == "win32":
 # 项目根目录
 ROOT = Path(__file__).resolve().parent.parent
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from version_manager import parse_version, strip_v_prefix, tag_for  # noqa: E402
+
 
 def sha256_file(file_path: Path) -> str:
     sha256 = hashlib.sha256()
@@ -41,18 +44,6 @@ def sha256_file(file_path: Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             sha256.update(chunk)
     return sha256.hexdigest()
-
-
-def parse_version_prefix(full_version: str) -> tuple[str, str]:
-    """解析版本前缀和数字部分。
-    "v-3.0.18" → ("v-", "3.0.18")
-    "pre-3.0.18" → ("pre-", "3.0.18")
-    "beta-0.0.5" → ("beta-", "0.0.5")
-    """
-    for pfx in ("v-", "pre-", "beta-"):
-        if full_version.startswith(pfx):
-            return pfx, full_version[len(pfx) :]
-    return "v-", full_version
 
 
 def detect_component_versions(release_dir: Path) -> dict[str, dict]:
@@ -135,16 +126,15 @@ def _read_changelog(full_version: str) -> str:
     """
     import subprocess
 
+    tag = tag_for(full_version)
+
     # 1. 尝试从 CHANGELOG.md 读取
     changelog_file = ROOT / "docs" / "CHANGELOG.md"
     if changelog_file.exists():
         try:
             content = changelog_file.read_text(encoding="utf-8")
-            # 查找版本标题（## v-3.0.18 或 ## 3.0.18）
-            import re
-
-            numeric = re.sub(r"^[a-zA-Z\-]+", "", full_version)
-            for pattern in [f"## {full_version}", f"## v{numeric}", f"## {numeric}"]:
+            # 查找版本标题（## v3.5.5 或 ## 3.5.5）
+            for pattern in [f"## {tag}", f"## {full_version}"]:
                 idx = content.find(pattern)
                 if idx != -1:
                     # 截取到下一个 ## 或文件末尾
@@ -159,7 +149,7 @@ def _read_changelog(full_version: str) -> str:
     # 2. 回退到 git tag message
     try:
         result = subprocess.run(
-            ["git", "tag", "-l", "--format=%(contents:body)", full_version],
+            ["git", "tag", "-l", "--format=%(contents:body)", tag],
             capture_output=True,
             text=True,
             timeout=5,
@@ -177,9 +167,12 @@ def generate_manifest(
     full_version: str,
     release_dir: Path,
     base_url: str,
+    release_tag: str | None = None,
 ) -> dict:
     """生成更新清单。"""
-    prefix, numeric = parse_version_prefix(full_version)
+    numeric, _channel = parse_version(full_version)
+    full_version = strip_v_prefix(full_version)
+    release_tag = release_tag or tag_for(full_version)
     arch = "win64" if sys.maxsize > 2**32 else "win32"
 
     # 读取 changelog（RAW 直链无法获取 release body，需内嵌到清单中）
@@ -188,7 +181,7 @@ def generate_manifest(
     manifest: dict = {
         "manifest_version": 1,
         "app_version": full_version,
-        "release_tag": full_version,
+        "release_tag": release_tag,
         "changelog": changelog,
         "components": {},
     }
@@ -198,7 +191,7 @@ def generate_manifest(
     app_core_path = release_dir / app_core_name
     if app_core_path.exists():
         manifest["components"]["app-core"] = {
-            "version": numeric,
+            "version": full_version,
             "url": f"{base_url}/{app_core_name}",
             "sha256": sha256_file(app_core_path),
             "size": app_core_path.stat().st_size,
@@ -236,7 +229,12 @@ def main():
         "--version",
         "-v",
         required=True,
-        help="完整版本号 (如 v-3.0.18, pre-3.0.18)",
+        help="完整版本号，不带 v 前缀 (如 3.5.5, 3.5.6-rc.1)",
+    )
+    parser.add_argument(
+        "--tag",
+        default=None,
+        help="GitHub Release tag (默认: v + 版本号)。资产下载 URL 用的是 tag 而非版本号。",
     )
     parser.add_argument(
         "--release-dir",
@@ -246,8 +244,8 @@ def main():
     )
     parser.add_argument(
         "--base-url",
-        default="https://github.com/SakuraForgot/FluentYTDL/releases/download/{version}",
-        help="下载 URL 前缀模板，{version} 会被替换为版本号",
+        default="https://github.com/SakuraForgot/FluentYTDL/releases/download/{tag}",
+        help="下载 URL 前缀模板，{tag} 替换为 Release tag，{version} 替换为版本号",
     )
     parser.add_argument(
         "--output",
@@ -258,14 +256,23 @@ def main():
 
     args = parser.parse_args()
 
-    base_url = args.base_url.format(version=args.version)
+    try:
+        parse_version(args.version)
+    except ValueError as e:
+        print(f"❌ {e}")
+        return 1
+
+    version = strip_v_prefix(args.version)
+    tag = args.tag or tag_for(version)
+    base_url = args.base_url.format(tag=tag, version=version)
     output_path = args.output or (args.release_dir / "update-manifest.json")
 
-    print(f"生成更新清单: {args.version}")
+    print(f"生成更新清单: {version}")
+    print(f"  Release tag: {tag}")
     print(f"  发布目录: {args.release_dir}")
     print(f"  下载基址: {base_url}")
 
-    manifest = generate_manifest(args.version, args.release_dir, base_url)
+    manifest = generate_manifest(version, args.release_dir, base_url, release_tag=tag)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
@@ -275,7 +282,8 @@ def main():
 
     print(f"\n✓ 清单已生成: {output_path}")
     print(f"  组件数量: {len(manifest['components'])}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

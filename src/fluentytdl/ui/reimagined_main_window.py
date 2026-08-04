@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any
 
 from PySide6.QtCore import Qt, QThread, QTimer
-from PySide6.QtGui import QAction, QColor, QIcon, QPixmap
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -35,8 +35,8 @@ from fluentytdl.ui.components.dialogs.download_config_window import DownloadConf
 
 from ..core.config_manager import config_manager
 from ..download.download_manager import download_manager
+from ..utils.icons import load_app_icon
 from ..utils.logger import logger
-from ..utils.paths import resource_path
 from .channel_parse_page import ChannelParsePage
 from .cover_download_page import CoverDownloadPage
 from .help_window import HelpWindow
@@ -473,28 +473,22 @@ class MainWindow(FluentWindow):
 
     # ... (系统托盘、剪贴板逻辑复用 main_window.py) ...
     def init_system_tray(self):
+        # 多尺寸图标：Windows 通知区会按当前 DPI 索取 16/20/24 px，
+        # 单张 256px 大图缩下去会糊成一团。
+        chosen_icon = load_app_icon()
+        if chosen_icon.isNull():
+            win_icon = self.windowIcon()
+            if not win_icon.isNull():
+                chosen_icon = win_icon
+
+        if chosen_icon.isNull():
+            # 拿不到有效图标时不创建托盘：显示一个占位色块比没有托盘更糟，
+            # 用户只会看到右下角一个「坏掉」的图标。
+            logger.warning("托盘图标资源缺失，已跳过系统托盘初始化")
+            self.tray_icon = None
+            return
+
         self.tray_icon = QSystemTrayIcon(self)
-        icon_path = resource_path("assets", "logo_tight.png")
-        chosen_icon = None
-        try:
-            if icon_path.exists():
-                chosen_icon = QIcon(str(icon_path))
-            else:
-                win_icon = self.windowIcon()
-                if not win_icon.isNull():
-                    chosen_icon = win_icon
-        except Exception:
-            chosen_icon = None
-
-        # Fallback: generate a simple colored pixmap to avoid "No Icon set" warnings
-        if chosen_icon is None or chosen_icon.isNull():
-            try:
-                pix = QPixmap(16, 16)
-                pix.fill(QColor(64, 120, 230))
-                chosen_icon = QIcon(pix)
-            except Exception:
-                chosen_icon = QIcon()
-
         self.tray_icon.setIcon(chosen_icon)
         tray_menu = QMenu()
         show_action = QAction(self.tr("显示主界面"), self)
@@ -554,12 +548,13 @@ class MainWindow(FluentWindow):
         title_msg = self.tr("检测到 YouTube 播放列表") if is_playlist else self.tr("检测到视频链接")
 
         if not self.isVisible():
-            self.tray_icon.showMessage(
-                title_msg,
-                self.tr("点击处理"),
-                QSystemTrayIcon.MessageIcon.Information,
-                2000,
-            )
+            if self.tray_icon is not None:
+                self.tray_icon.showMessage(
+                    title_msg,
+                    self.tr("点击处理"),
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000,
+                )
             self.showNormal()
             self.activateWindow()
         else:
