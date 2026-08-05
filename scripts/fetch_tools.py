@@ -7,8 +7,9 @@ FluentYTDL 外部工具下载脚本
 完整性保障分两层：
 
 1. **上游校验和**（能拿到的就必须过）
-   - yt-dlp 提供 ``SHA2-256SUMS``
-   - deno 提供 ``*.zip.sha256sum``
+   - yt-dlp 提供 ``SHA2-256SUMS``（GNU coreutils 格式）
+   - deno 提供 ``*.zip.sha256sum``（PowerShell ``Get-FileHash | Format-List`` 格式，
+     不是 GNU 格式 —— 解析器必须认 ``Hash :`` 行，见 ``parse_upstream_sha256``）
    校验失败一律硬失败 —— "有校验但失败只警告" 等于没有校验。
    ffmpeg-builds / AtomicParsley / POT Provider 上游不发布校验文件，只能靠第 2 层。
 
@@ -80,38 +81,64 @@ def download_file(
     dest: Path,
     chunk_size: int = 8192,
     timeout: int = 60,
+    retries: int = 3,
 ) -> None:
-    """下载文件并显示进度"""
-    print(f"  📥 下载: {url}")
+    """下载文件并显示进度。
 
+    下完必须核对 ``Content-Length``：连接中断时 ``resp.read()`` 返回空 chunk，
+    循环正常退出，磁盘上留下一个"看起来下完了"的半截文件。之前 ffmpeg 就这么
+    栽过 —— 截断的 zip 一路飘到解压才炸成 ``File is not a zip file``；而对于
+    ffmpeg / AtomicParsley / POT Provider 这类上游不发布校验和的工具，
+    半截文件只会在锁文件比对时表现为哈希不符，被报成"疑似供应链投毒"。
+    网络抖动不该长成投毒的样子，所以在这里就地判定并重试。
+    """
     ctx = create_ssl_context()
     req = Request(url, headers={"User-Agent": "FluentYTDL-Builder/1.0"})
 
-    try:
-        with urlopen(req, context=ctx, timeout=timeout) as resp:
-            total = int(resp.headers.get("Content-Length", 0))
-            downloaded = 0
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        suffix = "" if attempt == 1 else f"  (第 {attempt}/{retries} 次尝试)"
+        print(f"  📥 下载: {url}{suffix}")
+        try:
+            with urlopen(req, context=ctx, timeout=timeout) as resp:
+                total = int(resp.headers.get("Content-Length", 0))
+                downloaded = 0
 
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            with open(dest, "wb") as f:
-                while True:
-                    chunk = resp.read(chunk_size)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if total:
-                        pct = downloaded * 100 // total
-                        bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
-                        print(
-                            f"\r  [{bar}] {pct}% ({downloaded:,}/{total:,} bytes)",
-                            end="",
-                            flush=True,
-                        )
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                with open(dest, "wb") as f:
+                    while True:
+                        chunk = resp.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total:
+                            pct = downloaded * 100 // total
+                            bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
+                            print(
+                                f"\r  [{bar}] {pct}% ({downloaded:,}/{total:,} bytes)",
+                                end="",
+                                flush=True,
+                            )
 
-        print()  # 换行
-    except (HTTPError, URLError) as e:
-        raise RuntimeError(f"下载失败: {url} - {e}") from e
+            print()  # 换行
+
+            if total and downloaded != total:
+                raise RuntimeError(
+                    f"下载不完整: 期望 {total:,} 字节，实际收到 {downloaded:,} 字节"
+                    f"（缺 {total - downloaded:,}）"
+                )
+            if downloaded == 0:
+                raise RuntimeError("下载内容为空")
+            return
+
+        except (HTTPError, URLError, RuntimeError, TimeoutError, OSError) as e:
+            last_error = e
+            dest.unlink(missing_ok=True)  # 别把半截文件留给下一层去误判
+            if attempt < retries:
+                print(f"  ⚠ {e} —— 重试中...")
+
+    raise RuntimeError(f"下载失败（已重试 {retries} 次）: {url} - {last_error}") from last_error
 
 
 def sha256_file(file_path: Path) -> str:
@@ -140,6 +167,82 @@ def assert_sha256(file_path: Path, expected_hash: str, source: str) -> None:
     print(f"  ✓ 上游校验通过 ({actual[:16]}… / {source})")
 
 
+HEX64_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+# BSD/OpenSSL 风格: ``SHA256 (filename) = <hash>``
+BSD_SUM_RE = re.compile(r"^\s*SHA256\s*\((?P<name>.+?)\)\s*=\s*(?P<hash>[0-9a-fA-F]{64})\s*$")
+
+
+def _basename(path_value: str) -> str:
+    """取路径末段，同时容忍 Windows 反斜杠（上游校验文件里就是这种）。"""
+    return path_value.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+
+
+def parse_upstream_sha256(content: str, needle: str) -> str | None:
+    """从上游校验和文件内容里取出 needle 对应的哈希，取不到返回 None。
+
+    上游的格式并不统一，实测有三种，必须全部认：
+
+    1. GNU coreutils（yt-dlp ``SHA2-256SUMS``）::
+
+           <64位十六进制>  yt-dlp.exe
+
+    2. PowerShell ``Get-FileHash | Format-List``（deno ``*.zip.sha256sum``）::
+
+           Algorithm : SHA256
+           Hash      : 68ED08B0...
+           Path      : C:\\a\\deno\\...\\deno-x86_64-pc-windows-msvc.zip
+
+    3. BSD/OpenSSL::
+
+           SHA256 (deno.zip) = 68ed08b0...
+
+    **任何分支都必须先确认取到的 token 真的是 64 位十六进制再返回。**
+    早先的实现只按位置取 ``line.split()[0]``，于是 deno 的 ``Path :`` 行
+    （末段正好以 needle 结尾）会命中 GNU 分支并返回字面量 ``"Path"``，
+    把一次正常发布变成"校验失败，疑似投毒"的假警报。
+    """
+    lines = content.splitlines()
+
+    # 1) PowerShell Format-List —— 放最前面，它的 Path 行最容易被其他分支误读
+    ps_hash: str | None = None
+    ps_name_matched = False
+    for line in lines:
+        key, sep, value = line.partition(":")
+        if not sep:
+            continue
+        key = key.strip().lower()
+        value = value.strip()
+        if key == "hash" and HEX64_RE.match(value):
+            ps_hash = value
+        elif key == "path" and _basename(value).endswith(needle):
+            ps_name_matched = True
+    if ps_hash and ps_name_matched:
+        return ps_hash
+
+    # 2) BSD/OpenSSL
+    for line in lines:
+        m = BSD_SUM_RE.match(line)
+        if m and _basename(m.group("name")).endswith(needle):
+            return m.group("hash")
+
+    # 3) GNU coreutils —— parts[0] 必须是哈希，'*' 前缀是 binary mode 标记
+    for line in lines:
+        parts = line.split()
+        if (
+            len(parts) >= 2
+            and HEX64_RE.match(parts[0])
+            and _basename(parts[-1].lstrip("*")).endswith(needle)
+        ):
+            return parts[0]
+
+    # 4) 整个文件就一个裸哈希、不带文件名。放最后，避免在多条目清单里误取。
+    bare = [line.strip() for line in lines if HEX64_RE.match(line.strip())]
+    if len(bare) == 1:
+        return bare[0]
+
+    return None
+
+
 def fetch_upstream_sha256(url: str, needle: str, tmp_dir: Path) -> str:
     """下载上游校验和文件并取出 needle 对应的哈希。
 
@@ -147,20 +250,19 @@ def fetch_upstream_sha256(url: str, needle: str, tmp_dir: Path) -> str:
     """
     checksum_path = tmp_dir / "upstream_checksums.txt"
     download_file(url, checksum_path)
-    lines = checksum_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    content = checksum_path.read_text(encoding="utf-8", errors="replace")
 
-    for line in lines:
-        parts = line.split()
-        if len(parts) >= 2 and parts[-1].lstrip("*").endswith(needle):
-            return parts[0]
+    found = parse_upstream_sha256(content, needle)
+    if found is not None:
+        return found
 
-    # deno 的 .sha256sum 只有一行、且不带文件名。这个宽松分支放在精确匹配全部落空
-    # 之后再试，避免在多行清单里误取到别的条目。
-    bare = [line.strip() for line in lines if len(line.strip()) == 64]
-    if len(bare) == 1:
-        return bare[0]
-
-    raise RuntimeError(f"上游校验文件里找不到 {needle} 的条目: {url}")
+    # 解析不出来时把原文摘要带上，否则只能靠翻 CI 日志猜上游改了什么格式
+    preview = "\n".join(f"    | {line}" for line in content.splitlines()[:10] if line.strip())
+    raise RuntimeError(
+        f"上游校验文件里找不到 {needle} 的条目: {url}\n"
+        f"  已尝试 GNU coreutils / PowerShell Format-List / BSD / 裸哈希 四种格式。\n"
+        f"  校验文件内容（前 10 行）:\n{preview or '    | <空>'}"
+    )
 
 
 def github_api(endpoint: str, timeout: int = 30) -> dict:
